@@ -1,3 +1,4 @@
+# Use Ubuntu as base image
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -22,9 +23,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && pip install --no-cache-dir --upgrade yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 
-# Allow 'deno' user to use sudo without a password
-RUN echo "deno ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/deno
-
 # Create a new user named 'deno' with Fish as the default shell
 RUN useradd -m -s /usr/bin/fish deno
 
@@ -45,9 +43,8 @@ RUN mkdir -p /home/deno/.config/fish
 # Install Deno
 RUN curl -fsSL https://deno.land/x/install/install.sh | sh
 
-# Copy the supervisord configuration (relative path from repo)
-COPY --chown=deno:deno supervisord.conf /home/deno/supervisord.conf
-RUN chmod 644 /home/deno/supervisord.conf
+# Copy the supervisord configuration
+COPY supervisord.conf /home/deno/supervisord.conf
 
 # Update Fish config with Deno paths, welcome message, and aliases
 RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
@@ -59,19 +56,30 @@ RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "Welcome to the Equities Market Emulator Dev Container!" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "💡 If you are using the Dev Container, all services are running automatically."' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "💡 You only need to manually start the trader CLI."' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo ""' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "Available aliases:" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "  - run-market-sim: Runs the Market Simulation." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-trader-cli: Runs the Trading CLI with defaults." | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  - run-trader-cli: Runs the Trading CLI (Temporary - Will be replaced with React UI)." | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "  - run-ems: Starts the Execution Management System (EMS)." | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "  - run-oms: Starts the Order Management System (OMS)." | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "  - run-limit-strategy: Starts the Limit Order Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  - run-twap-strategy: Starts the TWAP Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  - run-pov-strategy: Starts the POV Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo 'end' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-market-sim="deno run --allow-net backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-trader-cli="deno run --allow-net --allow-run --allow-read --allow-write --allow-env --allow-ffi backend/src/cli/trader.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-ems="deno run --allow-net backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-oms="deno run --allow-net backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-limit-strategy="deno run --allow-net backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish
+    echo '' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-market-sim="deno run --allow-all backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-trader-cli="deno run --allow-all backend/src/cli/trader.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-ems="deno run --allow-all backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-oms="deno run --allow-all backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-limit-strategy="deno run --allow-all backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-twap-strategy="deno run --allow-all backend/src/algo/twap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-pov-strategy="deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish
+
+# Ensure supervisord runs
+CMD ["/usr/bin/supervisord", "-c", "/home/deno/supervisord.conf"]
 
 # Set Fish as the default shell
 SHELL ["/usr/bin/fish", "-c"]
