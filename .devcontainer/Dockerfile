@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     shellcheck \
     ruby \
     tree \
+    ssh \
+    sudo \
     && gem install lolcat \
     && pip3 install --no-cache-dir --upgrade "git+https://github.com/openai/whisper.git@v20231117" \
     && pip install --no-cache-dir --upgrade yt-dlp \
@@ -21,6 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create a new user named 'deno' with Fish as the default shell
 RUN useradd -m -s /usr/bin/fish deno
+
+# Ensure the .ssh directory exists and has the correct permissions
+RUN mkdir -p /home/deno/.ssh && \
+    chown -R deno:deno /home/deno/.ssh && \
+    chmod 700 /home/deno/.ssh
+
 
 # Switch to the 'deno' user
 USER deno

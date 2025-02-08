@@ -23,5 +23,9 @@
       ]
     }
   },
-  "remoteUser": "deno"
+  "remoteUser": "deno",
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/deno/.ssh,type=bind,consistency=cached"
+  ],
+  "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true"
 }
