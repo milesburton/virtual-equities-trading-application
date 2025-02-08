@@ -1,0 +1,27 @@
+{
+  "name": "Equities Market Emulator",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "fish",
+        "deno.path": "/home/deno/.deno/bin/deno"
+      },
+      "extensions": [
+        "denoland.vscode-deno",
+        "redhat.vscode-json",
+        "foxundermoon.shell-format",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "skyapps.fish-vscode",
+        "redhat.vscode-yaml",
+        "yzhang.markdown-all-in-one"
+      ]
+    }
+  },
+  "remoteUser": "deno"
+}
