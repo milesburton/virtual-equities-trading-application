@@ -16,4 +16,3 @@ export interface Trade {
   export interface AlgoStrategy {
     executeTrade(trade: Trade): Promise<void>;
   }
-  

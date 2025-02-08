@@ -1,17 +1,10 @@
-interface TradeRequest {
-  id: string;
-  asset: string;
-  side: "BUY" | "SELL";
-  quantity: number;
-  limitPrice: number;
-  expiresAt: number; // Timestamp for expiration
-}
+import type { Trade } from "../types/types";
 
 let latestPrices: Record<string, number> = {};
-const pendingTrades: TradeRequest[] = [];
+const pendingTrades: Trade[] = [];
 
-// Function to place a trade when conditions are met
-async function placeTrade(trade: TradeRequest) {
+// Function to execute a trade when conditions are met
+async function placeTrade(trade: Trade) {
   try {
     const response = await fetch("http://localhost:8081", {
       method: "POST",
@@ -34,14 +27,17 @@ function checkTrades() {
 
     if (!marketPrice) continue;
 
+    if (now >= trade.expiresAt) {
+      console.log(`⏳ Trade expired: ${trade.side} ${trade.quantity} ${trade.asset} (Limit: ${trade.limitPrice})`);
+      pendingTrades.splice(i, 1); // Remove expired trade
+      continue;
+    }
+
     if ((trade.side === "BUY" && marketPrice <= trade.limitPrice) ||
         (trade.side === "SELL" && marketPrice >= trade.limitPrice)) {
       console.log(`🚀 Executing trade: ${trade.side} ${trade.quantity} ${trade.asset} at ${marketPrice}`);
       placeTrade(trade);
       pendingTrades.splice(i, 1); // Remove from queue after execution
-    } else if (now >= trade.expiresAt) {
-      console.log(`⏳ Trade expired: ${trade.side} ${trade.quantity} ${trade.asset} (Limit: ${trade.limitPrice})`);
-      pendingTrades.splice(i, 1); // Remove expired trade
     }
   }
 }
@@ -67,14 +63,12 @@ ws.onclose = () => {
   console.log("❌ Disconnected from Market Data Feed");
 };
 
-
-const PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5003;
-// HTTP server to accept client trade requests
+// Set up the HTTP server to accept trade requests
+const PORT = Number(Deno.env.get("LIMIT_ALGO_PORT")) || 5003;
 Deno.serve({ port: PORT }, async (req) => {
   if (req.method === "POST") {
     try {
-      const trade: TradeRequest = await req.json();
-      trade.id = crypto.randomUUID();
+      const trade: Trade = await req.json();
       trade.expiresAt = Date.now() + trade.expiresAt * 1000; // Convert seconds to timestamp
       console.log(`📥 Received Trade Request: ${trade.side} ${trade.quantity} ${trade.asset} (Limit: ${trade.limitPrice}, Expiry: ${new Date(trade.expiresAt).toLocaleTimeString()})`);
       pendingTrades.push(trade);
@@ -88,5 +82,5 @@ Deno.serve({ port: PORT }, async (req) => {
       });
     }
   }
-  return new Response("Algo Trader API Running", { status: 200 });
+  return new Response("Limit Order Algo Running", { status: 200 });
 });
