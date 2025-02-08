@@ -1,4 +1,4 @@
-import { input, select } from "https://deno.land/x/cliffy@v0.25.4/prompt/mod.ts";
+import { Input, Select } from "https://deno.land/x/cliffy@v0.25.4/prompt/mod.ts";
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import type { Trade } from "../types/types.ts";
 
@@ -9,7 +9,7 @@ const DEFAULT_POV_URL = Deno.env.get("POV_ALGO_URL") || "http://localhost:5005";
 async function placeTrade() {
   console.log("🚀 Welcome to the Trading CLI! 🎉");
 
-  const strategy = await select({
+  const strategy = await Select.prompt({
     message: "Choose strategy:",
     options: [
       { name: "Limit Order", value: "LIMIT" },
@@ -18,29 +18,29 @@ async function placeTrade() {
     ],
   });
 
-  const asset = await input({ message: "Enter asset", default: "AAPL" });
+  const asset = await Input.prompt({ message: "Enter asset", default: "AAPL" });
   
-  const side = (await select({
+  const side = await Select.prompt({
     message: "Enter trade side:",
     options: [
       { name: "BUY", value: "BUY" },
       { name: "SELL", value: "SELL" },
     ],
-  })).toUpperCase();
+  });
 
-  const quantity = Number(await input({ message: "Enter quantity", default: "10" }));
+  const quantity = Number(await Input.prompt({ message: "Enter quantity", default: "10" }));
   if (isNaN(quantity) || quantity <= 0) {
     console.log("❌ Invalid quantity. Please enter a positive number.");
     return;
   }
 
-  const limitPrice = Number(await input({ message: "Enter limit price", default: "150" }));
+  const limitPrice = Number(await Input.prompt({ message: "Enter limit price", default: "150" }));
   if (isNaN(limitPrice) || limitPrice <= 0) {
     console.log("❌ Invalid limit price. Please enter a valid number.");
     return;
   }
 
-  const expiresAt = Number(await input({ message: "Enter expiry time in seconds", default: "300" }));
+  const expiresAt = Number(await Input.prompt({ message: "Enter expiry time in seconds", default: "300" }));
   if (isNaN(expiresAt) || expiresAt <= 0) {
     console.log("❌ Invalid expiry time. Please enter a positive number.");
     return;
