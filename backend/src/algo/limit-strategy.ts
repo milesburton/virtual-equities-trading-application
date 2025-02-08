@@ -67,8 +67,10 @@ ws.onclose = () => {
   console.log("❌ Disconnected from Market Data Feed");
 };
 
+
+const PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5003;
 // HTTP server to accept client trade requests
-Deno.serve({ port: 8083 }, async (req) => {
+Deno.serve({ port: PORT }, async (req) => {
   if (req.method === "POST") {
     try {
       const trade: TradeRequest = await req.json();

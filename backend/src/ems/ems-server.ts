@@ -47,5 +47,8 @@ async function handleTradeRequest(req: Request): Promise<Response> {
   return new Response(JSON.stringify(response), { headers: { "Content-Type": "application/json" } });
 }
 
-console.log("🚀 EMS Server running on http://localhost:8081");
-serve(handleTradeRequest, { port: 8081 });
+const PORT = Number(Deno.env.get("EMS_PORT")) || 5001;
+
+console.log(`🚀 EMS running on port ${PORT}`);
+
+serve(handleTradeRequest, { port: PORT });

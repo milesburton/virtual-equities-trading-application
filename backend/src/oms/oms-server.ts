@@ -1,81 +1,39 @@
-import { serve } from "https://deno.land/std@0.118.0/http/server.ts";
+import "https://deno.land/std@0.210.0/dotenv/load.ts";
+import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 
-interface TradeRequest {
-  asset: string;
-  side: "BUY" | "SELL";
-  quantity: number;
-}
+const PORT = Number(Deno.env.get("OMS_PORT")) || 5002;
 
-interface TradeResponse {
-  success: boolean;
-  message: string;
-  price?: number;
-  totalCost?: number;
-}
-
-interface Order {
-  id: string;
-  asset: string;
-  side: "BUY" | "SELL";
-  quantity: number;
-  price: number;
-  timestamp: string;
-}
-
-// Mock Market Data Store (Reference from Market Simulation)
-const marketData: Record<string, number> = {
-  "AAPL": 150.0,
-  "TSLA": 850.0,
-  "GBP/USD": 1.35,
-  "EUR/USD": 1.12,
-};
+console.log(`🚀 Order Management System (OMS) running on port ${PORT}`);
 
 async function handleTradeRequest(req: Request): Promise<Response> {
   if (req.method !== "POST") {
-    return new Response("Only POST requests are allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const trade: TradeRequest = await req.json();
-
-  if (!marketData[trade.asset]) {
-    return new Response(JSON.stringify({ success: false, message: "Invalid asset" }), { status: 400 });
-  }
-
-  const price = marketData[trade.asset];
-  const totalCost = trade.quantity * price;
-
-  console.log(`📊 Executing ${trade.side} order for ${trade.quantity} of ${trade.asset} at ${price}`);
-
-  const order: Order = {
-    id: crypto.randomUUID(),
-    asset: trade.asset,
-    side: trade.side,
-    quantity: trade.quantity,
-    price,
-    timestamp: new Date().toISOString(),
-  };
-
-  // Send order to OMS
   try {
-    await fetch("http://localhost:8082", {
-      method: "POST",
+    const trade = await req.json();
+    console.log("📥 Received Trade Request:", trade);
+
+    // Simulate trade processing
+    const tradeResult = {
+      status: "accepted",
+      tradeId: crypto.randomUUID(),
+      asset: trade.asset,
+      side: trade.side,
+      quantity: trade.quantity,
+      limitPrice: trade.limitPrice,
+      expiresAt: trade.expiresAt,
+    };
+
+    console.log("✅ Trade Processed:", tradeResult);
+    return new Response(JSON.stringify(tradeResult), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
     });
-    console.log("📜 Order sent to OMS");
   } catch (error) {
-    console.error("❌ Failed to send order to OMS:", error);
+    console.error("❌ Error processing trade:", error);
+    return new Response("Internal Server Error", { status: 500 });
   }
-
-  const response: TradeResponse = {
-    success: true,
-    message: `Trade executed: ${trade.side} ${trade.quantity} ${trade.asset} at ${price}`,
-    price,
-    totalCost,
-  };
-
-  return new Response(JSON.stringify(response), { headers: { "Content-Type": "application/json" } });
 }
 
-console.log("🚀 EMS Server running on http://localhost:8081");
-serve(handleTradeRequest, { port: 8081 });
+serve(handleTradeRequest, { port: PORT });

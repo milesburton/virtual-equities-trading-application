@@ -16,6 +16,10 @@ function generatePrice(asset: string): number {
   return marketData[asset];
 }
 
+const PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5000;
+
+console.log(`🚀 Market Simulator running on port ${PORT}`);
+
 // HTTP Server to handle WebSocket connections
 serve((req) => {
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -39,6 +43,6 @@ serve((req) => {
   socket.onclose = () => clearInterval(interval);
 
   return response;
-}, { port: 8080 });
+}, { port: PORT });
 
 console.log("📡 Market Data WebSocket running on ws://localhost:8080");
