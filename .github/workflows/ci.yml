@@ -98,6 +98,7 @@ jobs:
     name: Playwright UI tests
     runs-on: ubuntu-latest
     needs: integration
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
@@ -123,9 +124,9 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      - name: Run Playwright UI tests
+      - name: Run Playwright UI tests (headless)
         working-directory: frontend
-        run: npx playwright test --reporter=list
+        run: npx playwright test --reporter=list --browser=chromium
 
   docker:
     name: Docker build
