@@ -39,5 +39,11 @@
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/home/deno/.ssh,type=bind,consistency=cached"
   ],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/deno/.ssh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/gh,target=/home/deno/.config/gh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/deno/.gitconfig,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "cd /workspaces/virtual-equities-trading-application/frontend && npm ci && npx playwright install --with-deps || true",
   "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && cd /workspaces/virtual-equities-trading-application/frontend && deno install --allow-scripts && cd /workspaces/virtual-equities-trading-application && supervisord -c /home/deno/supervisord.conf"
 }

@@ -46,6 +46,19 @@ deno task lint    # Lint all backend source files
 deno task check   # Type-check all backend source files
 deno task test    # Run unit tests
 deno task all     # Run lint → check → test in sequence
+
+### Frontend UI Tests
+
+Frontend UI tests use Playwright. From the `frontend` folder:
+
+```
+npm ci
+npx playwright install --with-deps
+npm run build
+npm run test:ui
+```
+
+Use `npm run test:ui:headed` to run tests with a visible browser.
 ```
 
 ### Git Hooks
