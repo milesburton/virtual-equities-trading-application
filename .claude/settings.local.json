@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sh scripts/install-hooks.sh)",
+      "Bash(deno task lint)",
+      "Bash(npm install)",
+      "Bash(deno add --dev npm:@biomejs/biome)"
+    ]
+  }
+}

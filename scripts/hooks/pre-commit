@@ -1,0 +1,43 @@
+#!/bin/sh
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+COMMIT_SHA=$(git rev-parse --short HEAD)
+
+# Stamp the commit SHA into .env so services report the correct version
+if [ -f "$REPO_ROOT/.env" ]; then
+  if grep -q "^COMMIT_SHA=" "$REPO_ROOT/.env"; then
+    sed -i "s/^COMMIT_SHA=.*/COMMIT_SHA=$COMMIT_SHA/" "$REPO_ROOT/.env"
+  else
+    echo "COMMIT_SHA=$COMMIT_SHA" >> "$REPO_ROOT/.env"
+  fi
+fi
+
+echo "Running pre-commit checks... (commit: $COMMIT_SHA)"
+
+echo "  [1/6] Backend lint..."
+deno task lint
+
+echo "  [2/6] Backend type-check..."
+deno task check
+
+echo "  [3/6] Backend unit tests..."
+deno task test
+
+echo "  [4/6] Frontend lint (Biome — auto-fixing)..."
+cd "$REPO_ROOT/frontend"
+deno run -A npm:@biomejs/biome check --write src/
+
+echo "  [5/6] Frontend type-check..."
+./node_modules/.bin/tsc --noEmit
+
+cd "$REPO_ROOT"
+
+echo "  [6/6] Smoke tests (skipped if services offline)..."
+if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
+  deno task test:smoke
+else
+  echo "       Services not running — skipping smoke tests."
+fi
+
+echo "Pre-commit checks passed."

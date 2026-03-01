@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint-and-test:
+    name: Lint, type-check, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Lint
+        run: deno task lint
+
+      - name: Type check
+        run: deno task check
+
+      - name: Unit tests
+        run: deno task test
+
+  frontend:
+    name: Frontend lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install frontend dependencies
+        run: cd frontend && deno install --allow-scripts
+
+      - name: Biome lint
+        run: cd frontend && deno run -A npm:@biomejs/biome check src/
+
+      - name: TypeScript type-check
+        run: cd frontend && ./node_modules/.bin/tsc --noEmit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Start backend services
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          COMMIT_SHA=$SHA MARKET_SIM_PORT=5000 deno run --allow-all backend/src/market-sim/market-sim.ts &
+          COMMIT_SHA=$SHA EMS_PORT=5001 deno run --allow-all backend/src/ems/ems-server.ts &
+          COMMIT_SHA=$SHA OMS_PORT=5002 ALGO_TRADER_PORT=5003 TWAP_ALGO_PORT=5004 POV_ALGO_PORT=5005 VWAP_ALGO_PORT=5006 deno run --allow-all backend/src/oms/oms-server.ts &
+          COMMIT_SHA=$SHA ALGO_TRADER_PORT=5003 deno run --allow-all backend/src/algo/limit-strategy.ts &
+          COMMIT_SHA=$SHA TWAP_ALGO_PORT=5004 deno run --allow-all backend/src/algo/twap-strategy.ts &
+          COMMIT_SHA=$SHA POV_ALGO_PORT=5005 deno run --allow-all backend/src/algo/pov-strategy.ts &
+          COMMIT_SHA=$SHA VWAP_ALGO_PORT=5006 deno run --allow-all backend/src/algo/vwap-strategy.ts &
+
+      - name: Wait for services to be ready
+        run: |
+          for port in 5000 5001 5002 5003 5004 5005 5006; do
+            for i in $(seq 1 20); do
+              curl -sf http://localhost:$port/health && break || sleep 1
+            done
+          done
+
+      - name: Integration tests
+        run: deno task test:integration
+
+      - name: Smoke tests
+        run: deno task test:smoke
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, frontend]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,9 @@
+.git
+.github
+.devcontainer
+frontend/node_modules
+supervisord.log
+supervisord.pid
+*.md
+docs/
+scripts/

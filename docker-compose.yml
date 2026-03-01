@@ -1,21 +1,85 @@
-version: '3.8'
 services:
-  backend:
+  market-sim:
     build:
-      context: .  
-      dockerfile: backend/Dockerfile  
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/market-sim/market-sim.ts
     ports:
-      - "4000:4000"
+      - "5000:5000"
     environment:
-      - DENO_ENV=development
+      MARKET_SIM_PORT: 5000
+    restart: unless-stopped
+
+  ems:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/ems/ems-server.ts
+    ports:
+      - "5001:5001"
+    environment:
+      EMS_PORT: 5001
+    restart: unless-stopped
+
+  oms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/oms/oms-server.ts
+    ports:
+      - "5002:5002"
+    environment:
+      OMS_PORT: 5002
+    restart: unless-stopped
+
+  limit-algo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/algo/limit-strategy.ts
+    ports:
+      - "5003:5003"
+    environment:
+      LIMIT_ALGO_PORT: 5003
+      MARKET_SIM_PORT: 5000
     depends_on:
-      - db
-  db:
-    image: postgres:latest
-    restart: always
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: marketdb
+      - market-sim
+    restart: unless-stopped
+
+  twap-algo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/algo/twap-strategy.ts
     ports:
-      - "5432:5432"
+      - "5004:5004"
+    environment:
+      TWAP_ALGO_PORT: 5004
+    restart: unless-stopped
+
+  pov-algo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/algo/pov-strategy.ts
+    ports:
+      - "5005:5005"
+    environment:
+      POV_ALGO_PORT: 5005
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "cd frontend && deno task dev"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - market-sim
+      - oms
+      - ems
+      - limit-algo
+      - twap-algo
+      - pov-algo
+    restart: unless-stopped

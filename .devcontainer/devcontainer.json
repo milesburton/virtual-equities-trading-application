@@ -4,6 +4,17 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
+  "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006],
+  "portsAttributes": {
+    "8080": { "label": "Frontend UI", "onAutoForward": "openBrowser" },
+    "5000": { "label": "Market Sim (WS)" },
+    "5001": { "label": "EMS" },
+    "5002": { "label": "OMS" },
+    "5003": { "label": "Limit Algo" },
+    "5004": { "label": "TWAP Algo" },
+    "5005": { "label": "POV Algo" },
+    "5006": { "label": "VWAP Algo" }
+  },
   "customizations": {
     "vscode": {
       "settings": {
@@ -28,5 +39,5 @@
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/home/deno/.ssh,type=bind,consistency=cached"
   ],
-  "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && supervisord -c /home/deno/supervisord.conf"
+  "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && cd /workspaces/virtual-equities-trading-application/frontend && deno install --allow-scripts && cd /workspaces/virtual-equities-trading-application && supervisord -c /home/deno/supervisord.conf"
 }

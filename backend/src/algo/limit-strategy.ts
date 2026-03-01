@@ -1,86 +1,146 @@
-import type { Trade } from "../types/types";
+import "https://deno.land/std@0.210.0/dotenv/load.ts";
+import type { Trade } from "../types/types.ts";
+import { MarketSimClient } from "../lib/marketSimClient.ts";
+import { sendDecisionEvent } from "../observability/client.ts";
 
-let latestPrices: Record<string, number> = {};
-const pendingTrades: Trade[] = [];
+const MARKET_SIM_PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
+const MARKET_SIM_HOST = Deno.env.get("MARKET_SIM_HOST") || "localhost";
+const EMS_PORT = Number(Deno.env.get("EMS_PORT")) || 5_001;
+const EMS_HOST = Deno.env.get("EMS_HOST") || "localhost";
 
-// Function to execute a trade when conditions are met
-async function placeTrade(trade: Trade) {
+const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
+marketClient.start();
+
+interface PendingLimit extends Trade {
+  remainingQty: number;
+  filledQty: number;
+  avgFillPrice: number;
+}
+
+const pendingOrders: PendingLimit[] = [];
+
+async function sendToEms(order: PendingLimit, qty: number): Promise<void> {
   try {
-    const response = await fetch("http://localhost:8081", {
+    const res = await fetch(`http://${EMS_HOST}:${EMS_PORT}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(trade),
+      body: JSON.stringify({ asset: order.asset, side: order.side, quantity: qty }),
     });
-    const result = await response.json();
-    console.log(`✅ Trade Executed: ${trade.side} ${trade.quantity} ${trade.asset} at ${latestPrices[trade.asset]}`, result);
+    const result = await res.json();
+
+    if (result.filledQty > 0) {
+      const totalFilled = order.filledQty + result.filledQty;
+      order.avgFillPrice = (order.avgFillPrice * order.filledQty + result.avgFillPrice * result.filledQty) / totalFilled;
+      order.filledQty = totalFilled;
+      order.remainingQty = result.remainingQty;
+
+      console.log(
+        `✅ LIMIT partial fill: ${result.filledQty} ${order.asset} @ ${result.avgFillPrice} | ` +
+        `total filled=${order.filledQty}/${order.quantity} avgFill=${order.avgFillPrice.toFixed(4)}`,
+      );
+    }
   } catch (error) {
-    console.error("❌ Failed to execute trade:", error);
+    console.error("❌ EMS call failed:", error);
   }
 }
 
-// Function to check if pending trades should be executed or canceled
-function checkTrades() {
+marketClient.onTick(async (tick) => {
   const now = Date.now();
-  for (let i = pendingTrades.length - 1; i >= 0; i--) {
-    const trade = pendingTrades[i];
-    const marketPrice = latestPrices[trade.asset];
+
+  for (let i = pendingOrders.length - 1; i >= 0; i--) {
+    const order = pendingOrders[i];
+    const marketPrice = tick.prices[order.asset];
 
     if (!marketPrice) continue;
 
-    if (now >= trade.expiresAt) {
-      console.log(`⏳ Trade expired: ${trade.side} ${trade.quantity} ${trade.asset} (Limit: ${trade.limitPrice})`);
-      pendingTrades.splice(i, 1); // Remove expired trade
+    if (now >= order.expiresAt) {
+      console.log(
+        `⏳ LIMIT order expired: ${order.side} ${order.quantity} ${order.asset} | ` +
+        `filled=${order.filledQty} avg=${order.avgFillPrice.toFixed(4)}`,
+      );
+      pendingOrders.splice(i, 1);
       continue;
     }
 
-    if ((trade.side === "BUY" && marketPrice <= trade.limitPrice) ||
-        (trade.side === "SELL" && marketPrice >= trade.limitPrice)) {
-      console.log(`🚀 Executing trade: ${trade.side} ${trade.quantity} ${trade.asset} at ${marketPrice}`);
-      placeTrade(trade);
-      pendingTrades.splice(i, 1); // Remove from queue after execution
+    const triggered =
+      (order.side === "BUY" && marketPrice <= order.limitPrice) ||
+      (order.side === "SELL" && marketPrice >= order.limitPrice);
+
+    if (triggered && order.remainingQty > 0) {
+      console.log(
+        `🎯 LIMIT triggered: ${order.side} ${order.remainingQty} ${order.asset} @ market ${marketPrice} (limit ${order.limitPrice})`,
+      );
+      // decision log: limit trigger
+      sendDecisionEvent("trigger", {
+        algo: "LIMIT",
+        asset: order.asset,
+        remaining: order.remainingQty,
+        marketPrice,
+        limitPrice: order.limitPrice,
+      });
+      await sendToEms(order, order.remainingQty);
+
+      if (order.remainingQty <= 0) {
+        pendingOrders.splice(i, 1);
+      }
     }
   }
-}
+});
 
-// WebSocket connection to market data feed
-const ws = new WebSocket("ws://localhost:8080");
+const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
-ws.onopen = () => {
-  console.log("📡 Connected to Market Data Feed");
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
-ws.onmessage = (event) => {
-  try {
-    const marketUpdate = JSON.parse(event.data);
-    latestPrices = marketUpdate.data;
-    checkTrades(); // Check if any trades should be executed
-  } catch (error) {
-    console.error("⚠️ Error processing market update:", error);
-  }
-};
+const PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5_003;
 
-ws.onclose = () => {
-  console.log("❌ Disconnected from Market Data Feed");
-};
-
-// Set up the HTTP server to accept trade requests
-const PORT = Number(Deno.env.get("LIMIT_ALGO_PORT")) || 5003;
 Deno.serve({ port: PORT }, async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  const url = new URL(req.url);
+  if (url.pathname === "/health" && req.method === "GET") {
+    return new Response(
+      JSON.stringify({
+        service: "limit",
+        version: VERSION,
+        status: "ok",
+        pending: pendingOrders.length,
+      }),
+      { headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+    );
+  }
+
   if (req.method === "POST") {
     try {
-      const trade: Trade = await req.json();
-      trade.expiresAt = Date.now() + trade.expiresAt * 1000; // Convert seconds to timestamp
-      console.log(`📥 Received Trade Request: ${trade.side} ${trade.quantity} ${trade.asset} (Limit: ${trade.limitPrice}, Expiry: ${new Date(trade.expiresAt).toLocaleTimeString()})`);
-      pendingTrades.push(trade);
-      return new Response(JSON.stringify({ success: true, message: "Trade request queued." }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ success: false, message: "Invalid trade request." }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
+      const raw: Trade = await req.json();
+      const order: PendingLimit = {
+        ...raw,
+        expiresAt: Date.now() + raw.expiresAt * 1_000,
+        remainingQty: raw.quantity,
+        filledQty: 0,
+        avgFillPrice: 0,
+      };
+      console.log(
+        `📥 LIMIT order received: ${order.side} ${order.quantity} ${order.asset} ` +
+        `@ limit ${order.limitPrice} expiry ${new Date(order.expiresAt).toLocaleTimeString()}`,
+      );
+      pendingOrders.push(order);
+      return new Response(
+        JSON.stringify({ success: true, message: "Limit order queued." }),
+        { headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, message: "Invalid trade request." }),
+        { headers: { "Content-Type": "application/json", ...CORS_HEADERS }, status: 400 },
+      );
     }
   }
-  return new Response("Limit Order Algo Running", { status: 200 });
+
+  return new Response("Limit Order Algo Running", { status: 200, headers: CORS_HEADERS });
 });

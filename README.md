@@ -32,6 +32,49 @@ Welcome to the **Equities Market Emulator**! 📈 This project simulates a tradi
 📂 .devcontainer/                 # Dev Container Configuration
 ```
 
+## Developer Setup
+
+### Documentation
+
+- [Architecture & service map](docs/architecture.md) — how all services connect and communicate
+- [API reference](docs/api/) — per-service endpoint documentation
+
+### Tooling (deno.json tasks)
+
+```sh
+deno task lint    # Lint all backend source files
+deno task check   # Type-check all backend source files
+deno task test    # Run unit tests
+deno task all     # Run lint → check → test in sequence
+```
+
+### Git Hooks
+
+This project enforces linting, type-checking, and tests before every commit, and validates commit messages against the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+Install the hooks once after cloning:
+
+```sh
+sh scripts/install-hooks.sh
+```
+
+**Commit message format:**
+
+```
+<type>(optional scope): <description>
+```
+
+Allowed types: `feat` | `fix` | `docs` | `style` | `refactor` | `perf` | `test` | `chore` | `build` | `ci` | `revert`
+
+Examples:
+```
+feat(oms): add trade persistence
+fix(limit-strategy): read port from env var
+docs(api): add EMS endpoint reference
+```
+
+---
+
 ## 🚀 Getting Started
 
 ### 🛠 Prerequisites

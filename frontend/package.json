@@ -1,0 +1,35 @@
+{
+  "name": "equities-market-emulator-ui",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 8080",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "deno run -A npm:@biomejs/biome check src/",
+    "lint:fix": "deno run -A npm:@biomejs/biome check --write src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hotkeys-hook": "^5.2.4",
+    "react-resizable-panels": "^4.7.0",
+    "react-window": "^2.2.7",
+    "recharts": "^2.12.7",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-window": "^2.0.0",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4"
+  }
+}

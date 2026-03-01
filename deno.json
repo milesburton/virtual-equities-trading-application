@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "lint": "deno lint backend/src/",
+    "check": "deno check --config deno.json backend/src/lib/timeScale.ts backend/src/lib/marketSimClient.ts backend/src/market-sim/priceEngine.ts backend/src/market-sim/market-sim.ts backend/src/oms/oms-server.ts backend/src/ems/ems-server.ts backend/src/algo/limit-strategy.ts backend/src/algo/twap-strategy.ts backend/src/algo/pov-strategy.ts backend/src/algo/vwap-strategy.ts backend/src/cli/trader.ts",
+    "test": "deno test --allow-all backend/src/tests/unit.test.ts",
+    "test:unit": "deno test --allow-all backend/src/tests/unit.test.ts",
+    "test:integration": "deno test --allow-all backend/src/tests/integration.test.ts",
+    "test:smoke": "deno test --allow-all backend/src/tests/smoke.test.ts",
+    "all": "deno task lint && deno task check && deno task test:unit"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window", "esnext"],
+    "strict": true
+  }
+}

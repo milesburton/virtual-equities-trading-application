@@ -19,7 +19,7 @@ async function placeTrade() {
   });
 
   const asset = await Input.prompt({ message: "Enter asset", default: "AAPL" });
-  
+
   const side = await Select.prompt({
     message: "Enter trade side:",
     options: [
@@ -46,9 +46,9 @@ async function placeTrade() {
     return;
   }
 
-  const trade: Trade = { asset, side, quantity, limitPrice, expiresAt };
+  const trade: Trade = { asset, side: side as "BUY" | "SELL", quantity, limitPrice, expiresAt };
 
-  let algoUrl = DEFAULT_OMS_URL; // Default to OMS (Limit Order)
+  let algoUrl = DEFAULT_OMS_URL;
   if (strategy === "TWAP") algoUrl = DEFAULT_TWAP_URL;
   if (strategy === "POV") algoUrl = DEFAULT_POV_URL;
 
