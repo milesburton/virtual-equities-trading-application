@@ -5,9 +5,10 @@ import type { ServiceHealth } from "../types.ts";
 // VITE_* overrides remain available for non-standard deployments.
 const _origin = typeof window !== "undefined" ? window.location.origin : "";
 
-const _traefik = import.meta.env.VITE_TRAEFIK_DASHBOARD_URL ?? `${_origin.replace(/:(\d+)$/, "")}:8888`;
+const _traefik =
+  import.meta.env.VITE_TRAEFIK_DASHBOARD_URL ?? `${_origin.replace(/:(\d+)$/, "")}:8888`;
 
-const SERVICES: { name: string; url: string; link?: string }[] = [
+const SERVICES: { name: string; url: string; link?: string; optional?: boolean }[] = [
   {
     name: "Market Sim",
     url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`}/health`,
@@ -52,6 +53,7 @@ const SERVICES: { name: string; url: string; link?: string }[] = [
     name: "Traefik",
     url: `${_traefik}/api/overview`,
     link: _traefik,
+    optional: true,
   },
 ];
 
@@ -61,7 +63,10 @@ export const servicesApi = createApi({
   reducerPath: "servicesApi",
   baseQuery: fetchBaseQuery({ baseUrl: "" }),
   endpoints: (builder) => ({
-    getServiceHealth: builder.query<ServiceHealth, { name: string; url: string; link?: string }>({
+    getServiceHealth: builder.query<
+      ServiceHealth,
+      { name: string; url: string; link?: string; optional?: boolean }
+    >({
       query: ({ url }) => ({ url }),
       transformResponse: (body: Record<string, unknown>, _meta, arg) => {
         const { version, ...rest } = body;
@@ -70,6 +75,7 @@ export const servicesApi = createApi({
           name: arg.name,
           url: arg.url,
           link: arg.link,
+          optional: arg.optional,
           state: "ok" as const,
           version: String(version ?? "—"),
           meta: meta as Record<string, unknown>,
@@ -80,6 +86,7 @@ export const servicesApi = createApi({
         name: arg.name,
         url: arg.url,
         link: arg.link,
+        optional: arg.optional,
         state: "error" as const,
         version: "—",
         meta: {},

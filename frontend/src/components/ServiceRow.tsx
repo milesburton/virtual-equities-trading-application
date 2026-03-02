@@ -2,16 +2,19 @@ import type { ServiceHealth } from "../types.ts";
 import { StatusDot } from "./StatusDot";
 
 export function ServiceRow({ svc }: { svc: ServiceHealth }) {
+  const unavailable = svc.optional && svc.state === "error";
+
   function label(state: ServiceHealth["state"]) {
+    if (unavailable) return <span className="text-gray-600">unavailable</span>;
     if (state === "ok") return <span className="text-emerald-400">ok</span>;
     if (state === "error") return <span className="text-red-400">error</span>;
     return <span className="text-gray-500">—</span>;
   }
 
   return (
-    <tr className="border-b border-gray-800/40">
+    <tr className={`border-b border-gray-800/40 ${unavailable ? "opacity-40" : ""}`}>
       <td className="px-3 py-2 flex items-center gap-2 whitespace-nowrap">
-        <StatusDot state={svc.state} />
+        <StatusDot state={unavailable ? "unknown" : svc.state} />
         {svc.link ? (
           <a
             href={svc.link}

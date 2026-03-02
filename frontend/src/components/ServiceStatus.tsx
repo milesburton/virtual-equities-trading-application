@@ -8,8 +8,9 @@ interface Props {
 }
 
 function aggregateState(services: ServiceHealth[]): ServiceState {
-  if (services.some((s) => s.state === "error")) return "error";
-  if (services.some((s) => s.state === "unknown")) return "unknown";
+  const required = services.filter((s) => !s.optional);
+  if (required.some((s) => s.state === "error")) return "error";
+  if (required.some((s) => s.state === "unknown")) return "unknown";
   return "ok";
 }
 
