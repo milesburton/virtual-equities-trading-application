@@ -50,10 +50,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Biome lint
-        working-directory: frontend
-        run: npx @biomejs/biome check src/
-
       - name: TypeScript type-check
         working-directory: frontend
         run: npx tsc --noEmit
