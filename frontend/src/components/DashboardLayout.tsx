@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 // react-grid-layout uses `export = X` CJS types; import as default and cast to avoid
 // type gymnastics — `skipLibCheck: true` and the any-cast keep TS happy.
+// biome-ignore lint/suspicious/noExplicitAny: third-party library workaround
 import GridLayoutLib from "react-grid-layout";
 
 // deno-lint-ignore no-explicit-any - third-party library workaround
@@ -284,8 +285,7 @@ export function DashboardLayout() {
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* deno-lint-ignore no-explicit-any - third-party library workaround */}
-      {/* biome-ignore lint/suspicious/noExplicitAny lint/a11y/noStaticElementInteractions: third-party library workaround */}
+      {/* biome-ignore lint/suspicious/noExplicitAny lint/a11y/noStaticElementInteractions: third-party library */}
       <GridLayout
         layout={layout as any}
         cols={12}
