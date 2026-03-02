@@ -1,5 +1,5 @@
-import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import type { Strategy } from "../types.ts";
 
 interface UiState {
@@ -38,5 +38,10 @@ export const uiSlice = createSlice({
   },
 });
 
-export const { setActiveStrategy, setActiveSide, toggleShortcuts, hideShortcuts, setSelectedAsset } =
-  uiSlice.actions;
+export const {
+  setActiveStrategy,
+  setActiveSide,
+  toggleShortcuts,
+  hideShortcuts,
+  setSelectedAsset,
+} = uiSlice.actions;

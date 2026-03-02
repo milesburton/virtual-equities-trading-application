@@ -1,17 +1,11 @@
-import { useEffect, useRef } from "react";
 import { useSignal } from "@preact/signals-react";
+import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTradingContext } from "../context/TradingContext.tsx";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import { setActiveSide, setActiveStrategy } from "../store/uiSlice.ts";
 import { submitOrderThunk } from "../store/ordersSlice.ts";
-import type {
-  AlgoParams,
-  LimitParams,
-  PovParams,
-  TwapParams,
-  VwapParams,
-} from "../types.ts";
+import { setActiveSide, setActiveStrategy } from "../store/uiSlice.ts";
+import type { AlgoParams, LimitParams, PovParams, TwapParams, VwapParams } from "../types.ts";
 import { AssetSelector } from "./AssetSelector";
 import { StrategyParams } from "./StrategyParams";
 
@@ -127,7 +121,9 @@ export function OrderTicket() {
       feedback.value = { ok: false, msg: "Failed to submit order." };
     } finally {
       submitting.value = false;
-      setTimeout(() => { feedback.value = null; }, 4_000);
+      setTimeout(() => {
+        feedback.value = null;
+      }, 4_000);
     }
   }
 
@@ -183,7 +179,9 @@ export function OrderTicket() {
         <AssetSelector
           assets={assets}
           value={assetSearch.value}
-          onChange={(v) => { assetSearch.value = v; }}
+          onChange={(v) => {
+            assetSearch.value = v;
+          }}
           onSelect={selectAsset}
           inputRef={assetInputRef}
           prices={prices}
@@ -228,7 +226,9 @@ export function OrderTicket() {
             type="number"
             min="1"
             value={quantity.value}
-            onChange={(e) => { quantity.value = e.target.value; }}
+            onChange={(e) => {
+              quantity.value = e.target.value;
+            }}
             placeholder="100"
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
           />
@@ -257,7 +257,9 @@ export function OrderTicket() {
             step="0.0001"
             min="0"
             value={limitPrice.value}
-            onChange={(e) => { limitPrice.value = e.target.value; }}
+            onChange={(e) => {
+              limitPrice.value = e.target.value;
+            }}
             placeholder="e.g. 150.00"
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
           />
@@ -272,7 +274,9 @@ export function OrderTicket() {
             type="number"
             min="1"
             value={expiresAt.value}
-            onChange={(e) => { expiresAt.value = e.target.value; }}
+            onChange={(e) => {
+              expiresAt.value = e.target.value;
+            }}
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
           />
         </div>
@@ -280,21 +284,37 @@ export function OrderTicket() {
         <StrategyParams
           activeStrategy={activeStrategy}
           twapSlices={twapSlices.value}
-          setTwapSlices={(v) => { twapSlices.value = v; }}
+          setTwapSlices={(v) => {
+            twapSlices.value = v;
+          }}
           twapCap={twapCap.value}
-          setTwapCap={(v) => { twapCap.value = v; }}
+          setTwapCap={(v) => {
+            twapCap.value = v;
+          }}
           povRate={povRate.value}
-          setPovRate={(v) => { povRate.value = v; }}
+          setPovRate={(v) => {
+            povRate.value = v;
+          }}
           povMin={povMin.value}
-          setPovMin={(v) => { povMin.value = v; }}
+          setPovMin={(v) => {
+            povMin.value = v;
+          }}
           povMax={povMax.value}
-          setPovMax={(v) => { povMax.value = v; }}
+          setPovMax={(v) => {
+            povMax.value = v;
+          }}
           vwapDev={vwapDev.value}
-          setVwapDev={(v) => { vwapDev.value = v; }}
+          setVwapDev={(v) => {
+            vwapDev.value = v;
+          }}
           vwapStart={vwapStart.value}
-          setVwapStart={(v) => { vwapStart.value = v; }}
+          setVwapStart={(v) => {
+            vwapStart.value = v;
+          }}
           vwapEnd={vwapEnd.value}
-          setVwapEnd={(v) => { vwapEnd.value = v; }}
+          setVwapEnd={(v) => {
+            vwapEnd.value = v;
+          }}
         />
 
         <button
@@ -306,11 +326,15 @@ export function OrderTicket() {
               : "bg-red-700 hover:bg-red-600 disabled:bg-red-900/50 text-white"
           } disabled:cursor-not-allowed`}
         >
-          {submitting.value ? "Submitting…" : `${activeSide} ${selectedAsset?.symbol ?? ""}  ·  Ctrl+↵`}
+          {submitting.value
+            ? "Submitting…"
+            : `${activeSide} ${selectedAsset?.symbol ?? ""}  ·  Ctrl+↵`}
         </button>
 
         {feedback.value && (
-          <p className={`text-xs text-center ${feedback.value.ok ? "text-emerald-400" : "text-red-400"}`}>
+          <p
+            className={`text-xs text-center ${feedback.value.ok ? "text-emerald-400" : "text-red-400"}`}
+          >
             {feedback.value.msg}
           </p>
         )}

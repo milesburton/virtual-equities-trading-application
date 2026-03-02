@@ -1,7 +1,7 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { act, render, renderHook, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
-import { configureStore } from "@reduxjs/toolkit";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
 import { TradingProvider, useTradingContext } from "../TradingContext";

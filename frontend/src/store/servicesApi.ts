@@ -2,10 +2,16 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { ServiceHealth } from "../types.ts";
 
 const SERVICES: { name: string; url: string }[] = [
-  { name: "Market Sim", url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? "http://localhost:5000"}/health` },
+  {
+    name: "Market Sim",
+    url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? "http://localhost:5000"}/health`,
+  },
   { name: "EMS", url: `${import.meta.env.VITE_EMS_URL ?? "http://localhost:5001"}/health` },
   { name: "OMS", url: `${import.meta.env.VITE_OMS_URL ?? "http://localhost:5002"}/health` },
-  { name: "Limit Algo", url: `${import.meta.env.VITE_LIMIT_URL ?? "http://localhost:5003"}/health` },
+  {
+    name: "Limit Algo",
+    url: `${import.meta.env.VITE_LIMIT_URL ?? "http://localhost:5003"}/health`,
+  },
   { name: "TWAP Algo", url: `${import.meta.env.VITE_TWAP_URL ?? "http://localhost:5004"}/health` },
   { name: "POV Algo", url: `${import.meta.env.VITE_POV_URL ?? "http://localhost:5005"}/health` },
   { name: "VWAP Algo", url: `${import.meta.env.VITE_VWAP_URL ?? "http://localhost:5006"}/health` },

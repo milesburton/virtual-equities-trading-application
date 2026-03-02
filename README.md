@@ -1,191 +1,161 @@
-# 🚀 Equities Market Emulator
+# Equities Market Emulator
 
-Welcome to the **Equities Market Emulator**! 📈 This project simulates a trading environment with an **Order Management System (OMS)**, **Execution Management System (EMS)**, a **Market Simulator**, and multiple **Algo Trading Strategies**.
+A simulated equities trading environment comprising a market price engine, execution and order management systems, four algorithmic trading strategies, an observability service, and a React frontend.
 
-## 🎯 Features
-✅ **Realistic market simulation** for equities trading  
-✅ **Order & Execution Management Systems for trade processing**  
-✅ **Multiple Algo Trading Strategies** (Limit, TWAP, POV)  
-✅ **Runs entirely in a Dev Container for easy setup**  
-✅ **Configurable via `.env` file for dynamic port management**  
-✅ **Supervisord for automatic service orchestration**  
+## Documentation
 
-## 📦 Project Structure
+- [Architecture & service map](docs/architecture.md)
+- [API reference](docs/api/)
+
+## Project Structure
+
 ```
-📂 backend/
- ├── 📂 src/
- │   ├── 📂 market-sim/        # Market Simulation Service
- │   ├── 📂 ems/               # Execution Management System (EMS)
- │   ├── 📂 oms/               # Order Management System (OMS)
- │   ├── 📂 algo/              # Algo Trading Strategies
- │   │   ├── limit-strategy.ts # Limit Order Algo Trader
- │   │   ├── twap-strategy.ts  # TWAP (Time-Weighted Average Price) Algo
- │   │   ├── pov-strategy.ts   # POV (Percentage of Volume) Algo
- │   ├── 📂 cli/               # CLI Tools (Trader - To be replaced with React & Tailwind)
- │   ├── 📂 db/                # Database (if needed)
- │   ├── 📂 tests/             # Unit & Integration Tests
- ├── .env                      # Environment Variables
- ├── .env.template             # Template for Environment Variables
- ├── supervisord.conf           # Process Manager Configuration
- ├── docker-compose.yml         # Optional Docker Compose Setup
-📂 frontend/                     # UI Components (React & Tailwind - Coming Soon)
-📂 .devcontainer/                 # Dev Container Configuration
+backend/
+  src/
+    market-sim/       Price engine and WebSocket feed
+    ems/              Execution Management System
+    oms/              Order Management System
+    algo/             Limit, TWAP, POV, and VWAP strategy servers
+    observability/    Event ingestion and SSE streaming
+    lib/              Shared utilities
+    types/            Shared type definitions
+    tests/            Unit, integration, and smoke tests
+  .env.template       Environment variable reference
+  supervisord.conf    Process manager configuration (used inside Dev Container)
+
+frontend/             React + Vite + TypeScript trading UI
+  src/
+    components/       UI panels (OrderTicket, MarketLadder, OrderBlotter, etc.)
+    store/            Redux Toolkit slices, RTK Query APIs, and middleware
+    hooks/            usePopOut
+    context/          TradingContext (DOM focus only)
+
+docs/
+  architecture.md
+  api/
+
+.devcontainer/        Dev Container definition
+scripts/              Git hook installer
 ```
 
-## Developer Setup
+## Getting Started
 
-### Documentation
+The project is designed to run inside a [Dev Container](https://containers.dev/). Opening it in VS Code with the Dev Containers extension will provision all dependencies and start all services automatically via supervisord.
 
-- [Architecture & service map](docs/architecture.md) — how all services connect and communicate
-- [API reference](docs/api/) — per-service endpoint documentation
+```
+Ctrl+Shift+P → Dev Containers: Rebuild and Reopen in Container
+```
 
-### Tooling (deno.json tasks)
+To configure ports or tuning parameters, copy the template before the container starts:
 
 ```sh
-deno task lint    # Lint all backend source files
-deno task check   # Type-check all backend source files
-deno task test    # Run unit tests
-deno task all     # Run lint → check → test in sequence
-
-### Frontend UI Tests
-
-Frontend UI tests use Playwright. From the `frontend` folder:
-
+cp backend/.env.template backend/.env
 ```
+
+Key defaults:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MARKET_SIM_PORT` | 5000 | Market price WebSocket and HTTP feed |
+| `EMS_PORT` | 5001 | Execution Management System |
+| `OMS_PORT` | 5002 | Order Management System |
+| `ALGO_TRADER_PORT` | 5003 | Limit strategy |
+| `TWAP_ALGO_PORT` | 5004 | TWAP strategy |
+| `POV_ALGO_PORT` | 5005 | POV strategy |
+| `VWAP_ALGO_PORT` | 5006 | VWAP strategy |
+| `FRONTEND_PORT` | 8080 | React UI |
+
+## Services
+
+All nine services are managed by supervisord inside the Dev Container:
+
+| Service | Port | Description |
+|---|---|---|
+| `market-sim` | 5000 | Simulates price movements; broadcasts ticks over WebSocket |
+| `ems` | 5001 | Fills orders against simulated market volume |
+| `oms` | 5002 | Receives and persists orders |
+| `algo-trader` | 5003 | Limit order strategy |
+| `twap-algo` | 5004 | Time-Weighted Average Price strategy |
+| `pov-algo` | 5005 | Percentage of Volume strategy |
+| `vwap-algo` | 5006 | Volume-Weighted Average Price strategy |
+| `observability` | 5007 | Event ingestion (POST /events) and SSE stream (GET /events) |
+| `frontend` | 8080 | React trading UI |
+
+Check service status:
+
+```sh
+supervisorctl status
+```
+
+Restart a service:
+
+```sh
+supervisorctl restart market-sim
+```
+
+Tail logs:
+
+```sh
+supervisorctl tail -f market-sim
+```
+
+## Backend
+
+All backend services are written in Deno. Tasks are defined in `deno.json` at the repository root.
+
+```sh
+deno task lint          # Lint backend source
+deno task check         # Type-check backend source
+deno task test:unit     # Run unit tests
+deno task test:smoke    # Run smoke tests (requires running services)
+deno task all           # lint → check → test:unit
+```
+
+## Frontend
+
+The frontend is a React + Vite application in `frontend/`. It uses Redux Toolkit for state, RTK Query for service health polling, and Preact signals for component-local state.
+
+```sh
+cd frontend
 npm ci
+
+npm run dev           # Start dev server on port 8080
+npm run build         # Type-check and build for production
+npm run typecheck     # Type-check without emitting
+npm run lint          # Run Biome linter
+npm run lint:fix      # Run Biome linter with auto-fix
+npm run test:unit     # Run Vitest unit tests
+```
+
+### Playwright UI tests
+
+```sh
 npx playwright install --with-deps
 npm run build
-npm run test:ui
+npm run test:ui           # Headless
+npm run test:ui:headed    # With visible browser
 ```
 
-Use `npm run test:ui:headed` to run tests with a visible browser.
+### Test coverage
+
+```sh
+npm run test:unit -- --run --coverage
 ```
 
-### Git Hooks
+## Git Hooks
 
-This project enforces linting, type-checking, and tests before every commit, and validates commit messages against the [Conventional Commits](https://www.conventionalcommits.org/) specification.
-
-Install the hooks once after cloning:
+Install once after cloning:
 
 ```sh
 sh scripts/install-hooks.sh
 ```
 
-**Commit message format:**
+Hooks enforce Biome linting, TypeScript type-checking, Deno backend tests, and [Conventional Commits](https://www.conventionalcommits.org/) on every commit.
 
-```
-<type>(optional scope): <description>
-```
+Commit message format: `<type>(scope): <description>`
 
-Allowed types: `feat` | `fix` | `docs` | `style` | `refactor` | `perf` | `test` | `chore` | `build` | `ci` | `revert`
+Allowed types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `chore` `build` `ci` `revert`
 
-Examples:
-```
-feat(oms): add trade persistence
-fix(limit-strategy): read port from env var
-docs(api): add EMS endpoint reference
-```
+## Licence
 
----
-
-## 🚀 Getting Started
-
-### 🛠 Prerequisites
-- **Visual Studio Code with Dev Containers** 💻
-- **Docker** (Required for Dev Containers) 🐳
-- **Deno** (Automatically installed inside the Dev Container) 🦕
-
-### 🏗 Setup & Run
-1️⃣ **Clone the repository**:
-   ```sh
-   git clone https://github.com/your-repo/equities-market-emulator.git
-   cd equities-market-emulator
-   ```
-2️⃣ **Open in Visual Studio Code & Start Dev Container**:
-   - Open **Command Palette** (`Ctrl + Shift + P`)
-   - Select **Dev Containers: Rebuild and Reopen in Container**
-   - This will set up **all dependencies automatically**
-
-3️⃣ **Update the `.env` file (if needed):**
-   ```sh
-   cp .env.template .env
-   ```
-   Example `.env`:
-   ```ini
-   MARKET_SIM_PORT=5000
-   EMS_PORT=5001
-   OMS_PORT=5002
-   LIMIT_ALGO_PORT=5003
-   TWAP_ALGO_PORT=5004
-   POV_ALGO_PORT=5005
-   ```
-
-4️⃣ **Run services automatically (via Supervisord)**
-   ```sh
-   supervisorctl status
-   ```
-
-### ℹ️ **Using the Dev Container?**
-If you are using the **Dev Container**, all processes start automatically. **You do not need to start them manually**. Only the **Trader CLI** (which will be replaced with a React & Tailwind UI) needs to be launched manually.
-
-#### **Available Aliases:**
-```sh
-  - run-market-sim: Runs the Market Simulation.
-  - run-trader-cli: Runs the Trading CLI (Temporary - Will be replaced with React UI).
-  - run-ems: Starts the Execution Management System (EMS).
-  - run-oms: Starts the Order Management System (OMS).
-  - run-limit-strategy: Starts the Limit Order Algo Trader.
-  - run-twap-strategy: Starts the TWAP Algo Trader.
-  - run-pov-strategy: Starts the POV Algo Trader.
-```
-
-## 🎮 Using the Trading CLI (`trader-cli`)
-The `trader-cli` tool allows you to place simulated trades and select different algo strategies. **This will soon be replaced with a React UI built with Tailwind.**
-
-1️⃣ **Run the trader CLI**:
-   ```sh
-   run-trader-cli
-   ```
-2️⃣ **Follow the prompts to enter trade details**, such as:
-   - Asset (e.g., AAPL)
-   - Trade side (BUY/SELL)
-   - Quantity
-   - Limit price
-   - Expiry time (in seconds)
-   - **Choose an execution strategy**: `Limit Order`, `TWAP`, or `POV`
-
-3️⃣ **The order is sent to the corresponding algo or OMS**, and you will see a response with the trade status.
-
-## 🔥 Services Overview
-| **Service**       | **Port**  | **Description** |
-|-------------------|----------|----------------|
-| Market Sim       | `5000`   | Simulates market price movements |
-| Execution (EMS)  | `5001`   | Manages trade execution |
-| Order (OMS)      | `5002`   | Processes & stores orders |
-| Limit Order Algo | `5003`   | Executes limit orders when conditions are met |
-| TWAP Algo        | `5004`   | Executes trades evenly over time |
-| POV Algo         | `5005`   | Executes a percentage of market volume |
-
-## 🛠 Managing Services
-### 🔄 Restart a service manually:
-```sh
-supervisorctl restart <service-name>
-```
-Example:
-```sh
-supervisorctl restart market-sim
-```
-
-### 🔍 Check logs
-```sh
-supervisorctl tail -f <service-name>
-```
-Example:
-```sh
-supervisorctl tail -f oms
-```
-
-## 📜 Licence
-MIT Licence © 2025 Miles Burton
-
-🚀 **Happy Trading!** 📈🔥
+MIT Licence &copy; 2025 Miles Burton

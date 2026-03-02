@@ -1,5 +1,5 @@
-import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import type { AssetDef, CandleHistory, MarketPrices, OhlcCandle, PriceHistory } from "../types.ts";
 
 const HISTORY_LENGTH = 60;
@@ -30,7 +30,13 @@ export function applyTick(
     };
     return [...candles.slice(0, -1), updated];
   }
-  const newCandle: OhlcCandle = { time: bucket, open: price, high: price, low: price, close: price };
+  const newCandle: OhlcCandle = {
+    time: bucket,
+    open: price,
+    high: price,
+    low: price,
+    close: price,
+  };
   return [...candles, newCandle].slice(-MAX_CANDLES);
 }
 

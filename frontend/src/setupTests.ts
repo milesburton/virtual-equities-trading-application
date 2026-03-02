@@ -16,6 +16,8 @@ class MockBroadcastChannel {
   constructor(public name: string) {}
   addEventListener() {}
   removeEventListener() {}
-  dispatchEvent() { return true; }
+  dispatchEvent() {
+    return true;
+  }
 }
 globalThis.BroadcastChannel = MockBroadcastChannel as unknown as typeof BroadcastChannel;

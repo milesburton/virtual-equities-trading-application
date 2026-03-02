@@ -25,7 +25,9 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
       try {
         const msg = JSON.parse(event.data as string) as {
           event: string;
-          data: MarketPrices | { prices: MarketPrices; volumes: Record<string, number>; marketMinute: number };
+          data:
+            | MarketPrices
+            | { prices: MarketPrices; volumes: Record<string, number>; marketMinute: number };
         };
         const newPrices: MarketPrices =
           msg.data !== null && typeof msg.data === "object" && "prices" in msg.data

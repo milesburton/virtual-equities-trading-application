@@ -30,11 +30,7 @@ export default function App() {
           <Panel id="left-col" defaultSize={25} minSize={15}>
             <Group orientation="vertical" className="h-full">
               <Panel id="market-ladder" defaultSize={selectedAsset ? 50 : 100} minSize={20}>
-                {ladderPopped ? (
-                  <PopOutPlaceholder panelId="market-ladder" />
-                ) : (
-                  <MarketLadder />
-                )}
+                {ladderPopped ? <PopOutPlaceholder panelId="market-ladder" /> : <MarketLadder />}
               </Panel>
 
               {selectedAsset && candleHistory[selectedAsset] && (
@@ -62,27 +58,15 @@ export default function App() {
           <Panel id="right-col" defaultSize={75} minSize={30}>
             <Group orientation="vertical" className="h-full">
               <Panel id="order-blotter" defaultSize={50} minSize={20}>
-                {blotterPopped ? (
-                  <PopOutPlaceholder panelId="order-blotter" />
-                ) : (
-                  <OrderBlotter />
-                )}
+                {blotterPopped ? <PopOutPlaceholder panelId="order-blotter" /> : <OrderBlotter />}
               </Panel>
               <Separator className="h-1 bg-gray-700 hover:bg-emerald-600 transition-colors cursor-row-resize" />
               <Panel id="algo-monitor" defaultSize={33} minSize={15}>
-                {algoPopped ? (
-                  <PopOutPlaceholder panelId="algo-monitor" />
-                ) : (
-                  <AlgoMonitor />
-                )}
+                {algoPopped ? <PopOutPlaceholder panelId="algo-monitor" /> : <AlgoMonitor />}
               </Panel>
               <Separator className="h-1 bg-gray-700 hover:bg-emerald-600 transition-colors cursor-row-resize" />
               <Panel id="observability" defaultSize={17} minSize={10}>
-                {obsPopped ? (
-                  <PopOutPlaceholder panelId="observability" />
-                ) : (
-                  <ObservabilityPanel />
-                )}
+                {obsPopped ? <PopOutPlaceholder panelId="observability" /> : <ObservabilityPanel />}
               </Panel>
             </Group>
           </Panel>

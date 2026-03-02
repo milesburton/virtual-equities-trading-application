@@ -1,10 +1,10 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
-import { configureStore } from "@reduxjs/toolkit";
-import type { OrderRecord } from "../../types";
 import { ordersSlice } from "../../store/ordersSlice";
 import { windowSlice } from "../../store/windowSlice";
+import type { OrderRecord } from "../../types";
 import { AlgoMonitor } from "../AlgoMonitor";
 
 const now = Date.now();
