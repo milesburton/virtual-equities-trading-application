@@ -130,7 +130,7 @@ jobs:
         run: npm run build
       - name: Run Playwright UI tests (headless)
         working-directory: frontend
-        run: npx playwright test --reporter=list --browser=chromium
+        run: npx playwright test --reporter=list
 
   docker:
     name: Docker build
