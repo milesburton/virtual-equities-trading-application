@@ -124,7 +124,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
-          npx playwright install --with-deps
+          npx playwright install
       - name: Build frontend
         working-directory: frontend
         run: npm run build
