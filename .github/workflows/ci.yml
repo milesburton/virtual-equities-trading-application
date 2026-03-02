@@ -15,7 +15,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: 2.1.x
+          deno-version: 2.7.x
 
       - name: Lint
         run: deno task lint
@@ -71,7 +71,7 @@ jobs:
 
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: 2.1.x
+          deno-version: 2.7.x
 
       - name: Start backend services
         run: |
