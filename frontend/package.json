@@ -9,7 +9,7 @@
     "lint": "deno run -A npm:@biomejs/biome check src/",
     "lint:fix": "deno run -A npm:@biomejs/biome check --write src/",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest",
+    "test:unit": "NODE_OPTIONS=--max-old-space-size=4096 vitest",
     "test:ui": "npx playwright test",
     "test:ui:headed": "npx playwright test --headed"
   },
