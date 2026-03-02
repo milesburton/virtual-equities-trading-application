@@ -82,9 +82,9 @@ export function ObservabilityPanel() {
           <div className="text-gray-600">No events yet</div>
         ) : (
           <ul className="space-y-2">
-            {latest.map((e, i) => (
+            {latest.map((e) => (
               <li
-                key={`${e.ts}-${e.type}-${i}`}
+                key={`${e.ts}-${e.type}`}
                 className="p-2 bg-gray-900/40 rounded border border-gray-800/50"
               >
                 <div className="flex items-center justify-between">

@@ -2,10 +2,9 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 // react-grid-layout uses `export = X` CJS types; import as default and cast to avoid
 // type gymnastics — `skipLibCheck: true` and the any-cast keep TS happy.
-// biome-ignore lint/suspicious/noExplicitAny: third-party library workaround
 import GridLayoutLib from "react-grid-layout";
 
-// deno-lint-ignore no-explicit-any - third-party library workaround
+// biome-ignore lint/suspicious/noExplicitAny: third-party library workaround
 const GridLayout = (GridLayoutLib as any).default ?? GridLayoutLib;
 
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -285,7 +284,7 @@ export function DashboardLayout() {
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* biome-ignore lint/suspicious/noExplicitAny lint/a11y/noStaticElementInteractions: third-party library */}
+      {/* biome-ignore lint/suspicious/noExplicitAny: third-party react-grid-layout library has untyped props */}
       <GridLayout
         layout={layout as any}
         cols={12}
