@@ -1,0 +1,13 @@
+{
+  "name": "virtual-equities-trading-application",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A virtualized trading application with real-time market simulation and algorithmic trading strategies.",
+  "scripts": {},
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "deno run -A npm:@biomejs/biome check --write",
+      "cd frontend && ./node_modules/.bin/tsc --noEmit --skipLibCheck"
+    ]
+  }
+}

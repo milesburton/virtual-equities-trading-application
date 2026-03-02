@@ -1,0 +1,24 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+#
+# Enforces the Conventional Commits specification.
+# Format: <type>(optional scope): <description>
+# Types: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert
+#
+commit_msg=$(cat "$1")
+pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\(.+\))?: .{1,100}$'
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "❌ ERROR: Commit message does not follow Conventional Commits."
+  echo ""
+  echo "  Format : <type>(optional scope): <description>"
+  echo "  Example: feat(oms): add trade validation"
+  echo ""
+  echo "  Allowed types: feat | fix | docs | style | refactor | perf | test | chore | build | ci | revert"
+  echo ""
+  echo "  Your message: $commit_msg"
+  echo ""
+  exit 1
+fi
