@@ -54,7 +54,7 @@ describe("DashboardProvider – initial state", () => {
     const defaultIds = DEFAULT_LAYOUT.map((l) => l.i)
       .sort()
       .join(",");
-    const activeIds = screen.getByTestId("active-ids").textContent!.split(",").sort().join(",");
+    const activeIds = screen.getByTestId("active-ids").textContent?.split(",").sort().join(",");
     expect(activeIds).toBe(defaultIds);
   });
 
@@ -82,6 +82,9 @@ describe("DashboardProvider – initial state", () => {
 
 describe("DashboardProvider – addPanel", () => {
   it("adds a panel that was not in the active set", () => {
+    // Start with a layout that does not include candle-chart
+    const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutChart));
     renderProvider();
     const before = Number(screen.getByTestId("active-count").textContent);
     act(() => {
@@ -93,9 +96,7 @@ describe("DashboardProvider – addPanel", () => {
   });
 
   it("does not duplicate a panel already in the layout", () => {
-    // Pre-populate with candle-chart
-    const withChart = [...DEFAULT_LAYOUT, { i: "candle-chart", x: 0, y: 0, w: 4, h: 6 }];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(withChart));
+    // candle-chart is already in DEFAULT_LAYOUT; clicking Add Chart should be a no-op
     renderProvider();
     const before = Number(screen.getByTestId("active-count").textContent);
     act(() => {
@@ -105,11 +106,14 @@ describe("DashboardProvider – addPanel", () => {
   });
 
   it("persists the updated layout to localStorage", () => {
+    // Start without candle-chart so addPanel actually fires
+    const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutChart));
     renderProvider();
     act(() => {
       fireEvent.click(screen.getByText("Add Chart"));
     });
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
     expect(stored.some((l: { i: string }) => l.i === "candle-chart")).toBe(true);
   });
 });
@@ -133,7 +137,7 @@ describe("DashboardProvider – removePanel", () => {
     act(() => {
       fireEvent.click(screen.getByText("Remove Blotter"));
     });
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
     expect(stored.every((l: { i: string }) => l.i !== "order-blotter")).toBe(true);
   });
 });
@@ -154,7 +158,7 @@ describe("DashboardProvider – resetLayout", () => {
     const defaultIds = DEFAULT_LAYOUT.map((l) => l.i)
       .sort()
       .join(",");
-    const activeIds = screen.getByTestId("active-ids").textContent!.split(",").sort().join(",");
+    const activeIds = screen.getByTestId("active-ids").textContent?.split(",").sort().join(",");
     expect(activeIds).toBe(defaultIds);
   });
 

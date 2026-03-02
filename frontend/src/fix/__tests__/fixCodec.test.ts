@@ -58,7 +58,7 @@ describe("encode", () => {
     const msg = encode([[Tag.MsgType, MsgType.Heartbeat]]);
     const checksumPattern = new RegExp(`10=(\\d{3})${SOH}$`);
     const checksumMatch = msg.match(checksumPattern);
-    const claimed = Number(checksumMatch![1]);
+    const claimed = Number(checksumMatch?.[1] ?? "0");
 
     // Compute checksum ourselves over everything before the checksum field
     const bodyEnd = msg.lastIndexOf(`${SOH}10=`);
@@ -80,7 +80,7 @@ describe("encode", () => {
     // Extract claimed body length
     // biome-ignore lint/suspicious/noControlCharactersInRegex: FIX protocol uses SOH
     const bodyLenMatch = msg.match(/9=(\d+)\x01/);
-    const claimed = Number(bodyLenMatch![1]);
+    const claimed = Number(bodyLenMatch?.[1] ?? "0");
 
     // Body is between the end of tag 9 and the start of tag 10
     const bodyStart = msg.indexOf(`9=${claimed}${SOH}`) + `9=${claimed}${SOH}`.length;

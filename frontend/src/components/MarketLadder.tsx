@@ -113,9 +113,12 @@ function Row({
       style={style}
       {...ariaAttributes}
       className={`w-full flex items-center border-b border-gray-800/40 cursor-pointer transition-colors text-xs bg-transparent text-left ${
-        isSelected ? "bg-emerald-900/30" : "hover:bg-gray-800/30"
+        isSelected
+          ? "bg-emerald-900/40 border-b-2 border-emerald-500 shadow-[inset_0_0_8px_rgba(52,211,153,0.2)]"
+          : "hover:bg-gray-800/30"
       }`}
       onClick={handleSelect}
+      title={isSelected ? "Click again to deselect" : "Click to view in chart"}
     >
       <div className="w-[90px] px-3 flex-shrink-0">
         <div className="font-semibold text-gray-200 leading-tight">{asset.symbol}</div>
@@ -193,14 +196,11 @@ export function MarketLadder() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Market Ladder
-          <span className="ml-2 text-gray-600 normal-case font-normal">
-            {filtered.length}/{assets.length}
-          </span>
-        </div>
+      <div className="px-2 py-1.5 border-b border-gray-800 flex gap-1.5 items-center">
         <PopOutButton panelId="market-ladder" />
+        <span className="text-gray-600 text-[10px] tabular-nums ml-auto">
+          {filtered.length}/{assets.length}
+        </span>
       </div>
 
       <div className="px-2 py-1.5 border-b border-gray-800 flex gap-1.5">

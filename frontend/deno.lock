@@ -2800,6 +2800,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@biomejs/biome@^2.4.4",
+        "npm:@playwright/test@^1.58.2",
         "npm:@preact/signals-react-transform@~0.8.1",
         "npm:@preact/signals-react@^3.9.0",
         "npm:@reduxjs/toolkit@^2.11.2",

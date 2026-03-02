@@ -17,7 +17,7 @@
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "deno run -A npm:@biomejs/biome check --write",
-      "./node_modules/.bin/tsc --noEmit --skipLibCheck"
+      "bash -c './node_modules/.bin/tsc --noEmit --skipLibCheck --project tsconfig.json'"
     ]
   },
   "dependencies": {

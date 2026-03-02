@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 // react-grid-layout uses `export = X` CJS types; import as default and cast to avoid
 // type gymnastics — `skipLibCheck: true` and the any-cast keep TS happy.
-import GridLayoutLib from "react-grid-layout";
+import GridLayoutLib, { noCompactor } from "react-grid-layout";
 
 // biome-ignore lint/suspicious/noExplicitAny: third-party library workaround
 const GridLayout = (GridLayoutLib as any).default ?? GridLayoutLib;
@@ -57,10 +57,22 @@ export const PANEL_TITLES: Record<PanelId, string> = {
 };
 
 export const DEFAULT_LAYOUT: Layout[] = [
-  { i: "order-ticket", x: 0, y: 0, w: 3, h: 16, minW: 2, minH: 8 },
-  { i: "order-blotter", x: 3, y: 0, w: 9, h: 8, minW: 3, minH: 3 },
-  { i: "algo-monitor", x: 3, y: 8, w: 6, h: 8, minW: 3, minH: 3 },
-  { i: "observability", x: 9, y: 8, w: 3, h: 8, minW: 2, minH: 3 },
+  // Left column: Order entry and execution
+  { i: "order-ticket", x: 0, y: 0, w: 2, h: 12, minW: 2, minH: 8 },
+
+  // Market data: Ladder next to order ticket
+  { i: "market-ladder", x: 2, y: 0, w: 3, h: 12, minW: 2, minH: 6 },
+
+  // Center: Chart and trading analytics
+  { i: "candle-chart", x: 5, y: 0, w: 4, h: 8, minW: 3, minH: 4 },
+  { i: "algo-monitor", x: 5, y: 8, w: 4, h: 4, minW: 3, minH: 3 },
+
+  // Right: Market depth and service status
+  { i: "market-depth", x: 9, y: 0, w: 3, h: 8, minW: 2, minH: 4 },
+  { i: "observability", x: 9, y: 8, w: 3, h: 4, minW: 2, minH: 3 },
+
+  // Bottom: Order history (full width for visibility)
+  { i: "order-blotter", x: 0, y: 12, w: 12, h: 4, minW: 4, minH: 3 },
 ];
 
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
@@ -260,44 +272,68 @@ export function DashboardLayout() {
       case "observability":
         return <ObservabilityPanel />;
       case "candle-chart":
-        return selectedAsset && candleHistory[selectedAsset] ? (
-          <CandlestickChart
-            symbol={selectedAsset}
-            candles={candleHistory[selectedAsset]}
-            onClose={() => dispatch(setSelectedAsset(null))}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">
-            Click an asset in the Market Ladder to open a chart
+        return (
+          <div className="flex flex-col h-full">
+            {selectedAsset && candleHistory[selectedAsset] ? (
+              <CandlestickChart
+                symbol={selectedAsset}
+                candles={candleHistory[selectedAsset]}
+                onClose={() => dispatch(setSelectedAsset(null))}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-600 text-xs gap-2 bg-gradient-to-br from-gray-900 to-gray-950">
+                <div className="w-12 h-12 rounded-full border-2 border-gray-700 flex items-center justify-center">
+                  📊
+                </div>
+                <div className="text-center max-w-xs">
+                  <div className="font-medium text-gray-400 mb-1">Select an Asset</div>
+                  <div>
+                    Click a stock in the <span className="text-emerald-400">Market Ladder</span> to
+                    view its candlestick chart
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       case "market-depth":
-        return selectedAsset ? (
-          <MarketDepth symbol={selectedAsset} />
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">
-            Select an asset in the Market Ladder
+        return (
+          <div className="flex flex-col h-full">
+            {selectedAsset ? (
+              <MarketDepth symbol={selectedAsset} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-600 text-xs bg-gradient-to-br from-gray-900 to-gray-950">
+                <div className="text-center">Select an asset in Market Ladder</div>
+              </div>
+            )}
           </div>
         );
     }
   }
 
+  // react-grid-layout's types don't fully match its runtime API; cast at the boundary.
+  // biome-ignore lint/suspicious/noExplicitAny: untyped third-party props
+  const gridLayout = layout as any;
+  // biome-ignore lint/suspicious/noExplicitAny: untyped third-party callback signature
+  const gridOnLayoutChange = handleLayoutChange as any;
+
   return (
-    <div ref={containerRef} className="w-full">
-      {/* biome-ignore lint/suspicious/noExplicitAny: third-party react-grid-layout library has untyped props */}
+    <div ref={containerRef} className="w-full h-full">
       <GridLayout
-        layout={layout as any}
+        layout={gridLayout}
         cols={12}
         rowHeight={50}
         margin={[4, 4]}
         containerPadding={[4, 4]}
         draggableHandle=".panel-drag-handle"
-        onLayoutChange={handleLayoutChange as any}
+        onLayoutChange={gridOnLayoutChange}
         resizeHandles={["se"]}
         width={gridWidth}
+        useCSSTransforms={false}
+        compactor={noCompactor}
       >
         {layout.map((item) => (
-          <div key={item.i}>
+          <div key={item.i} className="grid-item-wrapper">
             <PanelChrome
               id={item.i as PanelId}
               title={PANEL_TITLES[item.i as PanelId] ?? item.i}

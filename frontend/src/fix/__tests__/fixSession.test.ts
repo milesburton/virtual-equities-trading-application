@@ -424,7 +424,7 @@ describe("FIXSession – heartbeat timer", () => {
     vi.advanceTimersByTime(5_001);
     // Extract the TestReqID from the sent TestRequest
     const testReqMsg = sent[sent.length - 1];
-    const testReqId = decode(testReqMsg).get(Tag.TestReqID)!;
+    const testReqId = decode(testReqMsg).get(Tag.TestReqID) ?? "";
 
     // Exchange responds with Heartbeat carrying same TestReqID
     const hbReply = buildExchangeMessage(

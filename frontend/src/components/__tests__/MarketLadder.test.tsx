@@ -57,12 +57,7 @@ function renderLadder(
 }
 
 describe("MarketLadder – header", () => {
-  it("renders the Market Ladder header", () => {
-    renderLadder();
-    expect(screen.getByText(/Market Ladder/i)).toBeInTheDocument();
-  });
-
-  it("shows total / filtered count", () => {
+  it("shows filtered / total count", () => {
     renderLadder();
     expect(screen.getByText(`${assets.length}/${assets.length}`)).toBeInTheDocument();
   });
@@ -144,7 +139,6 @@ describe("MarketLadder – row rendering (via react-window)", () => {
 describe("MarketLadder – empty assets", () => {
   it("renders with empty assets list without crashing", () => {
     renderLadder({ assets: [], prices: {}, priceHistory: {} });
-    expect(screen.getByText(/Market Ladder/i)).toBeInTheDocument();
     expect(screen.getByText("0/0")).toBeInTheDocument();
   });
 });
