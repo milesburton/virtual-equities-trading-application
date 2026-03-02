@@ -1,4 +1,3 @@
-/* biome-ignore lint/style/noNonNullAssertion: test file assertions */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useContext } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

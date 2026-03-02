@@ -1,4 +1,3 @@
-/* biome-ignore lint/style/noNonNullAssertion: test file assertions */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrderRecord } from "../../types";
 import { decode, encode, MsgType, Tag } from "../fixCodec";

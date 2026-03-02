@@ -1,4 +1,3 @@
-/* biome-ignore lint/style/noNonNullAssertion: test file assertions */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ComponentPicker } from "../ComponentPicker";
@@ -21,7 +20,13 @@ function renderPicker(overrides?: {
 
   const utils = render(
     <DashboardContext.Provider
-      value={{ activePanelIds, addPanel, removePanel, resetLayout, storageKey: "dashboard-layout" }}
+      value={{
+        activePanelIds,
+        addPanel,
+        removePanel,
+        resetLayout,
+        storageKey: "dashboard-layout",
+      }}
     >
       <ComponentPicker />
     </DashboardContext.Provider>

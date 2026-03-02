@@ -33,7 +33,6 @@ describe("encode", () => {
     // biome-ignore lint/suspicious/noControlCharactersInRegex: FIX protocol uses SOH
     const match = msg.match(/10=(\d{3})\u0001$/);
     expect(match).not.toBeNull();
-    // biome-ignore lint/style/noNonNullAssertion: array element assertion
     expect(match?.[1]).toHaveLength(3);
   });
 

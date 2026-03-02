@@ -187,8 +187,8 @@ describe("setAssets", () => {
       { symbol: "MSFT", initialPrice: 300, volatility: 0.015, sector: "Technology" },
     ]);
     const state = reducer(initialState, action);
-    expect(state.priceHistory["AAPL"]).toEqual([]);
-    expect(state.priceHistory["MSFT"]).toEqual([]);
+    expect(state.priceHistory.AAPL).toEqual([]);
+    expect(state.priceHistory.MSFT).toEqual([]);
   });
 
   it("initializes empty candleHistory buckets for each asset", () => {
@@ -196,7 +196,7 @@ describe("setAssets", () => {
       { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
     ]);
     const state = reducer(initialState, action);
-    expect(state.candleHistory["AAPL"]).toEqual({ "1m": [], "5m": [] });
+    expect(state.candleHistory.AAPL).toEqual({ "1m": [], "5m": [] });
   });
 
   it("does not overwrite existing priceHistory when called twice", () => {
@@ -217,7 +217,7 @@ describe("setAssets", () => {
     ]);
     const state = reducer(withHistory, action2);
     // ??= means it does NOT overwrite existing
-    expect(state.priceHistory["AAPL"]).toEqual([148, 149, 150]);
+    expect(state.priceHistory.AAPL).toEqual([148, 149, 150]);
   });
 });
 
@@ -234,13 +234,13 @@ describe("tickReceived", () => {
   it("updates prices", () => {
     const action = tickReceived({ prices: { AAPL: 155 }, ts: 1_700_000_000_000 });
     const state = reducer(baseState, action);
-    expect(state.prices["AAPL"]).toBe(155);
+    expect(state.prices.AAPL).toBe(155);
   });
 
   it("appends to priceHistory", () => {
     const action = tickReceived({ prices: { AAPL: 155 }, ts: 1_700_000_000_000 });
     const state = reducer(baseState, action);
-    expect(state.priceHistory["AAPL"]).toEqual([155]);
+    expect(state.priceHistory.AAPL).toEqual([155]);
   });
 
   it("caps priceHistory at 60 entries", () => {
@@ -255,17 +255,17 @@ describe("tickReceived", () => {
         tickReceived({ prices: { AAPL: 100 + i }, ts: 1_700_000_000_000 + i * 1_000 })
       );
     }
-    expect(state.priceHistory["AAPL"]).toHaveLength(60);
+    expect(state.priceHistory.AAPL).toHaveLength(60);
     // Most recent price is the last one pushed
-    expect(state.priceHistory["AAPL"][59]).toBe(164);
+    expect(state.priceHistory.AAPL[59]).toBe(164);
   });
 
   it("creates OHLC candles for both intervals", () => {
     const ts = 1_700_000_060_000;
     const action = tickReceived({ prices: { AAPL: 155 }, ts });
     const state = reducer(baseState, action);
-    expect(state.candleHistory["AAPL"]["1m"]).toHaveLength(1);
-    expect(state.candleHistory["AAPL"]["5m"]).toHaveLength(1);
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(1);
+    expect(state.candleHistory.AAPL["5m"]).toHaveLength(1);
   });
 
   it("accumulates volume in candles from volumes payload", () => {
@@ -278,7 +278,7 @@ describe("tickReceived", () => {
       state,
       tickReceived({ prices: { AAPL: 156 }, volumes: { AAPL: 500 }, ts: ts + 10_000 })
     );
-    expect(state.candleHistory["AAPL"]["1m"][0].volume).toBe(1500);
+    expect(state.candleHistory.AAPL["1m"][0].volume).toBe(1500);
   });
 
   it("creates a new candle when crossing a bucket boundary", () => {
@@ -286,7 +286,7 @@ describe("tickReceived", () => {
     const ts2 = ts1 + 60_000; // next 1m bucket
     let state = reducer(baseState, tickReceived({ prices: { AAPL: 155 }, ts: ts1 }));
     state = reducer(state, tickReceived({ prices: { AAPL: 160 }, ts: ts2 }));
-    expect(state.candleHistory["AAPL"]["1m"]).toHaveLength(2);
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(2);
   });
 
   it("handles multiple assets in one tick", () => {
@@ -300,8 +300,8 @@ describe("tickReceived", () => {
       ts: 1_700_000_000_000,
     });
     const state = reducer(stateWithTwo, action);
-    expect(state.prices["AAPL"]).toBe(155);
-    expect(state.prices["MSFT"]).toBe(320);
+    expect(state.prices.AAPL).toBe(155);
+    expect(state.prices.MSFT).toBe(320);
   });
 });
 
@@ -319,7 +319,7 @@ describe("orderBookUpdated", () => {
     };
     const action = orderBookUpdated(snapshot);
     const state = reducer(initialState, action);
-    expect(state.orderBook["AAPL"]).toEqual(snapshot["AAPL"]);
+    expect(state.orderBook.AAPL).toEqual(snapshot.AAPL);
   });
 
   it("overwrites previous orderBook entirely", () => {
@@ -332,7 +332,7 @@ describe("orderBookUpdated", () => {
       AAPL: { bids: [], asks: [], mid: 151, ts: 2_000 },
     };
     const state = reducer(stateWithBook, orderBookUpdated(second));
-    expect(state.orderBook["MSFT"]).toBeUndefined();
-    expect(state.orderBook["AAPL"].mid).toBe(151);
+    expect(state.orderBook.MSFT).toBeUndefined();
+    expect(state.orderBook.AAPL.mid).toBe(151);
   });
 });
