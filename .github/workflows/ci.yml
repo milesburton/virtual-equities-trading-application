@@ -52,7 +52,7 @@ jobs:
 
       - name: Biome lint
         working-directory: frontend
-        run: deno run -A npm:@biomejs/biome check src/
+        run: npx @biomejs/biome check src/
 
       - name: TypeScript type-check
         working-directory: frontend
