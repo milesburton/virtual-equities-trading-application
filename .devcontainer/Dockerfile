@@ -18,10 +18,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ssh \
     sudo \
     supervisor \
+    ca-certificates \
+    fonts-liberation \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libgbm1 \
+    libasound2 \
+    libxss1 \
+    libxcomposite1 \
+    libxrandr2 \
+    libgtk-3-0 \
+    libxcb1 \
+    libx11-xcb1 \
     && gem install lolcat \
     && pip3 install --no-cache-dir --upgrade "git+https://github.com/openai/whisper.git@v20231117" \
     && pip install --no-cache-dir --upgrade yt-dlp \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 24 LTS (for frontend tooling & Playwright)
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* || true
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+    apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/* || true
 
 # Create a new user named 'deno' with Fish as the default shell
 RUN useradd -m -s /usr/bin/fish deno

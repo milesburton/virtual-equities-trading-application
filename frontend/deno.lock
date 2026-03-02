@@ -8,6 +8,7 @@
     "npm:@types/uuid@10": "10.0.0",
     "npm:@vitejs/plugin-react@^4.3.1": "4.7.0_vite@5.4.21_@babel+core@7.29.0",
     "npm:autoprefixer@^10.4.19": "10.4.27_postcss@8.5.6",
+    "npm:playwright@^1.40.0": "1.58.2",
     "npm:postcss@^8.4.39": "8.5.6",
     "npm:react-dom@^18.3.1": "18.3.1_react@18.3.1",
     "npm:react-hotkeys-hook@^5.2.4": "5.2.4_react@18.3.1_react-dom@18.3.1__react@18.3.1",
@@ -678,7 +679,7 @@
         "readdirp"
       ],
       "optionalDependencies": [
-        "fsevents"
+        "fsevents@2.3.3"
       ]
     },
     "clsx@2.1.1": {
@@ -850,6 +851,11 @@
     "fraction.js@5.3.4": {
       "integrity": "sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ=="
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "fsevents@2.3.3": {
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
       "os": ["darwin"],
@@ -997,6 +1003,20 @@
     },
     "pirates@4.0.7": {
       "integrity": "sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA=="
+    },
+    "playwright-core@1.58.2": {
+      "integrity": "sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==",
+      "bin": true
+    },
+    "playwright@1.58.2": {
+      "integrity": "sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents@2.3.2"
+      ],
+      "bin": true
     },
     "postcss-import@15.1.0_postcss@8.5.6": {
       "integrity": "sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==",
@@ -1203,7 +1223,7 @@
         "@rollup/rollup-win32-ia32-msvc",
         "@rollup/rollup-win32-x64-gnu",
         "@rollup/rollup-win32-x64-msvc",
-        "fsevents"
+        "fsevents@2.3.3"
       ],
       "bin": true
     },
@@ -1348,7 +1368,7 @@
         "rollup"
       ],
       "optionalDependencies": [
-        "fsevents"
+        "fsevents@2.3.3"
       ],
       "bin": true
     },
@@ -1360,12 +1380,17 @@
     "packageJson": {
       "dependencies": [
         "npm:@biomejs/biome@^2.4.4",
+        "npm:@testing-library/jest-dom@6",
+        "npm:@testing-library/react@14",
+        "npm:@testing-library/user-event@14",
         "npm:@types/react-dom@^18.3.0",
         "npm:@types/react-window@2",
         "npm:@types/react@^18.3.3",
         "npm:@types/uuid@10",
         "npm:@vitejs/plugin-react@^4.3.1",
         "npm:autoprefixer@^10.4.19",
+        "npm:jsdom@^22.1.0",
+        "npm:playwright@^1.40.0",
         "npm:postcss@^8.4.39",
         "npm:react-dom@^18.3.1",
         "npm:react-hotkeys-hook@^5.2.4",
@@ -1376,7 +1401,8 @@
         "npm:tailwindcss@^3.4.6",
         "npm:typescript@^5.5.3",
         "npm:uuid@10",
-        "npm:vite@^5.3.4"
+        "npm:vite@^5.3.4",
+        "npm:vitest@1"
       ]
     }
   }

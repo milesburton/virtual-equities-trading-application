@@ -11,6 +11,8 @@ import type {
   TwapParams,
   VwapParams,
 } from "../types.ts";
+import { AssetSelector } from "./AssetSelector";
+import { StrategyParams } from "./StrategyParams";
 
 interface Props {
   assets: AssetDef[];
@@ -27,7 +29,6 @@ export function OrderTicket({ assets, prices, onSubmit }: Props) {
     useTradingContext();
 
   const [assetSearch, setAssetSearch] = useState("AAPL");
-  const [assetOpen, setAssetOpen] = useState(false);
   const [quantity, setQuantity] = useState("100");
   const [limitPrice, setLimitPrice] = useState("");
   const [expiresAt, setExpiresAt] = useState("300");
@@ -58,13 +59,8 @@ export function OrderTicket({ assets, prices, onSubmit }: Props) {
     }
   }, [selectedAsset?.symbol, currentPrice, limitPrice]);
 
-  const filteredAssets = assets.filter((a) =>
-    a.symbol.toLowerCase().includes(assetSearch.toLowerCase())
-  );
-
   function selectAsset(symbol: string) {
     setAssetSearch(symbol);
-    setAssetOpen(false);
     const price = prices[symbol];
     setLimitPrice(price ? formatPrice(symbol, price) : "");
   }
@@ -184,50 +180,14 @@ export function OrderTicket({ assets, prices, onSubmit }: Props) {
           </select>
         </div>
 
-        <div className="relative">
-          <label htmlFor="asset-search" className="block text-xs text-gray-500 mb-1">
-            Asset
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="asset-search"
-              ref={assetInputRef}
-              type="text"
-              autoComplete="off"
-              value={assetSearch}
-              onChange={(e) => {
-                setAssetSearch(e.target.value);
-                setAssetOpen(true);
-              }}
-              onFocus={() => setAssetOpen(true)}
-              onBlur={() => setTimeout(() => setAssetOpen(false), 150)}
-              className="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
-            />
-            {currentPrice ? (
-              <span className="text-xs text-emerald-400 tabular-nums whitespace-nowrap">
-                {formatPrice(selectedAsset?.symbol ?? "", currentPrice)}
-              </span>
-            ) : (
-              <span className="text-xs text-gray-600">—</span>
-            )}
-          </div>
-          {assetOpen && filteredAssets.length > 0 && (
-            <ul className="absolute left-0 right-0 top-full mt-0.5 z-30 bg-gray-900 border border-gray-700 rounded shadow-xl max-h-48 overflow-auto text-xs">
-              {filteredAssets.slice(0, 40).map((a) => (
-                <li key={a.symbol}>
-                  <button
-                    type="button"
-                    onMouseDown={() => selectAsset(a.symbol)}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-gray-700 flex items-center justify-between"
-                  >
-                    <span className="font-semibold text-gray-200">{a.symbol}</span>
-                    <span className="text-gray-500">{a.sector}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <AssetSelector
+          assets={assets}
+          value={assetSearch}
+          onChange={(v) => setAssetSearch(v)}
+          onSelect={selectAsset}
+          inputRef={assetInputRef}
+          prices={prices}
+        />
 
         <fieldset>
           <legend className="block text-xs text-gray-500 mb-1">
@@ -317,136 +277,25 @@ export function OrderTicket({ assets, prices, onSubmit }: Props) {
           />
         </div>
 
-        {activeStrategy === "TWAP" && (
-          <div className="border border-gray-800 rounded p-2 space-y-2">
-            <div className="text-[10px] text-gray-600 uppercase tracking-wider">TWAP Params</div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label htmlFor="twapSlices" className="block text-xs text-gray-500 mb-1">
-                  Slices
-                </label>
-                <input
-                  id="twapSlices"
-                  type="number"
-                  min="1"
-                  value={twapSlices}
-                  onChange={(e) => setTwapSlices(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="twapCap" className="block text-xs text-gray-500 mb-1">
-                  Part. Cap %
-                </label>
-                <input
-                  id="twapCap"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={twapCap}
-                  onChange={(e) => setTwapCap(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeStrategy === "POV" && (
-          <div className="border border-gray-800 rounded p-2 space-y-2">
-            <div className="text-[10px] text-gray-600 uppercase tracking-wider">POV Params</div>
-            <div>
-              <label htmlFor="povRate" className="block text-xs text-gray-500 mb-1">
-                Participation Rate %
-              </label>
-              <input
-                id="povRate"
-                type="number"
-                min="1"
-                max="100"
-                value={povRate}
-                onChange={(e) => setPovRate(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label htmlFor="povMin" className="block text-xs text-gray-500 mb-1">
-                  Min Slice
-                </label>
-                <input
-                  id="povMin"
-                  type="number"
-                  min="0"
-                  value={povMin}
-                  onChange={(e) => setPovMin(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="povMax" className="block text-xs text-gray-500 mb-1">
-                  Max Slice
-                </label>
-                <input
-                  id="povMax"
-                  type="number"
-                  min="1"
-                  value={povMax}
-                  onChange={(e) => setPovMax(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeStrategy === "VWAP" && (
-          <div className="border border-gray-800 rounded p-2 space-y-2">
-            <div className="text-[10px] text-gray-600 uppercase tracking-wider">VWAP Params</div>
-            <div>
-              <label htmlFor="vwapDev" className="block text-xs text-gray-500 mb-1">
-                Max Deviation %
-              </label>
-              <input
-                id="vwapDev"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={vwapDev}
-                onChange={(e) => setVwapDev(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label htmlFor="vwapStart" className="block text-xs text-gray-500 mb-1">
-                  Start Offset (s)
-                </label>
-                <input
-                  id="vwapStart"
-                  type="number"
-                  min="0"
-                  value={vwapStart}
-                  onChange={(e) => setVwapStart(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="vwapEnd" className="block text-xs text-gray-500 mb-1">
-                  End Offset (s)
-                </label>
-                <input
-                  id="vwapEnd"
-                  type="number"
-                  min="1"
-                  value={vwapEnd}
-                  onChange={(e) => setVwapEnd(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500 tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <StrategyParams
+          activeStrategy={activeStrategy}
+          twapSlices={twapSlices}
+          setTwapSlices={setTwapSlices}
+          twapCap={twapCap}
+          setTwapCap={setTwapCap}
+          povRate={povRate}
+          setPovRate={setPovRate}
+          povMin={povMin}
+          setPovMin={setPovMin}
+          povMax={povMax}
+          setPovMax={setPovMax}
+          vwapDev={vwapDev}
+          setVwapDev={setVwapDev}
+          vwapStart={vwapStart}
+          setVwapStart={setVwapStart}
+          vwapEnd={vwapEnd}
+          setVwapEnd={setVwapEnd}
+        />
 
         <button
           type="submit"

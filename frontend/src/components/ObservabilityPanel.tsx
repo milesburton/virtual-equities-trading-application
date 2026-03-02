@@ -63,7 +63,7 @@ export function ObservabilityPanel() {
             <XAxis dataKey="time" tick={{ fontSize: 10 }} />
             <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
             <Tooltip
-              formatter={(v: unknown) => [v, "count"]}
+              formatter={(v: unknown) => [String(v), "count"]}
               labelFormatter={(l) => `Time: ${l}`}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -85,7 +85,7 @@ export function ObservabilityPanel() {
               >
                 <div className="flex items-center justify-between">
                   <div className="text-gray-400 text-[11px]">
-                    {new Date(e.ts).toLocaleTimeString()}
+                    {e.ts ? new Date(e.ts).toLocaleTimeString() : "—"}
                   </div>
                   <div className="text-xs font-mono text-gray-200">{e.type}</div>
                 </div>
