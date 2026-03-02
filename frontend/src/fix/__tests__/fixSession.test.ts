@@ -2,14 +2,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrderRecord } from "../../types";
 import { decode, encode, MsgType, Tag } from "../fixCodec";
+import type { SessionConfig } from "../fixSession";
 import { FIXSession } from "../fixSession";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeSession(overrides?: Partial<Parameters<typeof FIXSession.prototype.constructor>[0]>) {
+import type { ExecReportPayload } from "../fixSession";
+
+function makeSession(overrides?: Partial<SessionConfig>) {
   const sent: string[] = [];
   const states: string[] = [];
-  const execReports: ReturnType<typeof FIXSession.prototype.handleInbound>[] = [];
+  const execReports: ExecReportPayload[] = [];
 
   const session = new FIXSession({
     senderCompID: "TRADER",
@@ -17,8 +20,8 @@ function makeSession(overrides?: Partial<Parameters<typeof FIXSession.prototype.
     heartBtInt: 30,
     onSend: (msg) => sent.push(msg),
     onStateChange: (s) => states.push(s),
-    onExecReport: (r) => execReports.push(r as never),
-    ...overrides,
+    onExecReport: (r) => execReports.push(r),
+    ...(overrides || {}),
   });
 
   return { session, sent, states, execReports };

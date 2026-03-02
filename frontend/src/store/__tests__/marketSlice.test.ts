@@ -7,6 +7,7 @@ import {
   orderBookUpdated,
   setAssets,
   tickReceived,
+  type MarketState,
 } from "../marketSlice";
 
 const { reducer } = marketSlice;
@@ -243,7 +244,7 @@ describe("tickReceived", () => {
   });
 
   it("caps priceHistory at 60 entries", () => {
-    let state = { ...baseState };
+    let state: MarketState = { ...baseState, priceHistory: { AAPL: [] }, candleHistory: { AAPL: { "1m": [], "5m": [] } } };
     for (let i = 0; i < 65; i++) {
       state = reducer(
         state,

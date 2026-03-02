@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 8080,
     host: true,
+    open: false,
     proxy: {
       // WebSocket feed
       "/ws/market-sim": {
