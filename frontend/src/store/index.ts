@@ -1,10 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { createBroadcastChannelMiddleware } from "./channel.ts";
+import { marketSlice } from "./marketSlice.ts";
 import { marketFeedMiddleware } from "./middleware/marketFeedMiddleware.ts";
 import { observabilityMiddleware } from "./middleware/observabilityMiddleware.ts";
 import { simulationMiddleware } from "./middleware/simulationMiddleware.ts";
 import { versionWatchMiddleware } from "./middleware/versionWatchMiddleware.ts";
-import { marketSlice } from "./marketSlice.ts";
 import { obsApi } from "./obsApi.ts";
 import { observabilitySlice } from "./observabilitySlice.ts";
 import { ordersSlice } from "./ordersSlice.ts";

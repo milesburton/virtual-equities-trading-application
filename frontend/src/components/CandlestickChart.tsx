@@ -130,7 +130,9 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
               <button
                 key={iv}
                 type="button"
-                onClick={() => { interval.value = iv; }}
+                onClick={() => {
+                  interval.value = iv;
+                }}
                 className={`px-2 py-0.5 text-xs transition-colors ${
                   interval.value === iv
                     ? "bg-emerald-700 text-white"

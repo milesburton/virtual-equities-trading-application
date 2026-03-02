@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
 import { useSignal } from "@preact/signals-react";
+import { useEffect, useMemo, useRef } from "react";
 import { List } from "react-window";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
-import type { AssetDef, MarketPrices, PriceHistory } from "../types.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { setSelectedAsset } from "../store/uiSlice.ts";
+import type { AssetDef, MarketPrices, PriceHistory } from "../types.ts";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const SPREAD = 0.0001;
@@ -28,7 +28,9 @@ function PriceFlash({ value, asset }: { value: number; asset: string }) {
     prevRef.current = value;
     if (!dir) return;
     flashClass.value = dir;
-    const t = setTimeout(() => { flashClass.value = ""; }, 400);
+    const t = setTimeout(() => {
+      flashClass.value = "";
+    }, 400);
     return () => clearTimeout(t);
   }, [value, flashClass]);
 
@@ -206,12 +208,16 @@ export function MarketLadder() {
           type="search"
           placeholder="Search symbol or sector…"
           value={search.value}
-          onChange={(e) => { search.value = e.target.value; }}
+          onChange={(e) => {
+            search.value = e.target.value;
+          }}
           className="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1 focus:outline-none focus:border-emerald-500 min-w-0"
         />
         <select
           value={sectorFilter.value}
-          onChange={(e) => { sectorFilter.value = e.target.value; }}
+          onChange={(e) => {
+            sectorFilter.value = e.target.value;
+          }}
           className="bg-gray-800 border border-gray-700 text-gray-400 text-xs rounded px-1.5 py-1 focus:outline-none focus:border-emerald-500"
         >
           {sectors.map((s) => (

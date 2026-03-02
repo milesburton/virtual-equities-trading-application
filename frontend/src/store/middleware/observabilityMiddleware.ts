@@ -13,7 +13,7 @@ export const observabilityMiddleware: Middleware = (storeAPI) => {
     fetch(`${OBS_URL}/events`)
       .then(async (r) => {
         if (!r.ok) return;
-        const data = await r.json() as ObsEvent[];
+        const data = (await r.json()) as ObsEvent[];
         storeAPI.dispatch(observabilitySlice.actions.historicEventsLoaded(data ?? []));
       })
       .catch(() => {});

@@ -1,7 +1,7 @@
-import { useEffect } from "react";
 import { useSignal } from "@preact/signals-react";
-import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
+import { useEffect } from "react";
 import { useAppSelector } from "../store/hooks.ts";
+import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
 import type { ServiceHealth } from "../types.ts";
 import { ServiceStatus } from "./ServiceStatus.tsx";
 
@@ -18,9 +18,23 @@ function useAllServiceHealth(): ServiceHealth[] {
     const result = [r0, r1, r2, r3, r4, r5, r6][i];
     if (result.data) return result.data;
     if (result.isError) {
-      return { name: svc.name, url: svc.url, state: "error" as const, version: "—", meta: {}, lastChecked: Date.now() };
+      return {
+        name: svc.name,
+        url: svc.url,
+        state: "error" as const,
+        version: "—",
+        meta: {},
+        lastChecked: Date.now(),
+      };
     }
-    return { name: svc.name, url: svc.url, state: "unknown" as const, version: "—", meta: {}, lastChecked: null };
+    return {
+      name: svc.name,
+      url: svc.url,
+      state: "unknown" as const,
+      version: "—",
+      meta: {},
+      lastChecked: null,
+    };
   });
 }
 
@@ -30,7 +44,9 @@ export function StatusBar() {
   const time = useSignal(new Date().toLocaleTimeString());
 
   useEffect(() => {
-    const id = setInterval(() => { time.value = new Date().toLocaleTimeString(); }, 1000);
+    const id = setInterval(() => {
+      time.value = new Date().toLocaleTimeString();
+    }, 1000);
     return () => clearInterval(id);
   }, [time]);
 

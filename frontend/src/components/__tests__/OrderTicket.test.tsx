@@ -1,13 +1,13 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
-import { configureStore } from "@reduxjs/toolkit";
-import type { AssetDef, MarketPrices } from "../../types";
+import { TradingProvider } from "../../context/TradingContext";
 import { marketSlice } from "../../store/marketSlice";
 import { ordersSlice } from "../../store/ordersSlice";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
-import { TradingProvider } from "../../context/TradingContext";
+import type { AssetDef, MarketPrices } from "../../types";
 import { OrderTicket } from "../OrderTicket";
 
 const assets: AssetDef[] = [

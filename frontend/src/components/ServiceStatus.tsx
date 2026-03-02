@@ -21,7 +21,9 @@ export function ServiceStatus({ services }: Props) {
     <div className="relative">
       <button
         type="button"
-        onClick={() => { open.value = !open.value; }}
+        onClick={() => {
+          open.value = !open.value;
+        }}
         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
       >
         <StatusDot state={overall} className="w-2 h-2" />
@@ -34,7 +36,9 @@ export function ServiceStatus({ services }: Props) {
             type="button"
             aria-label="Close service status panel"
             className="fixed inset-0 z-10 cursor-default"
-            onClick={() => { open.value = false; }}
+            onClick={() => {
+              open.value = false;
+            }}
           />
 
           <div className="absolute right-0 top-7 z-20 w-96 bg-gray-900 border border-gray-700 rounded shadow-xl text-xs">

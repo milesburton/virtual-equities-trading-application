@@ -1,6 +1,6 @@
+import type { Dispatch, ListenerEffectAPI, UnknownAction } from "@reduxjs/toolkit";
 import { createListenerMiddleware } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
-import type { Dispatch, ListenerEffectAPI, UnknownAction } from "@reduxjs/toolkit";
 import type { ChildOrder, MarketPrices, ObsEvent, OrderRecord } from "../../types.ts";
 import { marketSlice } from "../marketSlice.ts";
 import { ordersSlice } from "../ordersSlice.ts";
@@ -51,7 +51,12 @@ function startTwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
     filled = Math.min(filled + sliceSize, order.quantity);
     sliceIndex++;
     const done = sliceIndex >= numSlices || filled >= order.quantity;
-    api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { filled, status: done ? "filled" : "executing" } }));
+    api.dispatch(
+      ordersSlice.actions.orderPatched({
+        id: order.id,
+        patch: { filled, status: done ? "filled" : "executing" },
+      })
+    );
     if (done) clearInterval(handle);
   }, intervalMs);
 
@@ -59,7 +64,9 @@ function startTwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
     clearInterval(handle);
     const current = api.getState().orders.orders.find((o) => o.id === order.id);
     if (current && current.status !== "filled") {
-      api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } }));
+      api.dispatch(
+        ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } })
+      );
     }
   }, order.expiresAt - Date.now());
 }
@@ -92,7 +99,12 @@ function startPovSimulation(order: OrderRecord, api: SimListenerAPI): void {
     }
     filled += slice;
     const done = filled >= order.quantity;
-    api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { filled, status: done ? "filled" : "executing" } }));
+    api.dispatch(
+      ordersSlice.actions.orderPatched({
+        id: order.id,
+        patch: { filled, status: done ? "filled" : "executing" },
+      })
+    );
     if (done) clearInterval(handle);
   }, POV_INTERVAL_MS);
 
@@ -100,7 +112,9 @@ function startPovSimulation(order: OrderRecord, api: SimListenerAPI): void {
     clearInterval(handle);
     const current = api.getState().orders.orders.find((o) => o.id === order.id);
     if (current && current.status !== "filled") {
-      api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } }));
+      api.dispatch(
+        ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } })
+      );
     }
   }, order.expiresAt - Date.now());
 }
@@ -136,7 +150,12 @@ function startVwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
     filled = Math.min(filled + sliceSize, order.quantity);
     sliceIndex++;
     const done = sliceIndex >= numSlices || filled >= order.quantity;
-    api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { filled, status: done ? "filled" : "executing" } }));
+    api.dispatch(
+      ordersSlice.actions.orderPatched({
+        id: order.id,
+        patch: { filled, status: done ? "filled" : "executing" },
+      })
+    );
     if (done) clearInterval(handle);
   }, VWAP_INTERVAL_MS);
 
@@ -144,14 +163,19 @@ function startVwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
     clearInterval(handle);
     const current = api.getState().orders.orders.find((o) => o.id === order.id);
     if (current && current.status !== "filled") {
-      api.dispatch(ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } }));
+      api.dispatch(
+        ordersSlice.actions.orderPatched({ id: order.id, patch: { status: "expired" } })
+      );
     }
   }, order.expiresAt - Date.now());
 }
 
 export const simulationMiddleware = createListenerMiddleware();
 
-const startAppListening = simulationMiddleware.startListening.withTypes<SimState, Dispatch<UnknownAction>>();
+const startAppListening = simulationMiddleware.startListening.withTypes<
+  SimState,
+  Dispatch<UnknownAction>
+>();
 
 // LIMIT: check fill/expire on every market tick
 startAppListening({

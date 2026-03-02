@@ -1,11 +1,11 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
 import { vi } from "vitest";
 import { marketSlice } from "../../store/marketSlice";
+import { servicesApi } from "../../store/servicesApi";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
-import { servicesApi } from "../../store/servicesApi";
 import { StatusBar } from "../StatusBar";
 
 // Stub the RTK Query hook so the test doesn't need a real HTTP server
@@ -29,8 +29,7 @@ function makeStore(connected: boolean) {
       windows: windowSlice.reducer,
       [servicesApi.reducerPath]: servicesApi.reducer,
     },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(servicesApi.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(servicesApi.middleware),
     preloadedState: {
       market: {
         assets: [],

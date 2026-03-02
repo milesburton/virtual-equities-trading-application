@@ -1,6 +1,6 @@
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import { panelClosed, panelPopped } from "../store/windowSlice.ts";
 import type { PanelId } from "../store/windowSlice.ts";
+import { panelClosed, panelPopped } from "../store/windowSlice.ts";
 
 export function usePopOut(panelId: PanelId): {
   isPopOut: boolean;
