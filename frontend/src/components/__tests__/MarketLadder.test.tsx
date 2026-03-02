@@ -40,6 +40,7 @@ function makeStore(
         priceHistory: overrides.priceHistory ?? priceHistory,
         candleHistory: {},
         connected: true,
+        orderBook: {},
       },
     },
   });

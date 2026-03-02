@@ -95,7 +95,7 @@ describe("usePopOut – close polling", () => {
     });
 
     result.current.popOut();
-    expect(store.getState().windows.popOuts["observability"].open).toBe(true);
+    expect(store.getState().windows.popOuts.observability.open).toBe(true);
 
     // Simulate the pop-out window closing
     mockWindow.closed = true;
@@ -103,7 +103,7 @@ describe("usePopOut – close polling", () => {
     // Advance past one poll interval (500ms)
     vi.advanceTimersByTime(500);
 
-    expect(store.getState().windows.popOuts["observability"].open).toBe(false);
+    expect(store.getState().windows.popOuts.observability.open).toBe(false);
   });
 
   it("continues polling until the window closes", () => {

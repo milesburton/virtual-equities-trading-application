@@ -50,6 +50,11 @@ const SERVICES: { name: string; url: string; link?: string; optional?: boolean }
     link: `${import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`}/health`,
   },
   {
+    name: "FIX Gateway",
+    url: `${import.meta.env.VITE_FIX_GW_URL ?? `${_origin}/api/fix-gateway`}/health`,
+    link: `${import.meta.env.VITE_FIX_GW_URL ?? `${_origin}/api/fix-gateway`}/health`,
+  },
+  {
     name: "Traefik",
     url: `${_traefik}/api/overview`,
     link: _traefik,

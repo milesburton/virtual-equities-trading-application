@@ -3,6 +3,13 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
 import type { ChildOrder, MarketPrices, OrderRecord, Strategy, Trade } from "../types.ts";
 
+export interface FillReceivedPayload {
+  clOrdId: string;
+  filledQty: number;
+  avgFillPrice: number;
+  leavesQty: number;
+}
+
 // Relative paths work behind Traefik; VITE_* overrides for non-standard deployments.
 const ENDPOINTS: Record<Strategy, string> = {
   LIMIT: import.meta.env.VITE_LIMIT_URL ?? "/api/limit-algo",
@@ -79,7 +86,19 @@ export const ordersSlice = createSlice({
         return order;
       });
     },
+    fillReceived(state, action: PayloadAction<FillReceivedPayload>) {
+      const { clOrdId, filledQty, leavesQty } = action.payload;
+      const order = state.orders.find((o) => o.id === clOrdId);
+      if (!order) return;
+      order.filled = filledQty;
+      if (leavesQty === 0) {
+        order.status = "filled";
+      } else if (filledQty > 0) {
+        order.status = "executing";
+      }
+    },
   },
 });
 
-export const { orderAdded, orderPatched, childAdded, limitOrdersChecked } = ordersSlice.actions;
+export const { orderAdded, orderPatched, childAdded, limitOrdersChecked, fillReceived } =
+  ordersSlice.actions;

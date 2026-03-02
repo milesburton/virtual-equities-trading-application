@@ -26,7 +26,7 @@ describe("windowSlice – panelPopped", () => {
   it("does not affect other panels when one is popped", () => {
     const state = reducer(initial, panelPopped({ panelId: "order-blotter" }));
     expect(state.popOuts["algo-monitor"].open).toBe(false);
-    expect(state.popOuts["observability"].open).toBe(false);
+    expect(state.popOuts.observability.open).toBe(false);
     expect(state.popOuts["market-ladder"].open).toBe(false);
   });
 });
@@ -55,10 +55,10 @@ describe("windowSlice – panelClosed", () => {
 describe("windowSlice – round-trip pop/close", () => {
   it("can pop and close multiple times", () => {
     let state = reducer(initial, panelPopped({ panelId: "observability" }));
-    expect(state.popOuts["observability"].open).toBe(true);
+    expect(state.popOuts.observability.open).toBe(true);
     state = reducer(state, panelClosed({ panelId: "observability" }));
-    expect(state.popOuts["observability"].open).toBe(false);
+    expect(state.popOuts.observability.open).toBe(false);
     state = reducer(state, panelPopped({ panelId: "observability" }));
-    expect(state.popOuts["observability"].open).toBe(true);
+    expect(state.popOuts.observability.open).toBe(true);
   });
 });

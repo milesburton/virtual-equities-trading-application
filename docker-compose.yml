@@ -305,6 +305,70 @@ services:
       # SSE requires buffering disabled
       - "traefik.http.middlewares.observability-sse.headers.customResponseHeaders.X-Accel-Buffering=no"
 
+  # ── FIX Exchange (internal TCP, not browser-facing) ──────────────────────────
+  fix-exchange:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/fix/fix-exchange.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      market-sim:
+        condition: service_healthy
+    environment:
+      FIX_EXCHANGE_PORT: 9880
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      EMS_PARTICIPATION_CAP: ${EMS_PARTICIPATION_CAP:-0.20}
+      EMS_IMPACT_PER_1000_BPS: ${EMS_IMPACT_PER_1000_BPS:-1.0}
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9879/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=false"
+
+  # ── FIX Gateway (WebSocket bridge for browser) ────────────────────────────────
+  fix-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/fix/fix-gateway.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      fix-exchange:
+        condition: service_healthy
+    environment:
+      FIX_GATEWAY_PORT: 9881
+      FIX_EXCHANGE_HOST: fix-exchange
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9881/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fix-gateway-ws.rule=PathPrefix(`/ws/fix`)"
+      - "traefik.http.routers.fix-gateway-ws.entrypoints=web"
+      - "traefik.http.routers.fix-gateway-ws.middlewares=fix-gw-ws-strip"
+      - "traefik.http.middlewares.fix-gw-ws-strip.stripprefix.prefixes=/ws/fix"
+      - "traefik.http.routers.fix-gateway-ws.service=fix-gateway"
+      - "traefik.http.services.fix-gateway.loadbalancer.server.port=9881"
+      - "traefik.http.routers.fix-gateway.rule=PathPrefix(`/api/fix-gateway`)"
+      - "traefik.http.routers.fix-gateway.entrypoints=web"
+      - "traefik.http.routers.fix-gateway.middlewares=fix-gw-strip"
+      - "traefik.http.middlewares.fix-gw-strip.stripprefix.prefixes=/api/fix-gateway"
+      - "traefik.http.routers.fix-gateway.service=fix-gateway"
+
   # ── Frontend ──────────────────────────────────────────────────────────────────
   frontend:
     build:
@@ -320,6 +384,8 @@ services:
       oms:
         condition: service_healthy
       observability:
+        condition: service_healthy
+      fix-gateway:
         condition: service_healthy
     environment:
       COMMIT_SHA: ${COMMIT_SHA:-dev}

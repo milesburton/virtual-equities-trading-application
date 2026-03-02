@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { createBroadcastChannelMiddleware } from "./channel.ts";
 import { marketSlice } from "./marketSlice.ts";
+import { fixMiddleware } from "./middleware/fixMiddleware.ts";
 import { marketFeedMiddleware } from "./middleware/marketFeedMiddleware.ts";
 import { observabilityMiddleware } from "./middleware/observabilityMiddleware.ts";
 import { simulationMiddleware } from "./middleware/simulationMiddleware.ts";
@@ -27,6 +28,7 @@ export const store = configureStore({
       .concat(servicesApi.middleware)
       .concat(obsApi.middleware)
       .concat(marketFeedMiddleware)
+      .concat(fixMiddleware)
       .concat(observabilityMiddleware)
       .concat(simulationMiddleware.middleware)
       .concat(versionWatchMiddleware)

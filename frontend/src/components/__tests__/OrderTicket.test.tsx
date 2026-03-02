@@ -32,6 +32,7 @@ function makeStore() {
         priceHistory: {},
         candleHistory: {},
         connected: true,
+        orderBook: {},
       },
     },
   });
@@ -140,6 +141,8 @@ describe("OrderTicket – strategy params visibility", () => {
 
   it("shows no strategy params for LIMIT", () => {
     renderTicket();
+    const select = screen.getByLabelText(/Strategy/i);
+    fireEvent.change(select, { target: { value: "LIMIT" } });
     expect(screen.queryByText(/TWAP Params/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/POV Params/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/VWAP Params/i)).not.toBeInTheDocument();

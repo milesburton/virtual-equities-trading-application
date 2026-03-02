@@ -88,7 +88,7 @@ describe("createBroadcastChannelMiddleware – outbound", () => {
 describe("createBroadcastChannelMiddleware – inbound", () => {
   it("re-dispatches messages received from the channel", () => {
     const store = makeStore();
-    expect(store.getState().ui.activeStrategy).toBe("LIMIT");
+    expect(store.getState().ui.activeStrategy).toBe("TWAP");
 
     const ch = instances[0];
     // Simulate message arriving from another window
