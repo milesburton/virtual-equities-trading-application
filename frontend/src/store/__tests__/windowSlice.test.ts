@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { panelClosed, panelPopped, windowSlice } from "../windowSlice";
 import type { PanelId } from "../windowSlice";
+import { panelClosed, panelPopped, windowSlice } from "../windowSlice";
 
 const { reducer } = windowSlice;
 const initial = reducer(undefined, { type: "@@init" });
