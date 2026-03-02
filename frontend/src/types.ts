@@ -101,6 +101,7 @@ export type ServiceState = "ok" | "error" | "unknown";
 export interface ServiceHealth {
   name: string;
   url: string;
+  link?: string;
   state: ServiceState;
   version: string;
   meta: Record<string, unknown>;
