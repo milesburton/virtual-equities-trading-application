@@ -1,15 +1,23 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+/**
+ * TradingContext — thin wrapper for DOM-imperative operations only.
+ * Strategy, side, and showShortcuts state have moved to uiSlice (Redux).
+ * This context manages only the ticketRef (DOM element ref) which is
+ * not serializable and must NOT go into Redux state.
+ */
+import { createContext, useCallback, useContext, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
+import {
+  hideShortcuts,
+  setActiveSide,
+  setActiveStrategy,
+  toggleShortcuts,
+} from "../store/uiSlice.ts";
 import type { Strategy } from "../types.ts";
 
 interface TradingContextValue {
   focusTicket: () => void;
   registerTicketRef: (ref: HTMLElement | null) => void;
-  showShortcuts: boolean;
-  activeStrategy: Strategy;
-  setActiveStrategy: (s: Strategy) => void;
-  activeSide: "BUY" | "SELL";
-  setActiveSide: (s: "BUY" | "SELL") => void;
 }
 
 const TradingContext = createContext<TradingContextValue | null>(null);
@@ -18,9 +26,8 @@ const STRATEGIES: Strategy[] = ["LIMIT", "TWAP", "POV", "VWAP"];
 
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const ticketRef = useRef<HTMLElement | null>(null);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [activeStrategy, setActiveStrategy] = useState<Strategy>("LIMIT");
-  const [activeSide, setActiveSide] = useState<"BUY" | "SELL">("BUY");
+  const dispatch = useAppDispatch();
+  const showShortcuts = useAppSelector((s) => s.ui.showShortcuts);
 
   const focusTicket = useCallback(() => {
     ticketRef.current?.focus();
@@ -30,36 +37,26 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     ticketRef.current = ref;
   }, []);
 
+  const activeStrategy = useAppSelector((s) => s.ui.activeStrategy);
+
   useHotkeys("f,n", focusTicket, { preventDefault: true });
-  useHotkeys("b", () => setActiveSide("BUY"), { preventDefault: true });
-  useHotkeys("s", () => setActiveSide("SELL"), { preventDefault: true });
+  useHotkeys("b", () => dispatch(setActiveSide("BUY")), { preventDefault: true });
+  useHotkeys("s", () => dispatch(setActiveSide("SELL")), { preventDefault: true });
   useHotkeys(
     "tab",
     () => {
-      setActiveStrategy((prev) => {
-        const idx = STRATEGIES.indexOf(prev);
-        return STRATEGIES[(idx + 1) % STRATEGIES.length];
-      });
+      const idx = STRATEGIES.indexOf(activeStrategy);
+      dispatch(setActiveStrategy(STRATEGIES[(idx + 1) % STRATEGIES.length]));
     },
     { preventDefault: true }
   );
-  useHotkeys("shift+?", () => setShowShortcuts((v) => !v), { preventDefault: true });
-  useHotkeys("escape", () => setShowShortcuts(false), { preventDefault: false });
+  useHotkeys("shift+?", () => dispatch(toggleShortcuts()), { preventDefault: true });
+  useHotkeys("escape", () => dispatch(hideShortcuts()), { preventDefault: false });
 
   return (
-    <TradingContext.Provider
-      value={{
-        focusTicket,
-        registerTicketRef,
-        showShortcuts,
-        activeStrategy,
-        setActiveStrategy,
-        activeSide,
-        setActiveSide,
-      }}
-    >
+    <TradingContext.Provider value={{ focusTicket, registerTicketRef }}>
       {children}
-      {showShortcuts && <ShortcutOverlay onClose={() => setShowShortcuts(false)} />}
+      {showShortcuts && <ShortcutOverlay onClose={() => dispatch(hideShortcuts())} />}
     </TradingContext.Provider>
   );
 }

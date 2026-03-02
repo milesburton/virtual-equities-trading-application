@@ -1,9 +1,7 @@
-import { useState } from "react";
-import type { ChildOrder, OrderRecord, OrderStatus } from "../types.ts";
-
-interface Props {
-  orders: OrderRecord[];
-}
+import { useSignal } from "@preact/signals-react";
+import { useAppSelector } from "../store/hooks.ts";
+import type { ChildOrder, OrderStatus } from "../types.ts";
+import { PopOutButton } from "./PopOutButton.tsx";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
   queued: "bg-amber-900/50 text-amber-300 border border-amber-700/50",
@@ -13,11 +11,7 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
 };
 
 function formatTime(ms: number) {
-  return new Date(ms).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function formatPrice(asset: string, price: number) {
@@ -42,22 +36,14 @@ function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
           </td>
           <td className="px-3 py-1 text-gray-600 font-mono">↳ {child.id.slice(0, 8)}</td>
           <td className="px-3 py-1 text-gray-500">{asset}</td>
-          <td
-            className={`px-3 py-1 text-xs ${child.side === "BUY" ? "text-emerald-600" : "text-red-600"}`}
-          >
+          <td className={`px-3 py-1 text-xs ${child.side === "BUY" ? "text-emerald-600" : "text-red-600"}`}>
             {child.side}
           </td>
-          <td className="px-3 py-1 text-right tabular-nums text-gray-500">
-            {child.quantity.toFixed(1)}
-          </td>
-          <td className="px-3 py-1 text-right tabular-nums text-gray-500">
-            {formatPrice(asset, child.limitPrice)}
-          </td>
+          <td className="px-3 py-1 text-right tabular-nums text-gray-500">{child.quantity.toFixed(1)}</td>
+          <td className="px-3 py-1 text-right tabular-nums text-gray-500">{formatPrice(asset, child.limitPrice)}</td>
           <td className="px-3 py-1 text-gray-600">child</td>
           <td className="px-3 py-1">
-            <span
-              className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${STATUS_STYLES[child.status]}`}
-            >
+            <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${STATUS_STYLES[child.status]}`}>
               {child.status}
             </span>
           </td>
@@ -68,33 +54,29 @@ function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
   );
 }
 
-export function OrderBlotter({ orders }: Props) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+export function OrderBlotter() {
+  const orders = useAppSelector((s) => s.orders.orders);
+  const expanded = useSignal<Set<string>>(new Set());
 
   function toggleExpand(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(expanded.value);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    expanded.value = next;
   }
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Order Blotter
-        </span>
-        <span className="text-xs text-gray-600">
-          {orders.length} order{orders.length !== 1 ? "s" : ""}
-        </span>
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Order Blotter</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">{orders.length} order{orders.length !== 1 ? "s" : ""}</span>
+          <PopOutButton panelId="order-blotter" />
+        </div>
       </div>
       <div className="overflow-auto flex-1">
         {orders.length === 0 ? (
-          <div className="flex items-center justify-center h-24 text-gray-600 text-xs">
-            No orders submitted yet
-          </div>
+          <div className="flex items-center justify-center h-24 text-gray-600 text-xs">No orders submitted yet</div>
         ) : (
           <table className="w-full text-xs">
             <thead>
@@ -113,58 +95,31 @@ export function OrderBlotter({ orders }: Props) {
             <tbody>
               {orders.map((order) => (
                 <>
-                  <tr
-                    key={order.id}
-                    className="border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors"
-                  >
-                    <td className="px-3 py-1.5 text-gray-500 tabular-nums whitespace-nowrap">
-                      {formatTime(order.submittedAt)}
-                    </td>
+                  <tr key={order.id} className="border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
+                    <td className="px-3 py-1.5 text-gray-500 tabular-nums whitespace-nowrap">{formatTime(order.submittedAt)}</td>
                     <td className="px-3 py-1.5 text-gray-500 font-mono">
                       {order.children.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(order.id)}
-                          className="flex items-center gap-1 hover:text-gray-300 transition-colors"
-                        >
-                          <span>{expanded.has(order.id) ? "▾" : "▸"}</span>
+                        <button type="button" onClick={() => toggleExpand(order.id)} className="flex items-center gap-1 hover:text-gray-300 transition-colors">
+                          <span>{expanded.value.has(order.id) ? "▾" : "▸"}</span>
                           {order.id.slice(0, 8)}
                           <span className="text-gray-700 ml-0.5">({order.children.length})</span>
                         </button>
-                      ) : (
-                        order.id.slice(0, 8)
-                      )}
+                      ) : order.id.slice(0, 8)}
                     </td>
                     <td className="px-3 py-1.5 font-semibold text-gray-200">{order.asset}</td>
-                    <td
-                      className={`px-3 py-1.5 font-semibold ${order.side === "BUY" ? "text-emerald-400" : "text-red-400"}`}
-                    >
-                      {order.side}
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-200">
-                      {order.quantity.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-300">
-                      {formatPrice(order.asset, order.limitPrice)}
-                    </td>
+                    <td className={`px-3 py-1.5 font-semibold ${order.side === "BUY" ? "text-emerald-400" : "text-red-400"}`}>{order.side}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-200">{order.quantity.toLocaleString()}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-300">{formatPrice(order.asset, order.limitPrice)}</td>
                     <td className="px-3 py-1.5 text-gray-400">{order.strategy}</td>
                     <td className="px-3 py-1.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLES[order.status]}`}
-                      >
+                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLES[order.status]}`}>
                         {order.status}
                       </span>
                     </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">
-                      {order.children.length > 0 ? avgFillPrice(order.children) : "—"}
-                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">{order.children.length > 0 ? avgFillPrice(order.children) : "—"}</td>
                   </tr>
-                  {expanded.has(order.id) && order.children.length > 0 && (
-                    <ChildRows
-                      key={`${order.id}-children`}
-                      rows={order.children}
-                      asset={order.asset}
-                    />
+                  {expanded.value.has(order.id) && order.children.length > 0 && (
+                    <ChildRows key={`${order.id}-children`} rows={order.children} asset={order.asset} />
                   )}
                 </>
               ))}

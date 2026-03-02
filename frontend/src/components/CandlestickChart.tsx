@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSignal } from "@preact/signals-react";
 import {
   Bar,
   ComposedChart,
@@ -99,8 +99,8 @@ function CandleTooltip({
 }
 
 export function CandlestickChart({ symbol, candles, onClose }: Props) {
-  const [interval, setInterval] = useState<Interval>("1m");
-  const raw = candles[interval];
+  const interval = useSignal<Interval>("1m");
+  const raw = candles[interval.value];
 
   const data = raw.map((c) => {
     const bodyTop = Math.min(c.open, c.close);
@@ -130,9 +130,9 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
               <button
                 key={iv}
                 type="button"
-                onClick={() => setInterval(iv)}
+                onClick={() => { interval.value = iv; }}
                 className={`px-2 py-0.5 text-xs transition-colors ${
-                  interval === iv
+                  interval.value === iv
                     ? "bg-emerald-700 text-white"
                     : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                 }`}
@@ -154,7 +154,7 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
 
       {data.length < 2 ? (
         <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">
-          Collecting {interval} candles…
+          Collecting {interval.value} candles…
         </div>
       ) : (
         <div className="flex-1 p-2">
@@ -162,7 +162,7 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
             <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
               <XAxis
                 dataKey="time"
-                tickFormatter={(ts: number) => formatTime(ts, interval)}
+                tickFormatter={(ts: number) => formatTime(ts, interval.value)}
                 tick={{ fill: "#6b7280", fontSize: 10 }}
                 axisLine={{ stroke: "#374151" }}
                 tickLine={false}
@@ -176,7 +176,7 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
                 tickFormatter={(v: number) => v.toFixed(2)}
                 width={52}
               />
-              <Tooltip content={<CandleTooltip interval={interval} />} />
+              <Tooltip content={<CandleTooltip interval={interval.value} />} />
               <Bar dataKey="range" shape={<CandleBar />} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>

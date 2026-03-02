@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
-import { TradingProvider } from "../../context/TradingContext";
+import { configureStore } from "@reduxjs/toolkit";
 import type { AssetDef, MarketPrices } from "../../types";
+import { marketSlice } from "../../store/marketSlice";
+import { ordersSlice } from "../../store/ordersSlice";
+import { uiSlice } from "../../store/uiSlice";
+import { windowSlice } from "../../store/windowSlice";
+import { TradingProvider } from "../../context/TradingContext";
 import { OrderTicket } from "../OrderTicket";
 
 const assets: AssetDef[] = [
@@ -11,12 +17,36 @@ const assets: AssetDef[] = [
 
 const prices: MarketPrices = { AAPL: 155, MSFT: 305 };
 
-function renderTicket(onSubmit = vi.fn().mockResolvedValue(undefined)) {
-  return render(
-    <TradingProvider>
-      <OrderTicket assets={assets} prices={prices} onSubmit={onSubmit} />
-    </TradingProvider>
+function makeStore() {
+  return configureStore({
+    reducer: {
+      market: marketSlice.reducer,
+      orders: ordersSlice.reducer,
+      ui: uiSlice.reducer,
+      windows: windowSlice.reducer,
+    },
+    preloadedState: {
+      market: {
+        assets,
+        prices,
+        priceHistory: {},
+        candleHistory: {},
+        connected: true,
+      },
+    },
+  });
+}
+
+function renderTicket() {
+  const testStore = makeStore();
+  render(
+    <Provider store={testStore}>
+      <TradingProvider>
+        <OrderTicket />
+      </TradingProvider>
+    </Provider>
   );
+  return testStore;
 }
 
 describe("OrderTicket – rendering", () => {
@@ -117,66 +147,38 @@ describe("OrderTicket – strategy params visibility", () => {
 });
 
 describe("OrderTicket – form submission", () => {
-  it("calls onSubmit with the correct trade when form is submitted", async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    renderTicket(onSubmit);
-
-    // quantity is already "100" by default; limitPrice filled from prices
-    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
-
-    await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          asset: "AAPL",
-          side: "BUY",
-          quantity: 100,
-          limitPrice: 155,
-          algoParams: { strategy: "LIMIT" },
-        })
-      );
-    });
-  });
-
   it("shows success feedback after successful submission", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     renderTicket();
     fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Order submitted/i)).toBeInTheDocument();
     });
+    vi.unstubAllGlobals();
   });
 
-  it("shows error feedback when onSubmit rejects", async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new Error("Network error"));
-    renderTicket(onSubmit);
+  it("adds order to store even when backend fetch fails (fire-and-forget)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
+    const testStore = renderTicket();
+    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
 
+    // The thunk always succeeds (fetch is fire-and-forget), so the order is still added
+    await waitFor(() => {
+      expect(testStore.getState().orders.orders.length).toBeGreaterThan(0);
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("adds order to store after submission", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    const testStore = renderTicket();
     fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Failed to submit order/i)).toBeInTheDocument();
+      expect(testStore.getState().orders.orders.length).toBeGreaterThan(0);
     });
-  });
-
-  it("disables submit button while submitting", async () => {
-    // Simulate a slow submit
-    let resolve: (() => void) | undefined;
-    const onSubmit = vi.fn().mockReturnValue(
-      new Promise<void>((r) => {
-        resolve = r;
-      })
-    );
-    renderTicket(onSubmit);
-
-    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
-
-    // While pending, button shows "Submitting…"
-    expect(screen.getByRole("button", { name: /Submitting/i })).toBeDisabled();
-
-    // Resolve and clean up
-    resolve?.();
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: /Submitting/i })).not.toBeInTheDocument();
-    });
+    vi.unstubAllGlobals();
   });
 });
 

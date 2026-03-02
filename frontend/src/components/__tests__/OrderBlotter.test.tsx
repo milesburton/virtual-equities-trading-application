@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { configureStore } from "@reduxjs/toolkit";
 import type { OrderRecord } from "../../types";
+import { ordersSlice } from "../../store/ordersSlice";
+import { windowSlice } from "../../store/windowSlice";
 import { OrderBlotter } from "../OrderBlotter";
 
 const now = Date.now();
@@ -23,46 +27,66 @@ function makeOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
   };
 }
 
+function makeStore(orders: OrderRecord[] = []) {
+  return configureStore({
+    reducer: {
+      orders: ordersSlice.reducer,
+      windows: windowSlice.reducer,
+    },
+    preloadedState: {
+      orders: { orders },
+    },
+  });
+}
+
+function renderBlotter(orders: OrderRecord[] = []) {
+  return render(
+    <Provider store={makeStore(orders)}>
+      <OrderBlotter />
+    </Provider>
+  );
+}
+
 describe("OrderBlotter – empty state", () => {
   it("shows empty placeholder when there are no orders", () => {
-    render(<OrderBlotter orders={[]} />);
+    renderBlotter([]);
     expect(screen.getByText(/No orders submitted yet/i)).toBeInTheDocument();
   });
 
   it("shows 0 orders in the header", () => {
-    render(<OrderBlotter orders={[]} />);
+    renderBlotter([]);
     expect(screen.getByText(/0 orders/i)).toBeInTheDocument();
   });
 });
 
 describe("OrderBlotter – single order", () => {
   it("shows order count in header", () => {
-    render(<OrderBlotter orders={[makeOrder()]} />);
+    renderBlotter([makeOrder()]);
     expect(screen.getByText(/1 order$/i)).toBeInTheDocument();
   });
 
   it("renders the asset symbol", () => {
-    render(<OrderBlotter orders={[makeOrder({ asset: "MSFT" })]} />);
+    renderBlotter([makeOrder({ asset: "MSFT" })]);
     expect(screen.getByText("MSFT")).toBeInTheDocument();
   });
 
   it("renders the strategy", () => {
-    render(<OrderBlotter orders={[makeOrder({ strategy: "TWAP" })]} />);
+    renderBlotter([makeOrder({ strategy: "TWAP" })]);
     expect(screen.getByText("TWAP")).toBeInTheDocument();
   });
 
   it("renders the status badge", () => {
-    render(<OrderBlotter orders={[makeOrder({ status: "executing" })]} />);
+    renderBlotter([makeOrder({ status: "executing" })]);
     expect(screen.getByText("executing")).toBeInTheDocument();
   });
 
   it("renders the side in colour-coded cell", () => {
-    render(<OrderBlotter orders={[makeOrder({ side: "SELL" })]} />);
+    renderBlotter([makeOrder({ side: "SELL" })]);
     expect(screen.getByText("SELL")).toBeInTheDocument();
   });
 
   it("shows — for avg fill when there are no children", () => {
-    render(<OrderBlotter orders={[makeOrder()]} />);
+    renderBlotter([makeOrder()]);
     // The last column cell for avg fill shows —
     const dashes = screen.getAllByText("—");
     expect(dashes.length).toBeGreaterThan(0);
@@ -71,7 +95,7 @@ describe("OrderBlotter – single order", () => {
 
 describe("OrderBlotter – multiple orders", () => {
   it("shows plural 'orders' in header count", () => {
-    render(<OrderBlotter orders={[makeOrder(), makeOrder({ id: "order-2" })]} />);
+    renderBlotter([makeOrder(), makeOrder({ id: "order-2" })]);
     expect(screen.getByText(/2 orders/i)).toBeInTheDocument();
   });
 });
@@ -91,14 +115,14 @@ describe("OrderBlotter – child order expansion", () => {
 
   it("shows expand button when order has children", () => {
     const order = makeOrder({ children: [child] });
-    render(<OrderBlotter orders={[order]} />);
+    renderBlotter([order]);
     // The expand button is the ▸ character
     expect(screen.getByText("▸")).toBeInTheDocument();
   });
 
   it("expands child rows when expand button is clicked", () => {
     const order = makeOrder({ children: [child] });
-    render(<OrderBlotter orders={[order]} />);
+    renderBlotter([order]);
 
     fireEvent.click(screen.getByText("▸"));
 
@@ -108,7 +132,7 @@ describe("OrderBlotter – child order expansion", () => {
 
   it("collapses child rows when expand button clicked again", () => {
     const order = makeOrder({ children: [child] });
-    render(<OrderBlotter orders={[order]} />);
+    renderBlotter([order]);
 
     fireEvent.click(screen.getByText("▸"));
     expect(screen.getByText("▾")).toBeInTheDocument();
@@ -123,7 +147,7 @@ describe("OrderBlotter – child order expansion", () => {
       filled: 25,
       status: "filled",
     });
-    render(<OrderBlotter orders={[order]} />);
+    renderBlotter([order]);
     // avg fill = 150.0000
     expect(screen.getByText("150.0000")).toBeInTheDocument();
   });
@@ -134,7 +158,7 @@ describe("OrderBlotter – status styles", () => {
 
   for (const status of statuses) {
     it(`renders ${status} badge`, () => {
-      render(<OrderBlotter orders={[makeOrder({ status })]} />);
+      renderBlotter([makeOrder({ status })]);
       expect(screen.getByText(status)).toBeInTheDocument();
     });
   }

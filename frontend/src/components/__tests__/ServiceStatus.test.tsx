@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ServiceHealth } from "../../hooks/useServiceHealth";
+import type { ServiceHealth } from "../../types";
 import { ServiceStatus } from "../ServiceStatus";
 
 const services: ServiceHealth[] = [

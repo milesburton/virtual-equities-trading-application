@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { configureStore } from "@reduxjs/toolkit";
 import type { OrderRecord } from "../../types";
+import { ordersSlice } from "../../store/ordersSlice";
+import { windowSlice } from "../../store/windowSlice";
 import { AlgoMonitor } from "../AlgoMonitor";
 
 const now = Date.now();
@@ -23,14 +27,34 @@ function makeOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
   };
 }
 
+function makeStore(orders: OrderRecord[] = []) {
+  return configureStore({
+    reducer: {
+      orders: ordersSlice.reducer,
+      windows: windowSlice.reducer,
+    },
+    preloadedState: {
+      orders: { orders },
+    },
+  });
+}
+
+function renderMonitor(orders: OrderRecord[] = []) {
+  return render(
+    <Provider store={makeStore(orders)}>
+      <AlgoMonitor />
+    </Provider>
+  );
+}
+
 describe("AlgoMonitor – empty state", () => {
   it("shows 'No active algo orders' when there are no active orders", () => {
-    render(<AlgoMonitor orders={[]} />);
+    renderMonitor([]);
     expect(screen.getByText(/No active algo orders/i)).toBeInTheDocument();
   });
 
   it("shows 0 active in header with no orders", () => {
-    render(<AlgoMonitor orders={[]} />);
+    renderMonitor([]);
     expect(screen.getByText(/0 active/i)).toBeInTheDocument();
   });
 
@@ -39,14 +63,14 @@ describe("AlgoMonitor – empty state", () => {
       makeOrder({ status: "filled" }),
       makeOrder({ id: "order-2", status: "expired" }),
     ];
-    render(<AlgoMonitor orders={orders} />);
+    renderMonitor(orders);
     expect(screen.getByText(/No active algo orders/i)).toBeInTheDocument();
   });
 });
 
 describe("AlgoMonitor – active orders", () => {
   it("renders executing order", () => {
-    render(<AlgoMonitor orders={[makeOrder()]} />);
+    renderMonitor([makeOrder()]);
     expect(screen.getByText("AAPL")).toBeInTheDocument();
     // "TWAP" appears in both the dropdown option and the table cell
     expect(screen.getAllByText("TWAP").length).toBeGreaterThanOrEqual(1);
@@ -54,48 +78,44 @@ describe("AlgoMonitor – active orders", () => {
   });
 
   it("shows 1 active in header", () => {
-    render(<AlgoMonitor orders={[makeOrder()]} />);
+    renderMonitor([makeOrder()]);
     expect(screen.getByText(/1 active/i)).toBeInTheDocument();
   });
 
   it("shows queued order as 'Waiting'", () => {
-    render(<AlgoMonitor orders={[makeOrder({ status: "queued" })]} />);
+    renderMonitor([makeOrder({ status: "queued" })]);
     expect(screen.getByText("Waiting")).toBeInTheDocument();
   });
 
   it("shows LIMIT executing order as 'Monitoring'", () => {
-    render(
-      <AlgoMonitor
-        orders={[
-          makeOrder({
-            strategy: "LIMIT",
-            status: "executing",
-            algoParams: { strategy: "LIMIT" },
-          }),
-        ]}
-      />
-    );
+    renderMonitor([
+      makeOrder({
+        strategy: "LIMIT",
+        status: "executing",
+        algoParams: { strategy: "LIMIT" },
+      }),
+    ]);
     expect(screen.getByText("Monitoring")).toBeInTheDocument();
   });
 
   it("shows seconds left for non-LIMIT executing orders", () => {
-    render(<AlgoMonitor orders={[makeOrder({ expiresAt: now + 30_000 })]} />);
+    renderMonitor([makeOrder({ expiresAt: now + 30_000 })]);
     // Should show something like "30s left"
     expect(screen.getByText(/\d+s left/)).toBeInTheDocument();
   });
 
   it("calculates and displays fill percentage", () => {
-    render(<AlgoMonitor orders={[makeOrder({ quantity: 100, filled: 50 })]} />);
+    renderMonitor([makeOrder({ quantity: 100, filled: 50 })]);
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
   it("clamps progress at 100%", () => {
-    render(<AlgoMonitor orders={[makeOrder({ quantity: 100, filled: 150 })]} />);
+    renderMonitor([makeOrder({ quantity: 100, filled: 150 })]);
     expect(screen.getByText("150%")).toBeInTheDocument(); // label shows raw, bar clamps via CSS
   });
 
   it("renders filled quantity", () => {
-    render(<AlgoMonitor orders={[makeOrder({ filled: 25 })]} />);
+    renderMonitor([makeOrder({ filled: 25 })]);
     // filled column
     expect(screen.getByText("25")).toBeInTheDocument();
   });
@@ -119,14 +139,14 @@ describe("AlgoMonitor – strategy filter", () => {
   ];
 
   it("shows all orders when filter is ALL", () => {
-    render(<AlgoMonitor orders={orders} />);
+    renderMonitor(orders);
     expect(screen.getByText("AAPL")).toBeInTheDocument();
     expect(screen.getByText("MSFT")).toBeInTheDocument();
     expect(screen.getByText("GOOGL")).toBeInTheDocument();
   });
 
   it("filters to show only TWAP orders", () => {
-    render(<AlgoMonitor orders={orders} />);
+    renderMonitor(orders);
     const select = screen.getByRole("combobox");
     fireEvent.change(select, { target: { value: "TWAP" } });
 
@@ -136,7 +156,7 @@ describe("AlgoMonitor – strategy filter", () => {
   });
 
   it("filters to show only POV orders", () => {
-    render(<AlgoMonitor orders={orders} />);
+    renderMonitor(orders);
     const select = screen.getByRole("combobox");
     fireEvent.change(select, { target: { value: "POV" } });
 
@@ -160,7 +180,7 @@ describe("AlgoMonitor – child orders", () => {
   };
 
   it("renders child order rows when present", () => {
-    render(<AlgoMonitor orders={[makeOrder({ children: [child] })]} />);
+    renderMonitor([makeOrder({ children: [child] })]);
     // Child rows show "child" as strategy label
     expect(screen.getByText("child")).toBeInTheDocument();
   });

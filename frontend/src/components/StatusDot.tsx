@@ -1,4 +1,4 @@
-import type { ServiceState } from "../hooks/useServiceHealth.ts";
+import type { ServiceState } from "../types.ts";
 
 export function StatusDot({ state, className = "" }: { state: ServiceState; className?: string }) {
   function cls(s: ServiceState) {

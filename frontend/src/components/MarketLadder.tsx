@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useSignal } from "@preact/signals-react";
 import { List } from "react-window";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { AssetDef, MarketPrices, PriceHistory } from "../types.ts";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
+import { setSelectedAsset } from "../store/uiSlice.ts";
+import { PopOutButton } from "./PopOutButton.tsx";
 
 const SPREAD = 0.0001;
 const ROW_HEIGHT = 40;
-
-interface Props {
-  assets: AssetDef[];
-  prices: MarketPrices;
-  priceHistory: PriceHistory;
-  selectedAsset: string | null;
-  onSelectAsset: (symbol: string | null) => void;
-}
 
 function formatPrice(symbol: string, price: number) {
   return symbol.includes("/") ? price.toFixed(4) : price.toFixed(2);
@@ -20,7 +16,7 @@ function formatPrice(symbol: string, price: number) {
 
 function PriceFlash({ value, asset }: { value: number; asset: string }) {
   const prevRef = useRef<number | null>(null);
-  const [flashClass, setFlashClass] = useState("");
+  const flashClass = useSignal("");
 
   useEffect(() => {
     if (prevRef.current === null) {
@@ -31,15 +27,15 @@ function PriceFlash({ value, asset }: { value: number; asset: string }) {
       value > prevRef.current ? "flash-green" : value < prevRef.current ? "flash-red" : "";
     prevRef.current = value;
     if (!dir) return;
-    setFlashClass(dir);
-    const t = setTimeout(() => setFlashClass(""), 400);
+    flashClass.value = dir;
+    const t = setTimeout(() => { flashClass.value = ""; }, 400);
     return () => clearTimeout(t);
-  }, [value]);
+  }, [value, flashClass]);
 
   const colorClass =
-    flashClass === "flash-green"
+    flashClass.value === "flash-green"
       ? "text-emerald-400"
-      : flashClass === "flash-red"
+      : flashClass.value === "flash-red"
         ? "text-red-400"
         : "text-gray-100";
 
@@ -69,7 +65,6 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-// Props that we supply via rowProps (user data, not injected by the library)
 interface RowData {
   filtered: AssetDef[];
   prices: MarketPrices;
@@ -78,7 +73,6 @@ interface RowData {
   onSelectAsset: (symbol: string | null) => void;
 }
 
-// Full props as received by the row component (library injects ariaAttributes, index, style)
 interface RowComponentProps extends RowData {
   ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
   index: number;
@@ -150,59 +144,74 @@ function Row({
   );
 }
 
-export function MarketLadder({
-  assets,
-  prices,
-  priceHistory,
-  selectedAsset,
-  onSelectAsset,
-}: Props) {
-  const [search, setSearch] = useState("");
-  const [sectorFilter, setSectorFilter] = useState("All");
+export function MarketLadder() {
+  const dispatch = useAppDispatch();
+  const assets = useAppSelector((s) => s.market.assets);
+  const prices = useAppSelector((s) => s.market.prices);
+  const priceHistory = useAppSelector((s) => s.market.priceHistory);
+  const selectedAsset = useAppSelector((s) => s.ui.selectedAsset);
+
+  const search = useSignal("");
+  const sectorFilter = useSignal("All");
   const containerRef = useRef<HTMLDivElement>(null);
-  const [listHeight, setListHeight] = useState(400);
+  const listHeight = useSignal(400);
 
-  const sectors = ["All", ...Array.from(new Set(assets.map((a) => a.sector))).sort()];
+  const sectors = useMemo(
+    () => ["All", ...Array.from(new Set(assets.map((a) => a.sector))).sort()],
+    [assets]
+  );
 
-  const filtered = assets.filter((a) => {
-    const matchSearch =
-      a.symbol.toLowerCase().includes(search.toLowerCase()) ||
-      a.sector.toLowerCase().includes(search.toLowerCase());
-    const matchSector = sectorFilter === "All" || a.sector === sectorFilter;
-    return matchSearch && matchSector;
-  });
+  const filtered = useMemo(
+    () =>
+      assets.filter((a) => {
+        const matchSearch =
+          a.symbol.toLowerCase().includes(search.value.toLowerCase()) ||
+          a.sector.toLowerCase().includes(search.value.toLowerCase());
+        const matchSector = sectorFilter.value === "All" || a.sector === sectorFilter.value;
+        return matchSearch && matchSector;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assets, search.value, sectorFilter.value]
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
     const ro = new ResizeObserver((entries) => {
-      setListHeight(entries[0].contentRect.height);
+      listHeight.value = entries[0].contentRect.height;
     });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [listHeight]);
+
+  function onSelectAsset(symbol: string | null) {
+    dispatch(setSelectedAsset(symbol));
+  }
 
   const rowData: RowData = { filtered, prices, priceHistory, selectedAsset, onSelectAsset };
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-gray-700 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-        Market Ladder
-        <span className="ml-2 text-gray-600 normal-case font-normal">
-          {filtered.length}/{assets.length}
-        </span>
+      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          Market Ladder
+          <span className="ml-2 text-gray-600 normal-case font-normal">
+            {filtered.length}/{assets.length}
+          </span>
+        </div>
+        <PopOutButton panelId="market-ladder" />
       </div>
 
       <div className="px-2 py-1.5 border-b border-gray-800 flex gap-1.5">
         <input
           type="search"
           placeholder="Search symbol or sector…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={search.value}
+          onChange={(e) => { search.value = e.target.value; }}
           className="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1 focus:outline-none focus:border-emerald-500 min-w-0"
         />
         <select
-          value={sectorFilter}
-          onChange={(e) => setSectorFilter(e.target.value)}
+          value={sectorFilter.value}
+          onChange={(e) => { sectorFilter.value = e.target.value; }}
           className="bg-gray-800 border border-gray-700 text-gray-400 text-xs rounded px-1.5 py-1 focus:outline-none focus:border-emerald-500"
         >
           {sectors.map((s) => (
@@ -229,7 +238,7 @@ export function MarketLadder({
           rowHeight={ROW_HEIGHT}
           rowProps={rowData}
           overscanCount={5}
-          style={{ height: `${listHeight}px` }}
+          style={{ height: `${listHeight.value}px` }}
         />
       </div>
     </div>
