@@ -5,25 +5,53 @@ import type { ServiceHealth } from "../types.ts";
 // VITE_* overrides remain available for non-standard deployments.
 const _origin = typeof window !== "undefined" ? window.location.origin : "";
 
-const SERVICES: { name: string; url: string }[] = [
+const _traefik = import.meta.env.VITE_TRAEFIK_DASHBOARD_URL ?? `${_origin.replace(/:(\d+)$/, "")}:8888`;
+
+const SERVICES: { name: string; url: string; link?: string }[] = [
   {
     name: "Market Sim",
     url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`}/health`,
+    link: `${import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`}/health`,
   },
-  { name: "EMS", url: `${import.meta.env.VITE_EMS_URL ?? `${_origin}/api/ems`}/health` },
-  { name: "OMS", url: `${import.meta.env.VITE_OMS_URL ?? `${_origin}/api/oms`}/health` },
+  {
+    name: "EMS",
+    url: `${import.meta.env.VITE_EMS_URL ?? `${_origin}/api/ems`}/health`,
+    link: `${import.meta.env.VITE_EMS_URL ?? `${_origin}/api/ems`}/health`,
+  },
+  {
+    name: "OMS",
+    url: `${import.meta.env.VITE_OMS_URL ?? `${_origin}/api/oms`}/health`,
+    link: `${import.meta.env.VITE_OMS_URL ?? `${_origin}/api/oms`}/health`,
+  },
   {
     name: "Limit Algo",
     url: `${import.meta.env.VITE_LIMIT_URL ?? `${_origin}/api/limit-algo`}/health`,
+    link: `${import.meta.env.VITE_LIMIT_URL ?? `${_origin}/api/limit-algo`}/health`,
   },
   {
     name: "TWAP Algo",
     url: `${import.meta.env.VITE_TWAP_URL ?? `${_origin}/api/twap-algo`}/health`,
+    link: `${import.meta.env.VITE_TWAP_URL ?? `${_origin}/api/twap-algo`}/health`,
   },
-  { name: "POV Algo", url: `${import.meta.env.VITE_POV_URL ?? `${_origin}/api/pov-algo`}/health` },
+  {
+    name: "POV Algo",
+    url: `${import.meta.env.VITE_POV_URL ?? `${_origin}/api/pov-algo`}/health`,
+    link: `${import.meta.env.VITE_POV_URL ?? `${_origin}/api/pov-algo`}/health`,
+  },
   {
     name: "VWAP Algo",
     url: `${import.meta.env.VITE_VWAP_URL ?? `${_origin}/api/vwap-algo`}/health`,
+    link: `${import.meta.env.VITE_VWAP_URL ?? `${_origin}/api/vwap-algo`}/health`,
+  },
+  {
+    name: "Observability",
+    url: `${import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`}/health`,
+    link: `${import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`}/health`,
+  },
+  {
+    name: "Traefik",
+    url: `${_traefik}/api/overview`,
+    link: _traefik,
   },
 ];
 
@@ -33,7 +61,7 @@ export const servicesApi = createApi({
   reducerPath: "servicesApi",
   baseQuery: fetchBaseQuery({ baseUrl: "" }),
   endpoints: (builder) => ({
-    getServiceHealth: builder.query<ServiceHealth, { name: string; url: string }>({
+    getServiceHealth: builder.query<ServiceHealth, { name: string; url: string; link?: string }>({
       query: ({ url }) => ({ url }),
       transformResponse: (body: Record<string, unknown>, _meta, arg) => {
         const { version, ...rest } = body;
@@ -41,6 +69,7 @@ export const servicesApi = createApi({
         return {
           name: arg.name,
           url: arg.url,
+          link: arg.link,
           state: "ok" as const,
           version: String(version ?? "—"),
           meta: meta as Record<string, unknown>,
@@ -50,6 +79,7 @@ export const servicesApi = createApi({
       transformErrorResponse: (_response, _meta, arg) => ({
         name: arg.name,
         url: arg.url,
+        link: arg.link,
         state: "error" as const,
         version: "—",
         meta: {},
