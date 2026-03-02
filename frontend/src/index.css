@@ -42,11 +42,31 @@
   transition: none !important;
 }
 
+/* Prevent grid items from jumping when clicked/focused */
+.react-grid-item {
+  transition-property: left, top, width, height;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+  will-change: auto;
+}
+
+.react-grid-item.react-grid-placeholder {
+  transition-duration: 100ms;
+}
+
+/* Ensure grid items maintain dimensions */
+.react-grid-item > div {
+  height: 100%;
+  width: 100%;
+}
+
 @layer utilities {
   .flash-green {
+    display: inline-block;
     animation: flashGreen 0.4s ease-out;
   }
   .flash-red {
+    display: inline-block;
     animation: flashRed 0.4s ease-out;
   }
 }

@@ -103,16 +103,20 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
         const isEditing = editingId.value === ws.id;
 
         return (
-          <button
+          <div
             key={ws.id}
-            type="button"
-            className={`group relative flex items-center h-full px-3 border-r border-gray-800 text-[11px] cursor-pointer select-none appearance-none bg-transparent border-0 ${
+            role="tab"
+            tabIndex={0}
+            className={`group relative flex items-center h-full px-3 border-r border-gray-800 text-[11px] cursor-pointer select-none appearance-none bg-transparent border-t-2 border-t-transparent ${
               active
-                ? "bg-gray-900 text-gray-200 border-t-2 border-t-emerald-500"
+                ? "bg-gray-900 text-gray-200 border-t-emerald-500"
                 : "text-gray-500 hover:text-gray-300 hover:bg-gray-900/40"
             }`}
             onClick={() => {
               if (!isEditing) onSelect(ws.id);
+            }}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && !isEditing) onSelect(ws.id);
             }}
           >
             {isEditing ? (
@@ -135,7 +139,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
             ) : (
               <button
                 type="button"
-                className="bg-gray-800 text-gray-100 text-xs p-0 rounded cursor-pointer"
+                className="text-[11px] cursor-pointer bg-transparent border-0 p-0 text-inherit"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   editingId.value = ws.id;
@@ -147,6 +151,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                     editValue.value = ws.name;
                   }
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {ws.name}
               </button>
@@ -165,7 +170,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                 ×
               </button>
             )}
-          </button>
+          </div>
         );
       })}
 

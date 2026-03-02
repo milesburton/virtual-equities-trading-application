@@ -90,15 +90,15 @@ describe("ComponentPicker – active/hidden state", () => {
     renderPicker({ activePanelIds: new Set(["market-ladder"]) });
     openDropdown();
     // Find the badge next to Market Ladder
-    const row = screen.getByText("Market Ladder").closest("li")!;
-    expect(row.textContent).toContain("visible");
+    const row = screen.getByText("Market Ladder").closest("li");
+    expect(row?.textContent).toContain("visible");
   });
 
   it("shows 'hidden' badge for inactive panels", () => {
     renderPicker({ activePanelIds: new Set(["market-ladder"]) });
     openDropdown();
-    const row = screen.getByText("Order Ticket").closest("li")!;
-    expect(row.textContent).toContain("hidden");
+    const row = screen.getByText("Order Ticket").closest("li");
+    expect(row?.textContent).toContain("hidden");
   });
 });
 
@@ -107,7 +107,8 @@ describe("ComponentPicker – add / remove panels", () => {
     const addPanel = vi.fn();
     renderPicker({ activePanelIds: new Set([]), addPanel });
     openDropdown();
-    fireEvent.click(screen.getByText("Market Ladder").closest("button")!);
+    const btn = screen.getByText("Market Ladder").closest("button");
+    if (btn) fireEvent.click(btn);
     expect(addPanel).toHaveBeenCalledWith("market-ladder");
   });
 
@@ -115,7 +116,8 @@ describe("ComponentPicker – add / remove panels", () => {
     const removePanel = vi.fn();
     renderPicker({ activePanelIds: new Set(["market-ladder"]), removePanel });
     openDropdown();
-    fireEvent.click(screen.getByText("Market Ladder").closest("button")!);
+    const btn = screen.getByText("Market Ladder").closest("button");
+    if (btn) fireEvent.click(btn);
     expect(removePanel).toHaveBeenCalledWith("market-ladder");
   });
 });
