@@ -103,8 +103,18 @@ describe("AlgoMonitor – active orders", () => {
 
 describe("AlgoMonitor – strategy filter", () => {
   const orders = [
-    makeOrder({ id: "1", strategy: "TWAP", asset: "AAPL", algoParams: { strategy: "TWAP", numSlices: 4, participationCap: 25 } }),
-    makeOrder({ id: "2", strategy: "POV", asset: "MSFT", algoParams: { strategy: "POV", participationRate: 10, minSliceSize: 1, maxSliceSize: 500 } }),
+    makeOrder({
+      id: "1",
+      strategy: "TWAP",
+      asset: "AAPL",
+      algoParams: { strategy: "TWAP", numSlices: 4, participationCap: 25 },
+    }),
+    makeOrder({
+      id: "2",
+      strategy: "POV",
+      asset: "MSFT",
+      algoParams: { strategy: "POV", participationRate: 10, minSliceSize: 1, maxSliceSize: 500 },
+    }),
     makeOrder({ id: "3", strategy: "LIMIT", asset: "GOOGL", algoParams: { strategy: "LIMIT" } }),
   ];
 

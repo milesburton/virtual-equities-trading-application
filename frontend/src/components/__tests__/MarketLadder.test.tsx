@@ -19,13 +19,15 @@ const priceHistory: PriceHistory = {
   JPM: [149, 147, 148],
 };
 
-function renderLadder(overrides: Partial<{
-  assets: AssetDef[];
-  prices: MarketPrices;
-  priceHistory: PriceHistory;
-  selectedAsset: string | null;
-  onSelectAsset: (s: string | null) => void;
-}> = {}) {
+function renderLadder(
+  overrides: Partial<{
+    assets: AssetDef[];
+    prices: MarketPrices;
+    priceHistory: PriceHistory;
+    selectedAsset: string | null;
+    onSelectAsset: (s: string | null) => void;
+  }> = {}
+) {
   return render(
     <MarketLadder
       assets={assets}

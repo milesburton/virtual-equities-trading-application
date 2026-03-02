@@ -40,8 +40,9 @@ afterEach(() => {
 type OrderSide = "BUY" | "SELL";
 
 function isLimitTriggered(side: OrderSide, marketPrice: number, limitPrice: number): boolean {
-  return (side === "BUY" && marketPrice <= limitPrice) ||
-    (side === "SELL" && marketPrice >= limitPrice);
+  return (
+    (side === "BUY" && marketPrice <= limitPrice) || (side === "SELL" && marketPrice >= limitPrice)
+  );
 }
 
 describe("LIMIT order fill logic (pure)", () => {

@@ -67,7 +67,12 @@ test("calls setPovMin and setPovMax when POV slice inputs change", () => {
   const setPovMin = vi.fn();
   const setPovMax = vi.fn();
   render(
-    <StrategyParams {...defaultProps} activeStrategy="POV" setPovMin={setPovMin} setPovMax={setPovMax} />
+    <StrategyParams
+      {...defaultProps}
+      activeStrategy="POV"
+      setPovMin={setPovMin}
+      setPovMax={setPovMax}
+    />
   );
   fireEvent.change(screen.getByLabelText(/Min Slice/), { target: { value: "5" } });
   fireEvent.change(screen.getByLabelText(/Max Slice/), { target: { value: "1000" } });

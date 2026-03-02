@@ -45,13 +45,7 @@ test("shows dropdown list when value matches assets", () => {
 
 test("does not show dropdown when value is empty", () => {
   render(
-    <AssetSelector
-      assets={assets}
-      value=""
-      onChange={vi.fn()}
-      onSelect={vi.fn()}
-      prices={prices}
-    />
+    <AssetSelector assets={assets} value="" onChange={vi.fn()} onSelect={vi.fn()} prices={prices} />
   );
   expect(screen.queryByRole("list")).not.toBeInTheDocument();
 });
@@ -119,13 +113,7 @@ test("shows current price for the selected asset", () => {
 
 test("shows — when no price is available for selected asset", () => {
   render(
-    <AssetSelector
-      assets={assets}
-      value="AAPL"
-      onChange={vi.fn()}
-      onSelect={vi.fn()}
-      prices={{}}
-    />
+    <AssetSelector assets={assets} value="AAPL" onChange={vi.fn()} onSelect={vi.fn()} prices={{}} />
   );
   expect(screen.getByText("—")).toBeInTheDocument();
 });
