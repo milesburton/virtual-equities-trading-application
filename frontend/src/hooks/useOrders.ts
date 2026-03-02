@@ -12,7 +12,6 @@ const ENDPOINTS: Record<Strategy, string> = {
 const TWAP_INTERVAL_MS = 5000;
 const POV_INTERVAL_MS = 5000;
 const VWAP_INTERVAL_MS = 5000;
-const OBS_URL = import.meta.env.VITE_OBS_URL ?? "http://localhost:5007";
 
 export function useOrders(prices: MarketPrices) {
   const [orders, setOrders] = useState<OrderRecord[]>([]);

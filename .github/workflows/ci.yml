@@ -31,19 +31,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: denoland/setup-deno@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          deno-version: v2.x
+          node-version: '24'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/node_modules
+            ~/.npm
+          key: npm-${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-frontend-
 
       - name: Install frontend dependencies
-        run: cd frontend && deno install --allow-scripts
+        working-directory: frontend
+        run: npm ci
 
       - name: Biome lint
-        run: cd frontend && deno run -A npm:@biomejs/biome check src/
+        working-directory: frontend
+        run: deno run -A npm:@biomejs/biome check src/
 
       - name: TypeScript type-check
-        run: cd frontend && ./node_modules/.bin/tsc --noEmit
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Vitest unit tests
+        working-directory: frontend
+        run: npm run test:unit -- --run
 
   integration:
     name: Integration tests
@@ -81,10 +98,44 @@ jobs:
       - name: Smoke tests
         run: deno task test:smoke
 
+  playwright-ui:
+    name: Playwright UI tests
+    runs-on: ubuntu-latest
+    needs: integration
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Cache npm and Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/node_modules
+            ~/.npm
+            ~/.cache/ms-playwright
+          key: npm-${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-frontend-
+
+      - name: Install frontend dependencies & Playwright browsers
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Run Playwright UI tests (headless)
+        working-directory: frontend
+        run: npx playwright test --reporter=list --browser=chromium
+
   docker:
     name: Docker build
     runs-on: ubuntu-latest
-    needs: [lint-and-test, frontend]
+    needs: [lint-and-test, frontend, integration, playwright-ui]
     permissions:
       contents: read
       packages: write

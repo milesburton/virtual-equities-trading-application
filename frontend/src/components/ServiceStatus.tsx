@@ -1,20 +1,10 @@
 import { useState } from "react";
 import type { ServiceHealth, ServiceState } from "../hooks/useServiceHealth.ts";
+import { ServiceRow } from "./ServiceRow";
+import { StatusDot } from "./StatusDot";
 
 interface Props {
   services: ServiceHealth[];
-}
-
-function dot(state: ServiceState) {
-  if (state === "ok") return "bg-emerald-400 shadow-[0_0_6px_#34d399]";
-  if (state === "error") return "bg-red-500 shadow-[0_0_6px_#f87171]";
-  return "bg-gray-500";
-}
-
-function label(state: ServiceState) {
-  if (state === "ok") return <span className="text-emerald-400">ok</span>;
-  if (state === "error") return <span className="text-red-400">error</span>;
-  return <span className="text-gray-500">—</span>;
 }
 
 function aggregateState(services: ServiceHealth[]): ServiceState {
@@ -34,7 +24,7 @@ export function ServiceStatus({ services }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
       >
-        <span className={`inline-block w-2 h-2 rounded-full ${dot(overall)}`} />
+        <StatusDot state={overall} className="w-2 h-2" />
         Services
       </button>
 
@@ -66,23 +56,7 @@ export function ServiceStatus({ services }: Props) {
               </thead>
               <tbody>
                 {services.map((svc) => (
-                  <tr key={svc.name} className="border-b border-gray-800/40">
-                    <td className="px-3 py-2 flex items-center gap-2 whitespace-nowrap">
-                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${dot(svc.state)}`} />
-                      <span className="text-gray-200">{svc.name}</span>
-                    </td>
-                    <td className="px-3 py-2">{label(svc.state)}</td>
-                    <td className="px-3 py-2 font-mono text-gray-400">{svc.version}</td>
-                    <td className="px-3 py-2 text-gray-500">
-                      {Object.entries(svc.meta).length > 0
-                        ? Object.entries(svc.meta)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ")
-                        : svc.lastChecked
-                          ? new Date(svc.lastChecked).toLocaleTimeString()
-                          : "—"}
-                    </td>
-                  </tr>
+                  <ServiceRow key={svc.name} svc={svc} />
                 ))}
               </tbody>
             </table>
