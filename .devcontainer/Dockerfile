@@ -50,11 +50,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
     apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/* || true
 
-# Install Fly.io CLI
-RUN curl -L https://fly.io/install.sh | sh && \
-    echo 'export FLYCTL_INSTALL="/root/.fly"' >> /etc/profile.d/flyctl.sh && \
-    echo 'export PATH="$FLYCTL_INSTALL/bin:$PATH"' >> /etc/profile.d/flyctl.sh
-
 # Create a new user named 'deno' with Fish as the default shell
 RUN useradd -m -s /usr/bin/fish deno
 
@@ -74,6 +69,9 @@ RUN mkdir -p /home/deno/.config/fish
 
 # Install Deno
 RUN curl -fsSL https://deno.land/x/install/install.sh | sh
+
+# Install Fly.io CLI (as deno user, installs to ~/.fly)
+RUN curl -L https://fly.io/install.sh | sh
 
 # Copy the supervisord configuration
 COPY supervisord.conf /home/deno/supervisord.conf
