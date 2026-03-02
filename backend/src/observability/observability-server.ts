@@ -1,6 +1,6 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
-import { DB } from "https://deno.land/x/sqlite@v3.12.0/mod.ts";
+import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
 
 const PORT = Number(Deno.env.get("OBSERVABILITY_PORT")) || 5007;
 
@@ -22,7 +22,7 @@ function sendToClients(evt: ObsEvent) {
 const DB_PATH = Deno.env.get("OBS_DB_PATH") || "./backend/data/observability.db";
 const RETENTION_MS = Number(Deno.env.get("OBS_RETENTION_MS")) || 24 * 60 * 60 * 1000; // 24 hours
 
-await Deno.mkdir(new URL("./backend/data", import.meta.url).pathname, { recursive: true }).catch(() => {});
+await Deno.mkdir(DB_PATH.substring(0, DB_PATH.lastIndexOf("/")), { recursive: true }).catch(() => {});
 const db = new DB(DB_PATH);
 db.query(`CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -81,35 +81,35 @@ RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
     echo 'if status is-interactive' >> /home/deno/.config/fish/config.fish && \
     echo '  echo ""' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "Welcome to the Equities Market Emulator Dev Container!" | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "Equities Market Emulator" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "💡 If you are using the Dev Container, all services start automatically."' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "💡 Open http://localhost:8080 to access the trading UI."' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "All services start automatically via supervisord."' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "Frontend UI: http://localhost:8080"' >> /home/deno/.config/fish/config.fish && \
     echo '  echo ""' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "Available aliases:" | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-frontend: Starts the React trading UI (http://localhost:8080)." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-market-sim: Runs the Market Simulation." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-trader-cli: Runs the Trading CLI." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-ems: Starts the Execution Management System (EMS)." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-oms: Starts the Order Management System (OMS)." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-limit-strategy: Starts the Limit Order Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-twap-strategy: Starts the TWAP Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-pov-strategy: Starts the POV Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - run-vwap-strategy: Starts the VWAP Algo Trader." | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "  - restart-services: Restart all backend services via supervisord." | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "Aliases:" | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-frontend         React UI (port 8080)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-market-sim       Market price engine (port 5000)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-ems              Execution Management System (port 5001)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-oms              Order Management System (port 5002)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-limit-strategy   Limit order algo (port 5003)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-twap-strategy    TWAP algo (port 5004)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-pov-strategy     POV algo (port 5005)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-vwap-strategy    VWAP algo (port 5006)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  run-observability    Observability service (port 5007)"' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "  restart-services     Restart all services via supervisord"' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo 'end' >> /home/deno/.config/fish/config.fish && \
     echo '' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-frontend="cd /workspaces/virtual-equities-trading-application/frontend && deno task dev"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-market-sim="deno run --allow-all backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-trader-cli="deno run --allow-all backend/src/cli/trader.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-ems="deno run --allow-all backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-oms="deno run --allow-all backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-limit-strategy="deno run --allow-all backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-twap-strategy="deno run --allow-all backend/src/algo/twap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-pov-strategy="deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-vwap-strategy="deno run --allow-all backend/src/algo/vwap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias restart-services="supervisorctl -c /home/deno/supervisord.conf restart market-sim ems oms algo-trader twap-algo pov-algo vwap-algo && supervisorctl -c /home/deno/supervisord.conf status"' >> /home/deno/.config/fish/config.fish
+    echo 'alias run-frontend="cd /workspaces/virtual-equities-trading-application/frontend && npm run dev"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-market-sim="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-ems="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-oms="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-limit-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-twap-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/twap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-pov-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-vwap-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/vwap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-observability="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/observability/observability-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias restart-services="supervisorctl restart market-sim ems oms algo-trader twap-algo pov-algo vwap-algo observability && supervisorctl status"' >> /home/deno/.config/fish/config.fish
 
 # Ensure supervisord runs
 CMD ["/usr/bin/supervisord", "-c", "/home/deno/supervisord.conf"]
