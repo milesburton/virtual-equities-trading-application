@@ -333,13 +333,13 @@ export function OrderTicket() {
             : `${activeSide} ${selectedAsset?.symbol ?? ""}  ·  Ctrl+↵`}
         </button>
 
-        {feedback.value && (
-          <p
-            className={`text-xs text-center ${feedback.value.ok ? "text-emerald-400" : "text-red-400"}`}
-          >
-            {feedback.value.msg}
-          </p>
-        )}
+        <p
+          className={`text-xs text-center h-4 ${
+            feedback.value ? (feedback.value.ok ? "text-emerald-400" : "text-red-400") : "invisible"
+          }`}
+        >
+          {feedback.value?.msg ?? "\u00a0"}
+        </p>
       </form>
     </div>
   );

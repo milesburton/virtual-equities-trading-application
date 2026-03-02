@@ -4,6 +4,7 @@ import { useAppSelector } from "../store/hooks.ts";
 import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
 import type { ServiceHealth } from "../types.ts";
 import { ComponentPicker } from "./ComponentPicker.tsx";
+import { useDashboard } from "./DashboardLayout.tsx";
 import { ServiceStatus } from "./ServiceStatus.tsx";
 
 function useAllServiceHealth(): ServiceHealth[] {
@@ -50,6 +51,7 @@ export function StatusBar() {
   const connected = useAppSelector((s) => s.market.connected);
   const services = useAllServiceHealth();
   const time = useSignal(new Date().toLocaleTimeString());
+  const { resetLayout } = useDashboard();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -75,8 +77,17 @@ export function StatusBar() {
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <ComponentPicker />
+        <button
+          type="button"
+          onClick={resetLayout}
+          title="Reset workspace to default layout"
+          className="text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
+          aria-label="Reset layout"
+        >
+          ↺
+        </button>
         <ServiceStatus services={services} />
         <span className="tabular-nums">{time.value}</span>
       </div>

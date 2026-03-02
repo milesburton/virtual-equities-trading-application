@@ -4,7 +4,7 @@ import { PANEL_IDS, PANEL_TITLES, useDashboard } from "./DashboardLayout.tsx";
 
 export function ComponentPicker() {
   const open = useSignal(false);
-  const { activePanelIds, addPanel, removePanel, resetLayout } = useDashboard();
+  const { activePanelIds, addPanel, removePanel } = useDashboard();
 
   return (
     <div className="relative">
@@ -66,19 +66,6 @@ export function ComponentPicker() {
                 );
               })}
             </ul>
-            <div className="px-2 py-2 border-t border-gray-700">
-              <button
-                type="button"
-                onClick={() => {
-                  resetLayout();
-                  open.value = false;
-                }}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors border border-gray-700 hover:border-gray-500"
-              >
-                <span className="text-[11px]">↺</span>
-                Reset to default layout
-              </button>
-            </div>
           </div>
         </>
       )}

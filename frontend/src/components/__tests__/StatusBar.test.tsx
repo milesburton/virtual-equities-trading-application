@@ -1,11 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { vi } from "vitest";
 import { marketSlice } from "../../store/marketSlice";
 import { servicesApi } from "../../store/servicesApi";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
+import { DashboardContext } from "../DashboardLayout";
 import { StatusBar } from "../StatusBar";
 
 // Stub the RTK Query hook so the test doesn't need a real HTTP server
@@ -43,12 +44,26 @@ function makeStore(connected: boolean) {
   });
 }
 
-test("shows LIVE when connected and shows time", () => {
-  render(
-    <Provider store={makeStore(true)}>
-      <StatusBar />
+function renderBar(connected: boolean, resetLayout = vi.fn()) {
+  return render(
+    <Provider store={makeStore(connected)}>
+      <DashboardContext.Provider
+        value={{
+          activePanelIds: new Set(),
+          addPanel: vi.fn(),
+          removePanel: vi.fn(),
+          resetLayout,
+          storageKey: "dashboard-layout",
+        }}
+      >
+        <StatusBar />
+      </DashboardContext.Provider>
     </Provider>
   );
+}
+
+test("shows LIVE when connected and shows time", () => {
+  renderBar(true);
   expect(screen.getByText(/Market Feed LIVE/)).toBeInTheDocument();
   expect(screen.getByText(/Equities Market Emulator/)).toBeInTheDocument();
   // time element should exist
@@ -56,10 +71,13 @@ test("shows LIVE when connected and shows time", () => {
 });
 
 test("shows DISCONNECTED when not connected", () => {
-  render(
-    <Provider store={makeStore(false)}>
-      <StatusBar />
-    </Provider>
-  );
+  renderBar(false);
   expect(screen.getByText(/DISCONNECTED/)).toBeInTheDocument();
+});
+
+test("reset layout button calls resetLayout", () => {
+  const resetLayout = vi.fn();
+  renderBar(true, resetLayout);
+  fireEvent.click(screen.getByRole("button", { name: /reset layout/i }));
+  expect(resetLayout).toHaveBeenCalledTimes(1);
 });
