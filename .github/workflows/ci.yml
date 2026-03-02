@@ -128,6 +128,13 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Ensure CSS loads before JS
+        working-directory: frontend
+        run: |
+          # Move the first stylesheet link before the first module script to avoid FOUC/layout jumps
+          sed -n '1,200p' dist/index.html > dist/index.html.tmp && \
+          awk 'BEGIN{p=1} /<script type="module"/{s=NR} {a[NR]=$0} END{for(i=1;i<=NR;i++){if(i==s){for(j=1;j<=NR;j++) if(a[j]~/rel=\"stylesheet\"/){print a[j]; a[j]=""; break} } if(a[i]!="") print a[i]}}' dist/index.html.tmp > dist/index.html && \
+          rm -f dist/index.html.tmp || true
       - name: Run Playwright UI tests (headless)
         working-directory: frontend
         run: npx playwright test --reporter=list
