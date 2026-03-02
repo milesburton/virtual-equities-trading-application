@@ -12,7 +12,7 @@
     "test:unit": "NODE_OPTIONS=--max-old-space-size=4096 vitest",
     "test:ui": "npx playwright test",
     "test:ui:headed": "npx playwright test --headed",
-    "prepare": "cd .. && npx husky"
+    "prepare": "cd .. && ./frontend/node_modules/.bin/husky"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
