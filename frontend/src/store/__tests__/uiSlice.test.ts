@@ -12,8 +12,8 @@ const { reducer } = uiSlice;
 const initial = reducer(undefined, { type: "@@init" });
 
 describe("uiSlice – initial state", () => {
-  it("has LIMIT as default strategy", () => {
-    expect(initial.activeStrategy).toBe("LIMIT");
+  it("has TWAP as default strategy", () => {
+    expect(initial.activeStrategy).toBe("TWAP");
   });
 
   it("has BUY as default side", () => {

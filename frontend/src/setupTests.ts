@@ -21,3 +21,7 @@ class MockBroadcastChannel {
   }
 }
 globalThis.BroadcastChannel = MockBroadcastChannel as unknown as typeof BroadcastChannel;
+
+// jsdom does not implement HTMLCanvasElement.getContext – stub it so
+// lightweight-charts (canvas-based) doesn't crash in unit tests.
+HTMLCanvasElement.prototype.getContext = () => null;

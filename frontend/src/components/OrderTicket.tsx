@@ -47,11 +47,13 @@ export function OrderTicket() {
   const selectedAsset = assets.find((a) => a.symbol === assetSearch.value) ?? assets[0];
   const currentPrice = selectedAsset ? prices[selectedAsset.symbol] : undefined;
 
-  useEffect(() => {
-    if (currentPrice && !limitPrice.value) {
-      limitPrice.value = formatPrice(selectedAsset?.symbol ?? "", currentPrice);
-    }
-  }, [selectedAsset?.symbol, currentPrice, limitPrice]);
+  // Populate limit price once on first render (signals transform tracks assetSearch.value
+  // reactively, so selectAsset() handles subsequent asset changes imperatively).
+  const _priceInitialised = useRef(false);
+  if (!_priceInitialised.current && currentPrice) {
+    _priceInitialised.current = true;
+    limitPrice.value = formatPrice(selectedAsset?.symbol ?? "", currentPrice);
+  }
 
   function selectAsset(symbol: string) {
     assetSearch.value = symbol;
@@ -115,8 +117,8 @@ export function OrderTicket() {
     try {
       await dispatch(submitOrderThunk(trade)).unwrap();
       feedback.value = { ok: true, msg: "Order submitted." };
-      quantity.value = "";
-      limitPrice.value = "";
+      quantity.value = "100";
+      limitPrice.value = currentPrice ? formatPrice(selectedAsset.symbol, currentPrice) : "";
     } catch {
       feedback.value = { ok: false, msg: "Failed to submit order." };
     } finally {
@@ -138,8 +140,8 @@ export function OrderTicket() {
   useHotkeys(
     "escape",
     () => {
-      quantity.value = "";
-      limitPrice.value = "";
+      quantity.value = "100";
+      limitPrice.value = currentPrice ? formatPrice(selectedAsset?.symbol ?? "", currentPrice) : "";
       feedback.value = null;
     },
     { preventDefault: false }

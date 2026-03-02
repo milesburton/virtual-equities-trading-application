@@ -26,6 +26,32 @@ function computeTickVolumes(minute: number): Record<string, number> {
   return result;
 }
 
+interface OrderBookLevel { price: number; size: number; }
+interface OrderBookSnapshot { bids: OrderBookLevel[]; asks: OrderBookLevel[]; mid: number; ts: number; }
+
+function computeOrderBook(
+  prices: Record<string, number>,
+  volumes: Record<string, number>,
+): Record<string, OrderBookSnapshot> {
+  const book: Record<string, OrderBookSnapshot> = {};
+  const now = Date.now();
+  for (const [symbol, mid] of Object.entries(prices)) {
+    const tickVol = volumes[symbol] ?? 1_000;
+    const baseSize = Math.max(1, Math.round(tickVol / 390));
+    const spread = mid * 0.0001; // 1 bps half-spread per level
+    const bids: OrderBookLevel[] = [];
+    const asks: OrderBookLevel[] = [];
+    for (let i = 0; i < 10; i++) {
+      const offset = (i + 0.5) * spread;
+      const sizeDecay = Math.max(1, Math.round(baseSize * (1 - i * 0.08)));
+      bids.push({ price: parseFloat((mid - offset).toFixed(4)), size: sizeDecay });
+      asks.push({ price: parseFloat((mid + offset).toFixed(4)), size: sizeDecay });
+    }
+    book[symbol] = { bids, asks, mid, ts: now };
+  }
+  return book;
+}
+
 console.log(`Market Simulator running on ws://localhost:${PORT}`);
 
 serve((req) => {
@@ -53,10 +79,11 @@ serve((req) => {
   socket.onopen = () => {
     console.log("New WebSocket connection");
     const volumes = computeTickVolumes(marketMinute);
+    const orderBook = computeOrderBook(marketData, volumes);
     socket.send(
       JSON.stringify({
         event: "marketData",
-        data: { prices: { ...marketData }, volumes, marketMinute },
+        data: { prices: { ...marketData }, volumes, marketMinute, orderBook },
       }),
     );
   };
@@ -69,10 +96,11 @@ serve((req) => {
     marketMinute = (marketMinute + 1) % 390;
     Object.keys(marketData).forEach((asset) => generatePrice(asset));
     const volumes = computeTickVolumes(marketMinute);
+    const orderBook = computeOrderBook(marketData, volumes);
     socket.send(
       JSON.stringify({
         event: "marketUpdate",
-        data: { prices: { ...marketData }, volumes, marketMinute },
+        data: { prices: { ...marketData }, volumes, marketMinute, orderBook },
       }),
     );
   }, 1_000);

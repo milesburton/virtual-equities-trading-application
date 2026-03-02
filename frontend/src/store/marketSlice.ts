@@ -1,6 +1,13 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import type { AssetDef, CandleHistory, MarketPrices, OhlcCandle, PriceHistory } from "../types.ts";
+import type {
+  AssetDef,
+  CandleHistory,
+  MarketPrices,
+  OhlcCandle,
+  OrderBookSnapshot,
+  PriceHistory,
+} from "../types.ts";
 
 const HISTORY_LENGTH = 60;
 const MAX_CANDLES = 120;
@@ -17,7 +24,8 @@ export function applyTick(
   candles: OhlcCandle[],
   price: number,
   ts: number,
-  intervalMs: number
+  intervalMs: number,
+  tickVolume = 0
 ): OhlcCandle[] {
   const bucket = bucketStart(ts, intervalMs);
   const last = candles[candles.length - 1];
@@ -27,6 +35,7 @@ export function applyTick(
       high: Math.max(last.high, price),
       low: Math.min(last.low, price),
       close: price,
+      volume: (last.volume ?? 0) + tickVolume,
     };
     return [...candles.slice(0, -1), updated];
   }
@@ -36,6 +45,7 @@ export function applyTick(
     high: price,
     low: price,
     close: price,
+    volume: tickVolume,
   };
   return [...candles, newCandle].slice(-MAX_CANDLES);
 }
@@ -45,6 +55,7 @@ interface MarketState {
   prices: MarketPrices;
   priceHistory: PriceHistory;
   candleHistory: CandleHistory;
+  orderBook: Record<string, OrderBookSnapshot>;
   connected: boolean;
 }
 
@@ -53,6 +64,7 @@ const initialState: MarketState = {
   prices: {},
   priceHistory: {},
   candleHistory: {},
+  orderBook: {},
   connected: false,
 };
 
@@ -70,22 +82,29 @@ export const marketSlice = createSlice({
     setConnected(state, action: PayloadAction<boolean>) {
       state.connected = action.payload;
     },
-    tickReceived(state, action: PayloadAction<{ prices: MarketPrices; ts: number }>) {
-      const { prices, ts } = action.payload;
+    tickReceived(
+      state,
+      action: PayloadAction<{ prices: MarketPrices; volumes?: Record<string, number>; ts: number }>
+    ) {
+      const { prices, volumes = {}, ts } = action.payload;
       state.prices = prices;
       for (const asset of Object.keys(prices)) {
         const price = prices[asset];
+        const tickVolume = volumes[asset] ?? 0;
         const history = state.priceHistory[asset] ?? [];
         state.priceHistory[asset] = [...history, price].slice(-HISTORY_LENGTH);
         const current = state.candleHistory[asset] ?? { "1m": [], "5m": [] };
         const updated = { ...current };
         for (const { key, ms } of INTERVALS) {
-          updated[key] = applyTick(current[key], price, ts, ms);
+          updated[key] = applyTick(current[key], price, ts, ms, tickVolume);
         }
         state.candleHistory[asset] = updated;
       }
     },
+    orderBookUpdated(state, action: PayloadAction<Record<string, OrderBookSnapshot>>) {
+      state.orderBook = action.payload;
+    },
   },
 });
 
-export const { setAssets, setConnected, tickReceived } = marketSlice.actions;
+export const { setAssets, setConnected, tickReceived, orderBookUpdated } = marketSlice.actions;

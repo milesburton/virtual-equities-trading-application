@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAppSelector } from "../store/hooks.ts";
 import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
 import type { ServiceHealth } from "../types.ts";
+import { ComponentPicker } from "./ComponentPicker.tsx";
 import { ServiceStatus } from "./ServiceStatus.tsx";
 
 function useAllServiceHealth(): ServiceHealth[] {
@@ -15,9 +16,10 @@ function useAllServiceHealth(): ServiceHealth[] {
   const r6 = useGetServiceHealthQuery(SERVICES[6], { pollingInterval: 10_000 });
   const r7 = useGetServiceHealthQuery(SERVICES[7], { pollingInterval: 10_000 });
   const r8 = useGetServiceHealthQuery(SERVICES[8], { pollingInterval: 10_000 });
+  const r9 = useGetServiceHealthQuery(SERVICES[9], { pollingInterval: 10_000 });
 
   return SERVICES.map((svc, i) => {
-    const result = [r0, r1, r2, r3, r4, r5, r6, r7, r8][i];
+    const result = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9][i];
     if (result.data) return result.data;
     if (result.isError) {
       return {
@@ -73,7 +75,8 @@ export function StatusBar() {
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
+        <ComponentPicker />
         <ServiceStatus services={services} />
         <span className="tabular-nums">{time.value}</span>
       </div>

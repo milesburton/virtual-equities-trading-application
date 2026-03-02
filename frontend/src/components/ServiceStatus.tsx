@@ -14,9 +14,27 @@ function aggregateState(services: ServiceHealth[]): ServiceState {
   return "ok";
 }
 
+/** Returns { consistent: true, version } if all healthy required services share one version. */
+function versionSummary(services: ServiceHealth[]): {
+  consistent: boolean;
+  version: string | null;
+  lastChecked: number | null;
+} {
+  const checked = services.filter((s) => !s.optional && s.state === "ok" && s.version !== "—");
+  const versions = [...new Set(checked.map((s) => s.version))];
+  const lastChecked = checked.reduce<number | null>((max, s) => {
+    if (s.lastChecked === null) return max;
+    return max === null ? s.lastChecked : Math.max(max, s.lastChecked);
+  }, null);
+  if (versions.length === 0) return { consistent: false, version: null, lastChecked };
+  if (versions.length === 1) return { consistent: true, version: versions[0], lastChecked };
+  return { consistent: false, version: null, lastChecked };
+}
+
 export function ServiceStatus({ services }: Props) {
   const open = useSignal(false);
   const overall = aggregateState(services);
+  const { consistent, version, lastChecked } = versionSummary(services);
 
   return (
     <div className="relative">
@@ -47,7 +65,18 @@ export function ServiceStatus({ services }: Props) {
               <span className="font-semibold text-gray-300 uppercase tracking-wider">
                 Service Health
               </span>
-              <span className="text-gray-600">polls every 10s</span>
+              <div className="flex flex-col items-end gap-0.5">
+                {consistent && version ? (
+                  <span className="font-mono text-emerald-400">v{version}</span>
+                ) : (
+                  <span className="text-amber-400">version mismatch</span>
+                )}
+                <span className="text-gray-600">
+                  {lastChecked
+                    ? `checked ${new Date(lastChecked).toLocaleTimeString()}`
+                    : "polls every 10s"}
+                </span>
+              </div>
             </div>
 
             <table className="w-full">

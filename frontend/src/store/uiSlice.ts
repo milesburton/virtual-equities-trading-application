@@ -10,7 +10,7 @@ interface UiState {
 }
 
 const initialState: UiState = {
-  activeStrategy: "LIMIT",
+  activeStrategy: "TWAP",
   activeSide: "BUY",
   showShortcuts: false,
   selectedAsset: null,

@@ -19,6 +19,19 @@ export interface OhlcCandle {
   high: number;
   low: number;
   close: number;
+  volume?: number;
+}
+
+export interface OrderBookLevel {
+  price: number;
+  size: number;
+}
+
+export interface OrderBookSnapshot {
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  mid: number;
+  ts: number;
 }
 
 export interface CandleHistory {

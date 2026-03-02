@@ -37,6 +37,7 @@ function makeStore(connected: boolean) {
         priceHistory: {},
         candleHistory: {},
         connected,
+        orderBook: {},
       },
     },
   });

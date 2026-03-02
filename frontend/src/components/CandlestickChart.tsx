@@ -1,13 +1,13 @@
 import { useSignal } from "@preact/signals-react";
+import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
 import {
-  Bar,
-  ComposedChart,
-  Rectangle,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  CandlestickSeries,
+  ColorType,
+  CrosshairMode,
+  createChart,
+  HistogramSeries,
+} from "lightweight-charts";
+import { useEffect, useRef } from "react";
 import type { OhlcCandle } from "../types.ts";
 
 type Interval = "1m" | "5m";
@@ -18,110 +18,108 @@ interface Props {
   onClose: () => void;
 }
 
-function formatTime(ts: number, interval: Interval) {
-  const d = new Date(ts);
-  if (interval === "5m") {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-interface CandleBarProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  payload?: OhlcCandle & { bodyTop: number; bodyBottom: number; wickHigh: number; wickLow: number };
-}
-
-function CandleBar(props: CandleBarProps) {
-  const { x = 0, y = 0, width = 0, height = 0, payload } = props;
-  if (!payload) return null;
-
-  const { open, close } = payload;
-  const bullish = close >= open;
-  const color = bullish ? "#34d399" : "#f87171";
-  const cx = x + width / 2;
-
-  // `y` and `height` are pixel coordinates provided by Recharts for the bar body.
-  const bodyY = y;
-  const bodyH = Math.max(height, 1);
-  const wickTop = y; // approximate wick using the top of the bar
-  const wickBottom = y + bodyH; // and bottom of the bar
-
-  return (
-    <g>
-      <line x1={cx} y1={wickTop} x2={cx} y2={wickBottom} stroke={color} strokeWidth={1} />
-      <Rectangle
-        x={x + 1}
-        y={bodyY}
-        width={Math.max(width - 2, 1)}
-        height={bodyH}
-        fill={color}
-        stroke={color}
-      />
-    </g>
-  );
-}
-
-interface TooltipPayload {
-  payload?: OhlcCandle;
-}
-
-function CandleTooltip({
-  active,
-  payload,
-  interval,
-}: {
-  active?: boolean;
-  payload?: TooltipPayload[];
-  interval: Interval;
-}) {
-  if (!active || !payload?.length || !payload[0].payload) return null;
-  const c = payload[0].payload;
-  return (
-    <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-xs space-y-0.5">
-      <div className="text-gray-400">{formatTime(c.time, interval)}</div>
-      <div className="text-gray-300">
-        O <span className="tabular-nums text-gray-100">{c.open.toFixed(2)}</span>
-      </div>
-      <div className="text-gray-300">
-        H <span className="tabular-nums text-emerald-400">{c.high.toFixed(2)}</span>
-      </div>
-      <div className="text-gray-300">
-        L <span className="tabular-nums text-red-400">{c.low.toFixed(2)}</span>
-      </div>
-      <div className="text-gray-300">
-        C <span className="tabular-nums text-gray-100">{c.close.toFixed(2)}</span>
-      </div>
-    </div>
-  );
-}
+const CHART_THEME = {
+  layout: {
+    background: { type: ColorType.Solid, color: "#030712" },
+    textColor: "#9ca3af",
+  },
+  grid: {
+    vertLines: { color: "#111827" },
+    horzLines: { color: "#111827" },
+  },
+  crosshair: { mode: CrosshairMode.Normal },
+  rightPriceScale: { borderColor: "#1f2937" },
+  timeScale: { borderColor: "#1f2937", timeVisible: true, secondsVisible: true },
+};
 
 export function CandlestickChart({ symbol, candles, onClose }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const interval = useSignal<Interval>("1m");
-  const raw = candles[interval.value];
 
-  const data = raw.map((c) => {
-    const bodyTop = Math.min(c.open, c.close);
-    const bodyBottom = Math.max(c.open, c.close);
-    return {
-      ...c,
-      bodyTop,
-      bodyBottom,
-      wickHigh: c.high,
-      wickLow: c.low,
-      range: [bodyBottom, bodyTop] as [number, number],
+  // Create chart once on mount
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = createChart(containerRef.current, {
+      ...CHART_THEME,
+      width: containerRef.current.clientWidth,
+      height: containerRef.current.clientHeight,
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#34d399",
+      downColor: "#f87171",
+      borderUpColor: "#34d399",
+      borderDownColor: "#f87171",
+      wickUpColor: "#34d399",
+      wickDownColor: "#f87171",
+    });
+
+    // Volume histogram in a separate scale pane at the bottom
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      color: "#34d399",
+      priceFormat: { type: "volume" },
+      priceScaleId: "volume",
+    });
+    chart.priceScale("volume").applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+
+    const ro = new ResizeObserver(() => {
+      if (containerRef.current) {
+        chart.applyOptions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    });
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
     };
-  });
+  }, []);
 
-  const allValues = raw.flatMap((c) => [c.high, c.low]);
-  const yMin = allValues.length ? Math.min(...allValues) * 0.9995 : 0;
-  const yMax = allValues.length ? Math.max(...allValues) * 1.0005 : 100;
+  // Update data when interval or candles change
+  useEffect(() => {
+    if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+    const raw = candles[interval.value];
+    if (raw.length < 2) return;
+
+    candleSeriesRef.current.setData(
+      raw.map((c) => ({
+        time: (c.time / 1000) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
+    );
+
+    volumeSeriesRef.current.setData(
+      raw.map((c) => ({
+        time: (c.time / 1000) as UTCTimestamp,
+        value: c.volume ?? 0,
+        color: c.close >= c.open ? "#34d39966" : "#f8717166",
+      }))
+    );
+
+    chartRef.current?.timeScale().fitContent();
+  }, [candles, interval.value]);
+
+  const raw = candles[interval.value];
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-gray-100">{symbol}</span>
           <span className="text-xs text-gray-500">Candlestick</span>
@@ -154,35 +152,12 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
         </button>
       </div>
 
-      {data.length < 2 ? (
+      {raw.length < 2 ? (
         <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">
           Collecting {interval.value} candles…
         </div>
       ) : (
-        <div className="flex-1 p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-              <XAxis
-                dataKey="time"
-                tickFormatter={(ts: number) => formatTime(ts, interval.value)}
-                tick={{ fill: "#6b7280", fontSize: 10 }}
-                axisLine={{ stroke: "#374151" }}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={[yMin, yMax]}
-                tick={{ fill: "#6b7280", fontSize: 10 }}
-                axisLine={{ stroke: "#374151" }}
-                tickLine={false}
-                tickFormatter={(v: number) => v.toFixed(2)}
-                width={52}
-              />
-              <Tooltip content={<CandleTooltip interval={interval.value} />} />
-              <Bar dataKey="range" shape={<CandleBar />} isAnimationActive={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+        <div ref={containerRef} className="flex-1" />
       )}
     </div>
   );

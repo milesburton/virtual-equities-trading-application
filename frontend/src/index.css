@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* react-grid-layout */
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
 @layer base {
   body {
     @apply bg-gray-950 text-gray-100 font-mono;
@@ -22,6 +26,20 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-500;
   }
+}
+
+/* ── react-grid-layout drag/resize placeholder ──────────────────────────────
+   Shown as a "ghost" zone where the panel will land — styled like a macOS/Windows
+   snap-target: rounded corner border with a subtle fill, no content. */
+.react-grid-placeholder {
+  background: transparent !important;
+  border: 2px dashed rgb(52 211 153 / 0.6) !important; /* emerald-400 at 60% */
+  border-radius: 6px !important;
+  box-shadow: inset 0 0 0 1px rgb(52 211 153 / 0.15),
+              0 0 0 1px rgb(52 211 153 / 0.10) !important;
+  backdrop-filter: blur(2px);
+  opacity: 1 !important;
+  transition: none !important;
 }
 
 @layer utilities {

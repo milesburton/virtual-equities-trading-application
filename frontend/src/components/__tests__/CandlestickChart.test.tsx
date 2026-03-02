@@ -3,6 +3,26 @@ import { describe, expect, it, vi } from "vitest";
 import type { OhlcCandle } from "../../types";
 import { CandlestickChart } from "../CandlestickChart";
 
+// lightweight-charts renders to canvas which jsdom doesn't support — stub it out
+vi.mock("lightweight-charts", () => {
+  const seriesStub = { setData: vi.fn(), applyOptions: vi.fn() };
+  const priceScaleStub = { applyOptions: vi.fn() };
+  const chartStub = {
+    addSeries: vi.fn(() => seriesStub),
+    priceScale: vi.fn(() => priceScaleStub),
+    applyOptions: vi.fn(),
+    timeScale: vi.fn(() => ({ fitContent: vi.fn() })),
+    remove: vi.fn(),
+  };
+  return {
+    createChart: vi.fn(() => chartStub),
+    CandlestickSeries: {},
+    HistogramSeries: {},
+    ColorType: { Solid: "solid" },
+    CrosshairMode: { Normal: 0 },
+  };
+});
+
 function makeCandle(overrides: Partial<OhlcCandle> = {}): OhlcCandle {
   return {
     time: Date.now(),
