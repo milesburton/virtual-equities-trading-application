@@ -2,11 +2,10 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 // react-grid-layout uses `export = X` CJS types; import as default and cast to avoid
 // type gymnastics — `skipLibCheck: true` and the any-cast keep TS happy.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// @ts-expect-error - third-party library CJS types
 import GridLayoutLib from "react-grid-layout";
 
-// biome-ignore lint/suspicious/noExplicitAny: third-party library compatibility
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// deno-lint-ignore no-explicit-any - third-party library workaround
 const GridLayout = (GridLayoutLib as any).default ?? GridLayoutLib;
 
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -59,18 +58,19 @@ export const PANEL_TITLES: Record<PanelId, string> = {
 };
 
 export const DEFAULT_LAYOUT: Layout[] = [
-  { i: "market-ladder", x: 0, y: 0, w: 3, h: 8, minW: 2, minH: 4 },
-  { i: "order-ticket", x: 0, y: 8, w: 3, h: 8, minW: 2, minH: 5 },
+  { i: "order-ticket", x: 0, y: 0, w: 3, h: 16, minW: 2, minH: 8 },
   { i: "order-blotter", x: 3, y: 0, w: 9, h: 8, minW: 3, minH: 3 },
-  { i: "algo-monitor", x: 3, y: 8, w: 9, h: 5, minW: 3, minH: 3 },
-  { i: "observability", x: 3, y: 13, w: 9, h: 3, minW: 3, minH: 2 },
+  { i: "algo-monitor", x: 3, y: 8, w: 6, h: 8, minW: 3, minH: 3 },
+  { i: "observability", x: 9, y: 8, w: 3, h: 8, minW: 2, minH: 3 },
 ];
 
-export const STORAGE_KEY = "dashboard-layout";
+export const STORAGE_KEY_PREFIX = "dashboard-layout";
+/** Kept for backwards-compat and tests that don't pass a storageKey. */
+export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
-function loadLayout(): Layout[] {
+function loadLayout(storageKey: string): Layout[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) return JSON.parse(raw) as Layout[];
   } catch {
     // corrupted — fall through to default
@@ -85,6 +85,7 @@ interface DashboardContextValue {
   addPanel: (id: PanelId) => void;
   removePanel: (id: PanelId) => void;
   resetLayout: () => void;
+  storageKey: string;
 }
 
 export const DashboardContext = createContext<DashboardContextValue>({
@@ -92,6 +93,7 @@ export const DashboardContext = createContext<DashboardContextValue>({
   addPanel: () => {},
   removePanel: () => {},
   resetLayout: () => {},
+  storageKey: STORAGE_KEY,
 });
 
 export function useDashboard() {
@@ -102,37 +104,50 @@ export function useDashboard() {
 
 interface DashboardProviderProps {
   children: ReactNode;
+  /** localStorage key for this workspace's layout. Defaults to "dashboard-layout". */
+  storageKey?: string;
 }
 
-export function DashboardProvider({ children }: DashboardProviderProps) {
-  const [layout, setLayout] = useState<Layout[]>(loadLayout);
+export function DashboardProvider({ children, storageKey = STORAGE_KEY }: DashboardProviderProps) {
+  const [layout, setLayout] = useState<Layout[]>(() => loadLayout(storageKey));
 
   const activePanelIds = new Set(layout.map((l) => l.i as PanelId));
 
-  const addPanel = useCallback((id: PanelId) => {
-    setLayout((prev) => {
-      if (prev.some((l) => l.i === id)) return prev;
-      const next: Layout[] = [...prev, { i: id, x: 0, y: Infinity, w: 4, h: 6, minW: 2, minH: 3 }];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const addPanel = useCallback(
+    (id: PanelId) => {
+      setLayout((prev) => {
+        if (prev.some((l) => l.i === id)) return prev;
+        const next: Layout[] = [
+          ...prev,
+          { i: id, x: 0, y: Infinity, w: 4, h: 6, minW: 2, minH: 3 },
+        ];
+        localStorage.setItem(storageKey, JSON.stringify(next));
+        return next;
+      });
+    },
+    [storageKey]
+  );
 
-  const removePanel = useCallback((id: PanelId) => {
-    setLayout((prev) => {
-      const next = prev.filter((l) => l.i !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const removePanel = useCallback(
+    (id: PanelId) => {
+      setLayout((prev) => {
+        const next = prev.filter((l) => l.i !== id);
+        localStorage.setItem(storageKey, JSON.stringify(next));
+        return next;
+      });
+    },
+    [storageKey]
+  );
 
   const resetLayout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey);
     setLayout(DEFAULT_LAYOUT);
-  }, []);
+  }, [storageKey]);
 
   return (
-    <DashboardContext.Provider value={{ activePanelIds, addPanel, removePanel, resetLayout }}>
+    <DashboardContext.Provider
+      value={{ activePanelIds, addPanel, removePanel, resetLayout, storageKey }}
+    >
       {children}
     </DashboardContext.Provider>
   );
@@ -174,11 +189,18 @@ export function DashboardLayout() {
   const dispatch = useAppDispatch();
   const selectedAsset = useAppSelector((s) => s.ui.selectedAsset);
   const candleHistory = useAppSelector((s) => s.market.candleHistory);
-  const { activePanelIds, addPanel: _add, removePanel, resetLayout: _reset } = useDashboard();
+  const {
+    activePanelIds,
+    addPanel: _add,
+    removePanel,
+    resetLayout: _reset,
+    storageKey,
+  } = useDashboard();
 
   // Keep a local copy of the layout for the grid (synced from context via activePanelIds changes)
-  const [layout, setLayout] = useState<Layout[]>(loadLayout);
+  const [layout, setLayout] = useState<Layout[]>(() => loadLayout(storageKey));
   const containerRef = useRef<HTMLDivElement>(null);
+  // deno-lint-ignore no-window
   const [gridWidth, setGridWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
@@ -188,7 +210,7 @@ export function DashboardLayout() {
     setLayout((prev) => {
       const saved = (() => {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
+          const raw = localStorage.getItem(storageKey);
           return raw ? (JSON.parse(raw) as Layout[]) : DEFAULT_LAYOUT;
         } catch {
           return DEFAULT_LAYOUT;
@@ -206,7 +228,7 @@ export function DashboardLayout() {
       }
       return result;
     });
-  }, [activePanelIds]);
+  }, [activePanelIds, storageKey]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -218,10 +240,13 @@ export function DashboardLayout() {
     return () => ro.disconnect();
   }, []);
 
-  const handleLayoutChange = useCallback((newLayout: Layout[]) => {
-    setLayout(newLayout);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newLayout));
-  }, []);
+  const handleLayoutChange = useCallback(
+    (newLayout: Layout[]) => {
+      setLayout(newLayout);
+      localStorage.setItem(storageKey, JSON.stringify(newLayout));
+    },
+    [storageKey]
+  );
 
   function renderPanelContent(id: PanelId): React.ReactNode {
     switch (id) {
@@ -260,8 +285,8 @@ export function DashboardLayout() {
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* biome-ignore lint/suspicious/noExplicitAny: third-party library compatibility */}
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      {/* deno-lint-ignore no-explicit-any - third-party library workaround */}
+      {/* biome-ignore lint/suspicious/noExplicitAny lint/a11y/noStaticElementInteractions: third-party library workaround */}
       <GridLayout
         layout={layout as any}
         cols={12}

@@ -46,6 +46,15 @@ export default defineConfig({
         target: "http://localhost:5007",
         rewrite: (path) => path.replace(/^\/api\/observability/, ""),
       },
+      "/api/fix-gateway": {
+        target: "http://localhost:9881",
+        rewrite: (path) => path.replace(/^\/api\/fix-gateway/, ""),
+      },
+      "/ws/fix": {
+        target: "ws://localhost:9881",
+        ws: true,
+        rewrite: (path) => path.replace(/^\/ws\/fix/, "/ws/fix"),
+      },
     },
   },
 });

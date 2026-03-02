@@ -53,6 +53,7 @@ const SERVICES: { name: string; url: string; link?: string; optional?: boolean }
     name: "FIX Gateway",
     url: `${import.meta.env.VITE_FIX_GW_URL ?? `${_origin}/api/fix-gateway`}/health`,
     link: `${import.meta.env.VITE_FIX_GW_URL ?? `${_origin}/api/fix-gateway`}/health`,
+    optional: true,
   },
   {
     name: "Traefik",
