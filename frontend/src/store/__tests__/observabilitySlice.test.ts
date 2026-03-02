@@ -66,7 +66,7 @@ describe("eventReceived", () => {
   });
 
   it("the newest event is always at index 0", () => {
-    let state = initialState;
+    let state = { events: [] as ObsEvent[] };
     for (let i = 0; i < 5; i++) {
       state = reducer(state, eventReceived(makeEvent(`event-${i}`)));
     }

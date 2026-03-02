@@ -50,7 +50,7 @@ export function applyTick(
   return [...candles, newCandle].slice(-MAX_CANDLES);
 }
 
-interface MarketState {
+export interface MarketState {
   assets: AssetDef[];
   prices: MarketPrices;
   priceHistory: PriceHistory;

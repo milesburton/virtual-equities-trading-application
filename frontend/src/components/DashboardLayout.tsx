@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 // react-grid-layout uses `export = X` CJS types; import as default and cast to avoid
 // type gymnastics — `skipLibCheck: true` and the any-cast keep TS happy.
-// @ts-expect-error - third-party library CJS types
 import GridLayoutLib from "react-grid-layout";
 
 // deno-lint-ignore no-explicit-any - third-party library workaround
