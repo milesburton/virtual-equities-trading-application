@@ -49,7 +49,7 @@ Ctrl+Shift+P → Dev Containers: Rebuild and Reopen in Container
 To configure ports or tuning parameters, copy the template before the container starts:
 
 ```sh
-cp backend/.env.template backend/.env
+cp .env.template .env
 ```
 
 Key defaults:
@@ -63,41 +63,50 @@ Key defaults:
 | `TWAP_ALGO_PORT` | 5004 | TWAP strategy |
 | `POV_ALGO_PORT` | 5005 | POV strategy |
 | `VWAP_ALGO_PORT` | 5006 | VWAP strategy |
+| `OBSERVABILITY_PORT` | 5007 | Observability service |
 | `FRONTEND_PORT` | 8080 | React UI |
 
 ## Services
 
-All nine services are managed by supervisord inside the Dev Container:
+### Dev Container (supervisord)
+
+All nine services are managed by supervisord inside the Dev Container. Ports are exposed directly on `localhost`.
 
 | Service | Port | Description |
 |---|---|---|
 | `market-sim` | 5000 | Simulates price movements; broadcasts ticks over WebSocket |
 | `ems` | 5001 | Fills orders against simulated market volume |
 | `oms` | 5002 | Receives and persists orders |
-| `algo-trader` | 5003 | Limit order strategy |
+| `limit-algo` | 5003 | Limit order strategy |
 | `twap-algo` | 5004 | Time-Weighted Average Price strategy |
 | `pov-algo` | 5005 | Percentage of Volume strategy |
 | `vwap-algo` | 5006 | Volume-Weighted Average Price strategy |
-| `observability` | 5007 | Event ingestion (POST /events) and SSE stream (GET /events) |
+| `observability` | 5007 | Event ingestion (POST /events) and SSE stream (GET /stream) |
 | `frontend` | 8080 | React trading UI |
-
-Check service status:
 
 ```sh
 supervisorctl status
-```
-
-Restart a service:
-
-```sh
 supervisorctl restart market-sim
-```
-
-Tail logs:
-
-```sh
 supervisorctl tail -f market-sim
 ```
+
+### Docker Compose (Traefik)
+
+`docker compose up` starts the full stack behind a Traefik reverse proxy. All services are accessible through a single port with path-based routing. No individual service ports are exposed to the host.
+
+| Traefik path | Backend service | Notes |
+|---|---|---|
+| `http://localhost/` | `frontend` | React UI |
+| `http://localhost/api/market-sim` | `market-sim` | REST |
+| `ws://localhost/ws/market-sim` | `market-sim` | WebSocket tick feed |
+| `http://localhost/api/ems` | `ems` | |
+| `http://localhost/api/oms` | `oms` | |
+| `http://localhost/api/limit-algo` | `limit-algo` | |
+| `http://localhost/api/twap-algo` | `twap-algo` | |
+| `http://localhost/api/pov-algo` | `pov-algo` | |
+| `http://localhost/api/vwap-algo` | `vwap-algo` | |
+| `http://localhost/api/observability` | `observability` | SSE stream at `/api/observability/stream` |
+| `http://localhost:8888` | Traefik dashboard | Router and service map |
 
 ## Backend
 

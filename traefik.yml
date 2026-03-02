@@ -1,0 +1,43 @@
+# Traefik v3 static configuration
+# Dynamic routing is configured via Docker labels in docker-compose.yml
+
+api:
+  dashboard: true
+  insecure: true   # Dashboard accessible on :8888 — restrict in production
+
+entryPoints:
+  web:
+    address: ":80"
+  # Placeholder for TLS termination when a domain is available:
+  # websecure:
+  #   address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: trading-net
+
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+    buckets:
+      - 0.01
+      - 0.05
+      - 0.1
+      - 0.5
+      - 1.0
+      - 2.0
+
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+
+log:
+  level: INFO
+  format: json

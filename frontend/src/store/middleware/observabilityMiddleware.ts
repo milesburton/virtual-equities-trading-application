@@ -2,7 +2,8 @@ import type { Middleware } from "@reduxjs/toolkit";
 import type { ObsEvent } from "../../types.ts";
 import { observabilitySlice } from "../observabilitySlice.ts";
 
-const OBS_URL = import.meta.env.VITE_OBS_URL ?? "http://localhost:5007";
+const _origin = typeof window !== "undefined" ? window.location.origin : "";
+const OBS_URL = import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`;
 
 export const observabilityMiddleware: Middleware = (storeAPI) => {
   let es: EventSource | null = null;

@@ -3,11 +3,12 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
 import type { ChildOrder, MarketPrices, OrderRecord, Strategy, Trade } from "../types.ts";
 
+// Relative paths work behind Traefik; VITE_* overrides for non-standard deployments.
 const ENDPOINTS: Record<Strategy, string> = {
-  LIMIT: import.meta.env.VITE_LIMIT_URL ?? "http://localhost:5003",
-  TWAP: import.meta.env.VITE_TWAP_URL ?? "http://localhost:5004",
-  POV: import.meta.env.VITE_POV_URL ?? "http://localhost:5005",
-  VWAP: import.meta.env.VITE_VWAP_URL ?? "http://localhost:5006",
+  LIMIT: import.meta.env.VITE_LIMIT_URL ?? "/api/limit-algo",
+  TWAP: import.meta.env.VITE_TWAP_URL ?? "/api/twap-algo",
+  POV: import.meta.env.VITE_POV_URL ?? "/api/pov-algo",
+  VWAP: import.meta.env.VITE_VWAP_URL ?? "/api/vwap-algo",
 };
 
 export const submitOrderThunk = createAsyncThunk(

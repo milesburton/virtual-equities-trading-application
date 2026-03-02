@@ -2,8 +2,15 @@ import type { Middleware } from "@reduxjs/toolkit";
 import type { AssetDef, MarketPrices } from "../../types.ts";
 import { marketSlice } from "../marketSlice.ts";
 
-const MARKET_WS_URL = import.meta.env.VITE_MARKET_WS_URL ?? "ws://localhost:5000";
-const MARKET_HTTP_URL = import.meta.env.VITE_MARKET_HTTP_URL ?? "http://localhost:5000";
+// Derive base URLs from the current origin so the app works behind Traefik
+// without any environment variables. VITE_* overrides remain available for
+// non-standard deployments (separate hosts, custom ports, etc).
+const _origin = typeof window !== "undefined" ? window.location.origin : "";
+const _wsOrigin = _origin.replace(/^http/, "ws");
+const MARKET_WS_URL =
+  import.meta.env.VITE_MARKET_WS_URL ?? `${_wsOrigin}/ws/market-sim`;
+const MARKET_HTTP_URL =
+  import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`;
 
 export const marketFeedMiddleware: Middleware = (storeAPI) => {
   let ws: WebSocket | null = null;

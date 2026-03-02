@@ -1,85 +1,341 @@
+networks:
+  trading-net:
+    driver: bridge
+
 services:
+
+  # ── Ingress ──────────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"       # Public ingress
+      - "8888:8080"   # Traefik dashboard → http://localhost:8888/dashboard/
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - trading-net
+    labels:
+      - "traefik.enable=true"
+
+  # ── Market Simulation ────────────────────────────────────────────────────────
   market-sim:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/market-sim/market-sim.ts
-    ports:
-      - "5000:5000"
+    restart: unless-stopped
+    networks:
+      - trading-net
     environment:
       MARKET_SIM_PORT: 5000
-    restart: unless-stopped
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      # HTTP: /api/market-sim/* → strip prefix → service
+      - "traefik.http.routers.market-sim.rule=PathPrefix(`/api/market-sim`)"
+      - "traefik.http.routers.market-sim.entrypoints=web"
+      - "traefik.http.routers.market-sim.middlewares=market-sim-strip"
+      - "traefik.http.middlewares.market-sim-strip.stripprefix.prefixes=/api/market-sim"
+      - "traefik.http.services.market-sim.loadbalancer.server.port=5000"
+      # WebSocket: /ws/market-sim → service (no prefix strip — WS upgrade on root path)
+      - "traefik.http.routers.market-sim-ws.rule=PathPrefix(`/ws/market-sim`)"
+      - "traefik.http.routers.market-sim-ws.entrypoints=web"
+      - "traefik.http.routers.market-sim-ws.middlewares=market-sim-ws-strip"
+      - "traefik.http.middlewares.market-sim-ws-strip.stripprefix.prefixes=/ws/market-sim"
+      - "traefik.http.routers.market-sim-ws.service=market-sim"
 
+  # ── Execution Management System ──────────────────────────────────────────────
   ems:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/ems/ems-server.ts
-    ports:
-      - "5001:5001"
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      market-sim:
+        condition: service_healthy
     environment:
       EMS_PORT: 5001
-    restart: unless-stopped
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      EMS_PARTICIPATION_CAP: ${EMS_PARTICIPATION_CAP:-0.20}
+      EMS_IMPACT_PER_1000_BPS: ${EMS_IMPACT_PER_1000_BPS:-1.0}
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ems.rule=PathPrefix(`/api/ems`)"
+      - "traefik.http.routers.ems.entrypoints=web"
+      - "traefik.http.routers.ems.middlewares=ems-strip"
+      - "traefik.http.middlewares.ems-strip.stripprefix.prefixes=/api/ems"
+      - "traefik.http.services.ems.loadbalancer.server.port=5001"
 
+  # ── Order Management System ──────────────────────────────────────────────────
   oms:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/oms/oms-server.ts
-    ports:
-      - "5002:5002"
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      ems:
+        condition: service_healthy
     environment:
       OMS_PORT: 5002
-    restart: unless-stopped
+      ALGO_HOST: limit-algo   # default route; strategies are addressed individually
+      ALGO_TRADER_PORT: 5003
+      TWAP_ALGO_PORT: 5004
+      POV_ALGO_PORT: 5005
+      VWAP_ALGO_PORT: 5006
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oms.rule=PathPrefix(`/api/oms`)"
+      - "traefik.http.routers.oms.entrypoints=web"
+      - "traefik.http.routers.oms.middlewares=oms-strip"
+      - "traefik.http.middlewares.oms-strip.stripprefix.prefixes=/api/oms"
+      - "traefik.http.services.oms.loadbalancer.server.port=5002"
 
+  # ── Limit Strategy ───────────────────────────────────────────────────────────
   limit-algo:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/algo/limit-strategy.ts
-    ports:
-      - "5003:5003"
-    environment:
-      LIMIT_ALGO_PORT: 5003
-      MARKET_SIM_PORT: 5000
-    depends_on:
-      - market-sim
     restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      ems:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
+    environment:
+      ALGO_TRADER_PORT: 5003
+      EMS_HOST: ems
+      EMS_PORT: 5001
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      OBSERVABILITY_HOST: observability
+      OBSERVABILITY_PORT: 5007
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.limit-algo.rule=PathPrefix(`/api/limit`)"
+      - "traefik.http.routers.limit-algo.entrypoints=web"
+      - "traefik.http.routers.limit-algo.middlewares=limit-algo-strip"
+      - "traefik.http.middlewares.limit-algo-strip.stripprefix.prefixes=/api/limit"
+      - "traefik.http.services.limit-algo.loadbalancer.server.port=5003"
 
+  # ── TWAP Strategy ────────────────────────────────────────────────────────────
   twap-algo:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/algo/twap-strategy.ts
-    ports:
-      - "5004:5004"
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      ems:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
     environment:
       TWAP_ALGO_PORT: 5004
-    restart: unless-stopped
+      EMS_HOST: ems
+      EMS_PORT: 5001
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      TWAP_INTERVAL_MS: ${TWAP_INTERVAL_MS:-5000}
+      OBSERVABILITY_HOST: observability
+      OBSERVABILITY_PORT: 5007
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.twap-algo.rule=PathPrefix(`/api/twap`)"
+      - "traefik.http.routers.twap-algo.entrypoints=web"
+      - "traefik.http.routers.twap-algo.middlewares=twap-algo-strip"
+      - "traefik.http.middlewares.twap-algo-strip.stripprefix.prefixes=/api/twap"
+      - "traefik.http.services.twap-algo.loadbalancer.server.port=5004"
 
+  # ── POV Strategy ─────────────────────────────────────────────────────────────
   pov-algo:
     build:
       context: .
       dockerfile: Dockerfile
     command: deno run --allow-all backend/src/algo/pov-strategy.ts
-    ports:
-      - "5005:5005"
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      ems:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
     environment:
       POV_ALGO_PORT: 5005
-    restart: unless-stopped
+      EMS_HOST: ems
+      EMS_PORT: 5001
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      POV_PERCENTAGE: ${POV_PERCENTAGE:-10}
+      POV_MIN_SLICE: ${POV_MIN_SLICE:-10}
+      POV_MAX_SLICE: ${POV_MAX_SLICE:-5000}
+      OBSERVABILITY_HOST: observability
+      OBSERVABILITY_PORT: 5007
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pov-algo.rule=PathPrefix(`/api/pov`)"
+      - "traefik.http.routers.pov-algo.entrypoints=web"
+      - "traefik.http.routers.pov-algo.middlewares=pov-algo-strip"
+      - "traefik.http.middlewares.pov-algo-strip.stripprefix.prefixes=/api/pov"
+      - "traefik.http.services.pov-algo.loadbalancer.server.port=5005"
 
+  # ── VWAP Strategy ────────────────────────────────────────────────────────────
+  vwap-algo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/algo/vwap-strategy.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      ems:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
+    environment:
+      VWAP_ALGO_PORT: 5006
+      EMS_HOST: ems
+      EMS_PORT: 5001
+      MARKET_SIM_HOST: market-sim
+      MARKET_SIM_PORT: 5000
+      VWAP_WINDOW_TICKS: ${VWAP_WINDOW_TICKS:-20}
+      OBSERVABILITY_HOST: observability
+      OBSERVABILITY_PORT: 5007
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vwap-algo.rule=PathPrefix(`/api/vwap`)"
+      - "traefik.http.routers.vwap-algo.entrypoints=web"
+      - "traefik.http.routers.vwap-algo.middlewares=vwap-algo-strip"
+      - "traefik.http.middlewares.vwap-algo-strip.stripprefix.prefixes=/api/vwap"
+      - "traefik.http.services.vwap-algo.loadbalancer.server.port=5006"
+
+  # ── Observability ─────────────────────────────────────────────────────────────
+  observability:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/observability/observability-server.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    environment:
+      OBSERVABILITY_PORT: 5007
+      OBS_DB_PATH: /app/backend/data/observability.db
+      OBS_RETENTION_MS: ${OBS_RETENTION_MS:-86400000}
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    volumes:
+      - observability-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.observability.rule=PathPrefix(`/api/observability`)"
+      - "traefik.http.routers.observability.entrypoints=web"
+      - "traefik.http.routers.observability.middlewares=observability-strip"
+      - "traefik.http.middlewares.observability-strip.stripprefix.prefixes=/api/observability"
+      - "traefik.http.services.observability.loadbalancer.server.port=5007"
+      # SSE requires buffering disabled
+      - "traefik.http.middlewares.observability-sse.headers.customResponseHeaders.X-Accel-Buffering=no"
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    command: bash -c "cd frontend && deno task dev"
-    ports:
-      - "8080:8080"
-    depends_on:
-      - market-sim
-      - oms
-      - ems
-      - limit-algo
-      - twap-algo
-      - pov-algo
+    command: bash -c "cd frontend && npm ci --silent && npm run build && npx serve -s dist -l 8080"
     restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      market-sim:
+        condition: service_healthy
+      oms:
+        condition: service_healthy
+      observability:
+        condition: service_healthy
+    environment:
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      # Catch-all: all unmatched traffic goes to the frontend
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+
+volumes:
+  observability-data:

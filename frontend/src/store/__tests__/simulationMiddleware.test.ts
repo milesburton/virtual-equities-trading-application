@@ -262,9 +262,7 @@ describe("simulationMiddleware – VWAP", () => {
     store.dispatch(ordersSlice.actions.orderAdded(vwapOrder));
 
     // Seed a price well within band
-    store.dispatch(
-      marketSlice.actions.tickReceived({ prices: { AAPL: 150 }, ts: NOW })
-    );
+    store.dispatch(marketSlice.actions.tickReceived({ prices: { AAPL: 150 }, ts: NOW }));
 
     vi.advanceTimersByTime(FIVE_SECONDS);
 
@@ -289,9 +287,7 @@ describe("simulationMiddleware – VWAP", () => {
     store.dispatch(ordersSlice.actions.orderAdded(vwapOrder));
 
     // Set price far from limit — deviation will exceed 0.1%
-    store.dispatch(
-      marketSlice.actions.tickReceived({ prices: { AAPL: 200 }, ts: NOW })
-    );
+    store.dispatch(marketSlice.actions.tickReceived({ prices: { AAPL: 200 }, ts: NOW }));
 
     vi.advanceTimersByTime(FIVE_SECONDS);
 
@@ -317,7 +313,9 @@ describe("simulationMiddleware – observability events", () => {
     const store = makeStore();
     store.dispatch(ordersSlice.actions.orderAdded(makeOrder()));
     vi.clearAllMocks();
-    store.dispatch(ordersSlice.actions.orderPatched({ id: "order-1", patch: { status: "filled" } }));
+    store.dispatch(
+      ordersSlice.actions.orderPatched({ id: "order-1", patch: { status: "filled" } })
+    );
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/events"),
       expect.objectContaining({ method: "POST" })

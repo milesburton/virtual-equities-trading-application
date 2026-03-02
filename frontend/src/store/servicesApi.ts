@@ -1,20 +1,30 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { ServiceHealth } from "../types.ts";
 
+// Derive base from current origin so the app works behind Traefik without env vars.
+// VITE_* overrides remain available for non-standard deployments.
+const _origin = typeof window !== "undefined" ? window.location.origin : "";
+
 const SERVICES: { name: string; url: string }[] = [
   {
     name: "Market Sim",
-    url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? "http://localhost:5000"}/health`,
+    url: `${import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`}/health`,
   },
-  { name: "EMS", url: `${import.meta.env.VITE_EMS_URL ?? "http://localhost:5001"}/health` },
-  { name: "OMS", url: `${import.meta.env.VITE_OMS_URL ?? "http://localhost:5002"}/health` },
+  { name: "EMS", url: `${import.meta.env.VITE_EMS_URL ?? `${_origin}/api/ems`}/health` },
+  { name: "OMS", url: `${import.meta.env.VITE_OMS_URL ?? `${_origin}/api/oms`}/health` },
   {
     name: "Limit Algo",
-    url: `${import.meta.env.VITE_LIMIT_URL ?? "http://localhost:5003"}/health`,
+    url: `${import.meta.env.VITE_LIMIT_URL ?? `${_origin}/api/limit-algo`}/health`,
   },
-  { name: "TWAP Algo", url: `${import.meta.env.VITE_TWAP_URL ?? "http://localhost:5004"}/health` },
-  { name: "POV Algo", url: `${import.meta.env.VITE_POV_URL ?? "http://localhost:5005"}/health` },
-  { name: "VWAP Algo", url: `${import.meta.env.VITE_VWAP_URL ?? "http://localhost:5006"}/health` },
+  {
+    name: "TWAP Algo",
+    url: `${import.meta.env.VITE_TWAP_URL ?? `${_origin}/api/twap-algo`}/health`,
+  },
+  { name: "POV Algo", url: `${import.meta.env.VITE_POV_URL ?? `${_origin}/api/pov-algo`}/health` },
+  {
+    name: "VWAP Algo",
+    url: `${import.meta.env.VITE_VWAP_URL ?? `${_origin}/api/vwap-algo`}/health`,
+  },
 ];
 
 export { SERVICES };
