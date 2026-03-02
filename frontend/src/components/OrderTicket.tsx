@@ -334,9 +334,11 @@ export function OrderTicket() {
         </button>
 
         <p
-          className={`text-xs text-center h-4 ${
-            feedback.value ? (feedback.value.ok ? "text-emerald-400" : "text-red-400") : "invisible"
+          className={`text-xs text-center min-h-4 ${
+            feedback.value ? (feedback.value.ok ? "text-emerald-400" : "text-red-400") : "text-transparent"
           }`}
+          aria-live="polite"
+          aria-atomic="true"
         >
           {feedback.value?.msg ?? "\u00a0"}
         </p>
