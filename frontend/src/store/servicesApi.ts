@@ -48,6 +48,7 @@ const SERVICES: { name: string; url: string; link?: string; optional?: boolean }
     name: "Observability",
     url: `${import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`}/health`,
     link: `${import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`}/health`,
+    optional: true,
   },
   {
     name: "FIX Gateway",

@@ -76,12 +76,15 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
       .catch(() => {});
   }
 
+  // Start fetching assets and connecting to market feed immediately
+  // This is the initialization that happens on app load
+  if (!started) {
+    started = true;
+    fetchAssets();
+    connect();
+  }
+
   return (next) => (action: unknown) => {
-    if (!started) {
-      started = true;
-      fetchAssets();
-      connect();
-    }
     if ((action as { type: string }).type === "marketFeed/stop") {
       ws?.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
