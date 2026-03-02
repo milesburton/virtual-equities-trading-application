@@ -1,19 +1,38 @@
-import { useEffect, useState } from "react";
-import type { ServiceHealth } from "../hooks/useServiceHealth.ts";
+import { useEffect } from "react";
+import { useSignal } from "@preact/signals-react";
+import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
+import { useAppSelector } from "../store/hooks.ts";
+import type { ServiceHealth } from "../types.ts";
 import { ServiceStatus } from "./ServiceStatus.tsx";
 
-interface Props {
-  connected: boolean;
-  services: ServiceHealth[];
+function useAllServiceHealth(): ServiceHealth[] {
+  const r0 = useGetServiceHealthQuery(SERVICES[0], { pollingInterval: 10_000 });
+  const r1 = useGetServiceHealthQuery(SERVICES[1], { pollingInterval: 10_000 });
+  const r2 = useGetServiceHealthQuery(SERVICES[2], { pollingInterval: 10_000 });
+  const r3 = useGetServiceHealthQuery(SERVICES[3], { pollingInterval: 10_000 });
+  const r4 = useGetServiceHealthQuery(SERVICES[4], { pollingInterval: 10_000 });
+  const r5 = useGetServiceHealthQuery(SERVICES[5], { pollingInterval: 10_000 });
+  const r6 = useGetServiceHealthQuery(SERVICES[6], { pollingInterval: 10_000 });
+
+  return SERVICES.map((svc, i) => {
+    const result = [r0, r1, r2, r3, r4, r5, r6][i];
+    if (result.data) return result.data;
+    if (result.isError) {
+      return { name: svc.name, url: svc.url, state: "error" as const, version: "—", meta: {}, lastChecked: Date.now() };
+    }
+    return { name: svc.name, url: svc.url, state: "unknown" as const, version: "—", meta: {}, lastChecked: null };
+  });
 }
 
-export function StatusBar({ connected, services }: Props) {
-  const [time, setTime] = useState(() => new Date().toLocaleTimeString());
+export function StatusBar() {
+  const connected = useAppSelector((s) => s.market.connected);
+  const services = useAllServiceHealth();
+  const time = useSignal(new Date().toLocaleTimeString());
 
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date().toLocaleTimeString()), 1000);
+    const id = setInterval(() => { time.value = new Date().toLocaleTimeString(); }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [time]);
 
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 text-xs text-gray-400">
@@ -34,7 +53,7 @@ export function StatusBar({ connected, services }: Props) {
       </div>
       <div className="flex items-center gap-6">
         <ServiceStatus services={services} />
-        <span className="tabular-nums">{time}</span>
+        <span className="tabular-nums">{time.value}</span>
       </div>
     </div>
   );

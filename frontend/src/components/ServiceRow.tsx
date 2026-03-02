@@ -1,4 +1,4 @@
-import type { ServiceHealth } from "../hooks/useServiceHealth.ts";
+import type { ServiceHealth } from "../types.ts";
 import { StatusDot } from "./StatusDot";
 
 export function ServiceRow({ svc }: { svc: ServiceHealth }) {

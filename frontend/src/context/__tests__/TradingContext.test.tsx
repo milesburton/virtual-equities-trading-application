@@ -1,60 +1,27 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
+import { configureStore } from "@reduxjs/toolkit";
+import { uiSlice } from "../../store/uiSlice";
+import { windowSlice } from "../../store/windowSlice";
 import { TradingProvider, useTradingContext } from "../TradingContext";
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  return <TradingProvider>{children}</TradingProvider>;
+function makeStore() {
+  return configureStore({
+    reducer: {
+      ui: uiSlice.reducer,
+      windows: windowSlice.reducer,
+    },
+  });
 }
 
-describe("TradingProvider – initial state", () => {
-  it("defaults to LIMIT strategy", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-    expect(result.current.activeStrategy).toBe("LIMIT");
-  });
-
-  it("defaults to BUY side", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-    expect(result.current.activeSide).toBe("BUY");
-  });
-
-  it("defaults showShortcuts to false", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-    expect(result.current.showShortcuts).toBe(false);
-  });
-});
-
-describe("TradingProvider – setters", () => {
-  it("setActiveStrategy updates the strategy", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-
-    act(() => {
-      result.current.setActiveStrategy("TWAP");
-    });
-
-    expect(result.current.activeStrategy).toBe("TWAP");
-  });
-
-  it("setActiveSide toggles to SELL", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-
-    act(() => {
-      result.current.setActiveSide("SELL");
-    });
-
-    expect(result.current.activeSide).toBe("SELL");
-  });
-
-  it("setActiveSide can switch back to BUY", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-
-    act(() => {
-      result.current.setActiveSide("SELL");
-      result.current.setActiveSide("BUY");
-    });
-
-    expect(result.current.activeSide).toBe("BUY");
-  });
-});
+function wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <Provider store={makeStore()}>
+      <TradingProvider>{children}</TradingProvider>
+    </Provider>
+  );
+}
 
 describe("TradingProvider – focusTicket / registerTicketRef", () => {
   it("focusTicket calls focus on a registered element", () => {
@@ -101,42 +68,12 @@ describe("TradingProvider – error boundary", () => {
 describe("TradingProvider – ShortcutOverlay", () => {
   it("does not render the shortcut overlay by default", () => {
     render(
-      <TradingProvider>
-        <div />
-      </TradingProvider>
+      <Provider store={makeStore()}>
+        <TradingProvider>
+          <div />
+        </TradingProvider>
+      </Provider>
     );
     expect(screen.queryByText(/Keyboard Shortcuts/i)).not.toBeInTheDocument();
-  });
-
-  it("renders the shortcut overlay when showShortcuts is true", () => {
-    const { result } = renderHook(() => useTradingContext(), { wrapper });
-    // Verify initial state — overlay is hidden by default
-    expect(result.current.showShortcuts).toBe(false);
-  });
-
-  it("overlay close button removes the overlay", () => {
-    // Render a helper that can toggle showShortcuts via context
-    function TestApp() {
-      return (
-        <button
-          type="button"
-          data-testid="show"
-          onClick={() => {
-            fireEvent.keyDown(document, { key: "?" });
-          }}
-        >
-          show
-        </button>
-      );
-    }
-
-    // Just verify that no overlay exists initially
-    render(
-      <TradingProvider>
-        <TestApp />
-      </TradingProvider>
-    );
-
-    expect(screen.queryByText("Keyboard Shortcuts")).not.toBeInTheDocument();
   });
 });

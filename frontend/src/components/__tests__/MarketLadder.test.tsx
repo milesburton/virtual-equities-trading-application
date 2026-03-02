@@ -1,6 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { Provider } from "react-redux";
+import { describe, expect, it } from "vitest";
+import { configureStore } from "@reduxjs/toolkit";
 import type { AssetDef, MarketPrices, PriceHistory } from "../../types";
+import { marketSlice } from "../../store/marketSlice";
+import { uiSlice } from "../../store/uiSlice";
+import { windowSlice } from "../../store/windowSlice";
 import { MarketLadder } from "../MarketLadder";
 
 const assets: AssetDef[] = [
@@ -19,24 +24,34 @@ const priceHistory: PriceHistory = {
   JPM: [149, 147, 148],
 };
 
+function makeStore(
+  overrides: { assets?: AssetDef[]; prices?: MarketPrices; priceHistory?: PriceHistory } = {}
+) {
+  return configureStore({
+    reducer: {
+      market: marketSlice.reducer,
+      ui: uiSlice.reducer,
+      windows: windowSlice.reducer,
+    },
+    preloadedState: {
+      market: {
+        assets: overrides.assets ?? assets,
+        prices: overrides.prices ?? prices,
+        priceHistory: overrides.priceHistory ?? priceHistory,
+        candleHistory: {},
+        connected: true,
+      },
+    },
+  });
+}
+
 function renderLadder(
-  overrides: Partial<{
-    assets: AssetDef[];
-    prices: MarketPrices;
-    priceHistory: PriceHistory;
-    selectedAsset: string | null;
-    onSelectAsset: (s: string | null) => void;
-  }> = {}
+  overrides: { assets?: AssetDef[]; prices?: MarketPrices; priceHistory?: PriceHistory } = {}
 ) {
   return render(
-    <MarketLadder
-      assets={assets}
-      prices={prices}
-      priceHistory={priceHistory}
-      selectedAsset={null}
-      onSelectAsset={vi.fn()}
-      {...overrides}
-    />
+    <Provider store={makeStore(overrides)}>
+      <MarketLadder />
+    </Provider>
   );
 }
 

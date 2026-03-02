@@ -95,3 +95,14 @@ export interface ObsEvent {
   ts?: number;
   payload?: Record<string, unknown>;
 }
+
+export type ServiceState = "ok" | "error" | "unknown";
+
+export interface ServiceHealth {
+  name: string;
+  url: string;
+  state: ServiceState;
+  version: string;
+  meta: Record<string, unknown>;
+  lastChecked: number | null;
+}

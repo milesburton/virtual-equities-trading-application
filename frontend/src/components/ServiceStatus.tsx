@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ServiceHealth, ServiceState } from "../hooks/useServiceHealth.ts";
+import { useSignal } from "@preact/signals-react";
+import type { ServiceHealth, ServiceState } from "../types.ts";
 import { ServiceRow } from "./ServiceRow";
 import { StatusDot } from "./StatusDot";
 
@@ -14,27 +14,27 @@ function aggregateState(services: ServiceHealth[]): ServiceState {
 }
 
 export function ServiceStatus({ services }: Props) {
-  const [open, setOpen] = useState(false);
+  const open = useSignal(false);
   const overall = aggregateState(services);
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { open.value = !open.value; }}
         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
       >
         <StatusDot state={overall} className="w-2 h-2" />
         Services
       </button>
 
-      {open && (
+      {open.value && (
         <>
           <button
             type="button"
             aria-label="Close service status panel"
             className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setOpen(false)}
+            onClick={() => { open.value = false; }}
           />
 
           <div className="absolute right-0 top-7 z-20 w-96 bg-gray-900 border border-gray-700 rounded shadow-xl text-xs">
