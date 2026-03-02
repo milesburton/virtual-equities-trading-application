@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
   webServer: {
-    command: 'npm run preview --silent',
+    command: 'npm run preview --silent -- --port 5173',
     port: 5173,
     reuseExistingServer: false,
   },

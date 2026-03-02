@@ -4,10 +4,7 @@ WORKDIR /src/frontend
 
 # Install build dependencies and build
 COPY frontend/package.json frontend/package-lock.json* ./
-COPY frontend/tsconfig.json ./
-COPY frontend/vite.config.ts ./
-COPY frontend/src ./src
-COPY frontend/public ./public
+COPY frontend/ ./
 RUN npm ci --silent || npm install --silent
 RUN npm run build
 
