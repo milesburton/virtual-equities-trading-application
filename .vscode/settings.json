@@ -1,0 +1,38 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.inlineSuggest.enabled": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "terminal.integrated.defaultProfile.linux": "fish",
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.codeLens.test": true,
+  "[deno]": {
+    "editor.defaultFormatter": "denoland.vscode-deno",
+    "editor.formatOnSave": true
+  },
+  "github.copilot.enable": {
+    "*": true,
+    "yaml": true,
+    "plaintext": true,
+    "markdown": true,
+    "fish": true,
+    "shell": true
+  },
+  "github.copilot.advanced": {
+    "debug.overrideChatModel": "gpt-4"
+  },
+  "codeium.enableConfig": {
+    "*": true
+  },
+  "codeium.chat": true,
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"]
+}
