@@ -133,9 +133,9 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                 className="bg-gray-800 text-gray-100 text-[11px] px-1 rounded outline-none w-24 border border-emerald-500"
               />
             ) : (
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
+                className="bg-gray-800 text-gray-100 text-xs p-0 rounded cursor-pointer"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   editingId.value = ws.id;
@@ -149,7 +149,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                 }}
               >
                 {ws.name}
-              </span>
+              </button>
             )}
 
             {active && workspaces.length > 1 && !isEditing && (
