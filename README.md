@@ -153,17 +153,22 @@ npm run test:unit -- --run --coverage
 
 ## Git Hooks
 
-Install once after cloning:
+Git hooks are automatically installed via [Husky](https://husky.sh/) when you run `npm install --prefix frontend`. No additional setup needed.
 
-```sh
-sh scripts/install-hooks.sh
-```
-
-Hooks enforce Biome linting, TypeScript type-checking, Deno backend tests, and [Conventional Commits](https://www.conventionalcommits.org/) on every commit.
+Hooks enforce:
+- **Backend**: Deno linting, type-checking, and unit tests
+- **Frontend**: Biome linting and TypeScript type-checking (staged files only)
+- **Commit messages**: [Conventional Commits](https://www.conventionalcommits.org/) format
 
 Commit message format: `<type>(scope): <description>`
 
 Allowed types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `chore` `build` `ci` `revert`
+
+Example:
+```sh
+git commit -m "feat(oms): add trade validation"
+git commit -m "fix(market-sim): correct spread calculation"
+```
 
 ## Licence
 

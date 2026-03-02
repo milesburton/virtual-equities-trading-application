@@ -1,0 +1,41 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+COMMIT_SHA=$(git rev-parse --short HEAD)
+
+# Stamp the commit SHA into .env so services report the correct version
+if [ -f "$REPO_ROOT/.env" ]; then
+  if grep -q "^COMMIT_SHA=" "$REPO_ROOT/.env"; then
+    sed -i "s/^COMMIT_SHA=.*/COMMIT_SHA=$COMMIT_SHA/" "$REPO_ROOT/.env"
+  else
+    echo "COMMIT_SHA=$COMMIT_SHA" >> "$REPO_ROOT/.env"
+  fi
+fi
+
+echo "🔍 Pre-commit checks... (commit: $COMMIT_SHA)"
+
+echo "  [1/5] Backend lint..."
+cd "$REPO_ROOT"
+deno task lint
+
+echo "  [2/5] Backend type-check..."
+deno task check
+
+echo "  [3/5] Backend unit tests..."
+deno task test
+
+echo "  [4/5] Frontend lint & typecheck (staged files)..."
+cd "$REPO_ROOT"
+npx lint-staged
+
+echo "  [5/5] Smoke tests (skipped if services offline)..."
+if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
+  deno task test:smoke
+else
+  echo "       Services not running — skipping smoke tests."
+fi
+
+echo "✅ Pre-commit checks passed."
