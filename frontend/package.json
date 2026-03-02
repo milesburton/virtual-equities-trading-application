@@ -12,7 +12,13 @@
     "test:unit": "NODE_OPTIONS=--max-old-space-size=4096 vitest",
     "test:ui": "npx playwright test",
     "test:ui:headed": "npx playwright test --headed",
-    "postinstall": "node -e \"require('husky').install('..') && console.log('Husky installed')\" 2>/dev/null || echo 'Note: Run npm install in frontend/ to finalize Husky setup'"
+    "prepare": "cd .. && npx husky"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "deno run -A npm:@biomejs/biome check --write",
+      "./node_modules/.bin/tsc --noEmit --skipLibCheck"
+    ]
   },
   "dependencies": {
     "@preact/signals-react": "^3.9.0",

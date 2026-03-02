@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "description": "A virtualized trading application with real-time market simulation and algorithmic trading strategies.",
-  "scripts": {},
-  "lint-staged": {
-    "frontend/src/**/*.{ts,tsx}": [
-      "deno run -A npm:@biomejs/biome check --write",
-      "cd frontend && ./node_modules/.bin/tsc --noEmit --skipLibCheck"
-    ]
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "lint": "deno task lint && cd frontend && npm run lint",
+    "typecheck": "deno task check && cd frontend && npm run typecheck",
+    "test": "deno task test && cd frontend && npm run test:unit -- --run",
+    "test:backend": "deno task test",
+    "test:frontend": "cd frontend && npm run test:unit -- --run",
+    "test:integration": "deno task test:integration",
+    "test:smoke": "deno task test:smoke"
   }
 }
