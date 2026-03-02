@@ -74,10 +74,7 @@ describe("useObservability – historic events fetch", () => {
   });
 
   it("handles non-ok HTTP response gracefully", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, json: async () => [] })
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => [] }));
 
     const { result } = renderHook(() => useObservability());
 
