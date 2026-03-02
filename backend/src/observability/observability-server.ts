@@ -83,6 +83,7 @@ async function handle(req: Request): Promise<Response> {
 
   // Server-Sent Events stream
   if (req.method === "GET" && url.pathname === "/stream") {
+    let cleanup: (() => void) | null = null;
     const stream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder();
@@ -99,10 +100,13 @@ async function handle(req: Request): Promise<Response> {
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected", ts: Date.now() })}\n\n`));
 
-        controller.signal.addEventListener("abort", () => {
+        cleanup = () => {
           broadcaster.removeEventListener("event", onEvent);
           clearInterval(hb);
-        });
+        };
+      },
+      cancel() {
+        cleanup?.();
       },
     });
 

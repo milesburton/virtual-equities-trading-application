@@ -15,7 +15,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
   fi
 fi
 
-echo "🔍 Pre-commit checks... (commit: $COMMIT_SHA)"
+echo "Pre-commit checks... (commit: $COMMIT_SHA)"
 
 echo "  [1/5] Backend lint..."
 cd "$REPO_ROOT"
@@ -28,14 +28,15 @@ echo "  [3/5] Backend unit tests..."
 deno task test
 
 echo "  [4/5] Frontend lint & typecheck (staged files)..."
-cd "$REPO_ROOT"
-npx lint-staged
+cd "$REPO_ROOT/frontend"
+npx lint-staged --cwd .
 
 echo "  [5/5] Smoke tests (skipped if services offline)..."
+cd "$REPO_ROOT"
 if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
   deno task test:smoke
 else
   echo "       Services not running — skipping smoke tests."
 fi
 
-echo "✅ Pre-commit checks passed."
+echo "Pre-commit checks passed."
