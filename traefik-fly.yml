@@ -1,0 +1,18 @@
+# Traefik v3 static configuration for Fly.io single-VM deployment.
+# Uses the file provider (no Docker socket) to route /api/* and /ws/* paths
+# to the backend Deno services running on localhost.
+
+api:
+  dashboard: false
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    filename: /app/traefik-fly-dynamic.yml
+    watch: false
+
+log:
+  level: ERROR

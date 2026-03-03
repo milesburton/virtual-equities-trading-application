@@ -28,7 +28,7 @@ primary_region = "iad"
   min_machines_running = 1
 
   [[http_service.checks]]
-    grace_period = "10s"
+    grace_period = "30s"
     interval = "30s"
     timeout = "5s"
     type = "http"
@@ -41,5 +41,5 @@ primary_region = "iad"
   initial_size = "1gb"
 
 [[vm]]
-  memory = "512mb"
+  memory = "1gb"
   cpus = 1
