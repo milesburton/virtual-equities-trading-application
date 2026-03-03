@@ -2,6 +2,8 @@ import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { ChannelContext } from "../../contexts/ChannelContext";
+import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
@@ -32,6 +34,7 @@ function makeStore(
       market: marketSlice.reducer,
       ui: uiSlice.reducer,
       windows: windowSlice.reducer,
+      channels: channelsSlice.reducer,
     },
     preloadedState: {
       market: {
@@ -51,7 +54,16 @@ function renderLadder(
 ) {
   return render(
     <Provider store={makeStore(overrides)}>
-      <MarketLadder />
+      <ChannelContext.Provider
+        value={{
+          instanceId: "market-ladder",
+          panelType: "market-ladder",
+          outgoing: null,
+          incoming: null,
+        }}
+      >
+        <MarketLadder />
+      </ChannelContext.Provider>
     </Provider>
   );
 }

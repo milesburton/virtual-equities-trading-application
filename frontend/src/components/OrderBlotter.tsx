@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals-react";
+import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { ChildOrder, OrderStatus } from "../types.ts";
 import { PopOutButton } from "./PopOutButton.tsx";
@@ -69,6 +70,14 @@ function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
 export function OrderBlotter() {
   const orders = useAppSelector((s) => s.orders.orders);
   const expanded = useSignal<Set<string>>(new Set());
+  const selectedOrderId = useSignal<string | null>(null);
+  const broadcast = useChannelOut();
+
+  function selectOrder(id: string) {
+    const next = selectedOrderId.value === id ? null : id;
+    selectedOrderId.value = next;
+    broadcast({ selectedOrderId: next });
+  }
 
   function toggleExpand(id: string) {
     const next = new Set(expanded.value);
@@ -115,7 +124,12 @@ export function OrderBlotter() {
                 <>
                   <tr
                     key={order.id}
-                    className="border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors"
+                    onClick={() => selectOrder(order.id)}
+                    className={`border-b border-gray-800/40 cursor-pointer transition-colors ${
+                      selectedOrderId.value === order.id
+                        ? "bg-sky-900/20 border-l-2 border-l-sky-500"
+                        : "hover:bg-gray-800/20"
+                    }`}
                   >
                     <td className="px-3 py-1.5 text-gray-500 tabular-nums whitespace-nowrap">
                       {formatTime(order.submittedAt)}

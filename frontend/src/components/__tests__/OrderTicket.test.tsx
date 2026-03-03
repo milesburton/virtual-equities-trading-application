@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
 import { TradingProvider } from "../../context/TradingContext";
+import { ChannelContext } from "../../contexts/ChannelContext";
+import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { ordersSlice } from "../../store/ordersSlice";
 import { uiSlice } from "../../store/uiSlice";
@@ -24,6 +26,7 @@ function makeStore() {
       orders: ordersSlice.reducer,
       ui: uiSlice.reducer,
       windows: windowSlice.reducer,
+      channels: channelsSlice.reducer,
     },
     preloadedState: {
       market: {
@@ -42,9 +45,18 @@ function renderTicket() {
   const testStore = makeStore();
   render(
     <Provider store={testStore}>
-      <TradingProvider>
-        <OrderTicket />
-      </TradingProvider>
+      <ChannelContext.Provider
+        value={{
+          instanceId: "order-ticket",
+          panelType: "order-ticket",
+          outgoing: null,
+          incoming: null,
+        }}
+      >
+        <TradingProvider>
+          <OrderTicket />
+        </TradingProvider>
+      </ChannelContext.Provider>
     </Provider>
   );
   return testStore;

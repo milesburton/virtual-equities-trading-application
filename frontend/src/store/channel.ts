@@ -15,7 +15,8 @@ function isSyncableAction(type: string): boolean {
     type.startsWith("orders/") ||
     type.startsWith("ui/") ||
     type.startsWith("windows/") ||
-    type.startsWith("observability/")
+    type.startsWith("observability/") ||
+    type.startsWith("channels/")
   );
 }
 
