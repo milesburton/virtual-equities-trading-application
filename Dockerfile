@@ -21,8 +21,8 @@ RUN curl -fsSL "https://github.com/traefik/traefik/releases/download/v${TRAEFIK_
     | tar -xz -C /usr/local/bin traefik \
     && chmod +x /usr/local/bin/traefik
 
-# Pre-install the file-server so it is cached in the image layer
-RUN deno install -A --quiet jsr:@std/http/file-server
+# Pre-cache the file-server module (Deno 2.x: use deno cache instead of deno install for non-global tools)
+RUN deno cache jsr:@std/http/file-server
 
 # Copy application source and Fly.io configs
 WORKDIR /app
