@@ -28,12 +28,12 @@ primary_region = "iad"
   min_machines_running = 1
 
   [[http_service.checks]]
-    grace_period = "30s"
+    grace_period = "90s"
     interval = "30s"
-    timeout = "5s"
+    timeout = "10s"
     type = "http"
     method = "GET"
-    path = "/"
+    path = "/health"
 
 [mounts]
   source = "data"
@@ -41,5 +41,5 @@ primary_region = "iad"
   initial_size = "1gb"
 
 [[vm]]
-  memory = "1gb"
+  memory = "256mb"
   cpus = 1

@@ -67,6 +67,13 @@ http:
       service: observability
       priority: 10
 
+    health:
+      rule: "Path(`/health`)"
+      entryPoints: [web]
+      middlewares: [health-rewrite]
+      service: observability
+      priority: 20
+
     fix-gateway:
       rule: "PathPrefix(`/api/fix-gateway`)"
       entryPoints: [web]
@@ -115,6 +122,9 @@ http:
     obs-strip:
       stripPrefix:
         prefixes: ["/api/observability"]
+    health-rewrite:
+      replacePath:
+        path: "/health/all"
     fix-gw-strip:
       stripPrefix:
         prefixes: ["/api/fix-gateway"]
