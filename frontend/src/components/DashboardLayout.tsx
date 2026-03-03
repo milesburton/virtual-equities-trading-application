@@ -92,30 +92,75 @@ export interface LayoutItem {
 }
 
 export const DEFAULT_LAYOUT: LayoutItem[] = [
-  { i: "order-ticket", panelType: "order-ticket", x: 0, y: 0, w: 2, h: 12, minW: 2, minH: 8 },
+  { i: "order-ticket", panelType: "order-ticket", x: 0, y: 0, w: 2, h: 14, minW: 2, minH: 8 },
+  { i: "market-ladder", panelType: "market-ladder", x: 2, y: 0, w: 3, h: 14, minW: 2, minH: 6 },
+  { i: "candle-chart", panelType: "candle-chart", x: 5, y: 0, w: 4, h: 10, minW: 3, minH: 4 },
+  { i: "market-depth", panelType: "market-depth", x: 9, y: 0, w: 3, h: 10, minW: 2, minH: 4 },
+  { i: "algo-monitor", panelType: "algo-monitor", x: 5, y: 10, w: 4, h: 4, minW: 3, minH: 3 },
+  { i: "observability", panelType: "observability", x: 9, y: 10, w: 3, h: 4, minW: 2, minH: 3 },
+  { i: "order-blotter", panelType: "order-blotter", x: 0, y: 14, w: 12, h: 4, minW: 4, minH: 3 },
+];
+
+export const LAYOUT_TEMPLATES: {
+  id: string;
+  label: string;
+  description: string;
+  layout: LayoutItem[];
+}[] = [
   {
-    i: "market-ladder",
-    panelType: "market-ladder",
-    x: 2,
-    y: 0,
-    w: 3,
-    h: 12,
-    minW: 2,
-    minH: 6,
+    id: "full",
+    label: "Full Dashboard",
+    description: "All panels — complete trading view",
+    layout: DEFAULT_LAYOUT,
   },
-  { i: "candle-chart", panelType: "candle-chart", x: 5, y: 0, w: 4, h: 8, minW: 3, minH: 4 },
-  { i: "algo-monitor", panelType: "algo-monitor", x: 5, y: 8, w: 4, h: 4, minW: 3, minH: 3 },
-  { i: "market-depth", panelType: "market-depth", x: 9, y: 0, w: 3, h: 8, minW: 2, minH: 4 },
-  { i: "observability", panelType: "observability", x: 9, y: 8, w: 3, h: 4, minW: 2, minH: 3 },
   {
-    i: "order-blotter",
-    panelType: "order-blotter",
-    x: 0,
-    y: 12,
-    w: 12,
-    h: 4,
-    minW: 4,
-    minH: 3,
+    id: "execution",
+    label: "Execution",
+    description: "Order entry, ladder, and blotter",
+    layout: [
+      { i: "order-ticket", panelType: "order-ticket", x: 0, y: 0, w: 3, h: 14, minW: 2, minH: 8 },
+      { i: "market-ladder", panelType: "market-ladder", x: 3, y: 0, w: 5, h: 14, minW: 2, minH: 6 },
+      {
+        i: "order-blotter",
+        panelType: "order-blotter",
+        x: 0,
+        y: 14,
+        w: 12,
+        h: 4,
+        minW: 4,
+        minH: 3,
+      },
+    ],
+  },
+  {
+    id: "algo",
+    label: "Algo Trading",
+    description: "Algorithm monitor, chart, and blotter",
+    layout: [
+      { i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 7, h: 10, minW: 3, minH: 4 },
+      { i: "market-depth", panelType: "market-depth", x: 7, y: 0, w: 5, h: 10, minW: 2, minH: 4 },
+      { i: "algo-monitor", panelType: "algo-monitor", x: 0, y: 10, w: 7, h: 4, minW: 3, minH: 3 },
+      {
+        i: "order-blotter",
+        panelType: "order-blotter",
+        x: 0,
+        y: 14,
+        w: 12,
+        h: 4,
+        minW: 4,
+        minH: 3,
+      },
+    ],
+  },
+  {
+    id: "analysis",
+    label: "Market Analysis",
+    description: "Chart, depth, and ladder — no order entry",
+    layout: [
+      { i: "market-ladder", panelType: "market-ladder", x: 0, y: 0, w: 3, h: 14, minW: 2, minH: 6 },
+      { i: "candle-chart", panelType: "candle-chart", x: 3, y: 0, w: 6, h: 10, minW: 3, minH: 4 },
+      { i: "market-depth", panelType: "market-depth", x: 9, y: 0, w: 3, h: 10, minW: 2, minH: 4 },
+    ],
   },
 ];
 
@@ -204,13 +249,43 @@ export function wouldCreateCycleIn(
   return false;
 }
 
+// ─── Smart panel placement ────────────────────────────────────────────────────
+
+function findOpenSpot(layout: LayoutItem[], w: number, h: number): { x: number; y: number } {
+  const occupied = new Set<string>();
+  for (const item of layout) {
+    for (let row = item.y; row < item.y + item.h; row++) {
+      for (let col = item.x; col < item.x + item.w; col++) {
+        occupied.add(`${col},${row}`);
+      }
+    }
+  }
+  const maxRow = layout.length > 0 ? Math.max(...layout.map((it) => it.y + it.h)) : 0;
+  for (let row = 0; row <= maxRow; row++) {
+    for (let col = 0; col <= 12 - w; col++) {
+      let fits = true;
+      outer: for (let dr = 0; dr < h; dr++) {
+        for (let dc = 0; dc < w; dc++) {
+          if (occupied.has(`${col + dc},${row + dr}`)) {
+            fits = false;
+            break outer;
+          }
+        }
+      }
+      if (fits) return { x: col, y: row };
+    }
+  }
+  // No gap found — append at bottom
+  return { x: 0, y: maxRow };
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 export interface DashboardContextValue {
   activePanelIds: Set<PanelId>;
   addPanel: (id: PanelId) => void;
   removePanel: (id: PanelId) => void;
-  resetLayout: () => void;
+  resetLayout: (templateLayout?: LayoutItem[]) => void;
   storageKey: string;
 }
 
@@ -218,7 +293,7 @@ export const DashboardContext = createContext<DashboardContextValue>({
   activePanelIds: new Set(),
   addPanel: () => {},
   removePanel: () => {},
-  resetLayout: () => {},
+  resetLayout: (_layout?) => {},
   storageKey: STORAGE_KEY,
 });
 
@@ -243,9 +318,12 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
     (panelType: PanelId) => {
       setLayout((prev) => {
         const instanceId = `${panelType}-${Date.now()}`;
+        const w = 4;
+        const h = 6;
+        const { x, y } = findOpenSpot(prev, w, h);
         const next: LayoutItem[] = [
           ...prev,
-          { i: instanceId, panelType, x: 0, y: Infinity, w: 4, h: 6, minW: 2, minH: 3 },
+          { i: instanceId, panelType, x, y, w, h, minW: 2, minH: 3 },
         ];
         localStorage.setItem(storageKey, JSON.stringify(next));
         return next;
@@ -267,10 +345,14 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
     [storageKey]
   );
 
-  const resetLayout = useCallback(() => {
-    localStorage.removeItem(storageKey);
-    setLayout(DEFAULT_LAYOUT);
-  }, [storageKey]);
+  const resetLayout = useCallback(
+    (templateLayout?: LayoutItem[]) => {
+      const next = templateLayout ?? DEFAULT_LAYOUT;
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      setLayout(next);
+    },
+    [storageKey]
+  );
 
   return (
     <DashboardContext.Provider
@@ -598,7 +680,7 @@ export function DashboardLayout() {
   const gridOnLayoutChange = handleLayoutChange as any;
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full overflow-y-auto">
       <GridLayout
         layout={gridLayout}
         cols={12}
@@ -609,7 +691,6 @@ export function DashboardLayout() {
         onLayoutChange={gridOnLayoutChange}
         resizeHandles={["se"]}
         width={gridWidth}
-        useCSSTransforms={false}
         compactor={noCompactor}
       >
         {layout.map((item) => (
