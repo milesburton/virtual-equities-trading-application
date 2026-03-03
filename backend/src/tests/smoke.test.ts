@@ -128,6 +128,8 @@ Deno.test("[market] price updates arrive after initial snapshot", async () => {
   const ws = new WebSocket(`ws://localhost:5000`);
   const messages: string[] = [];
 
+  const closed = new Promise<void>((res) => { ws.onclose = () => res(); });
+
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       ws.close();
@@ -148,6 +150,8 @@ Deno.test("[market] price updates arrive after initial snapshot", async () => {
       reject(new Error("WebSocket error"));
     };
   });
+
+  await closed;
 
   assertEquals(messages.length >= 2, true);
   const first = JSON.parse(messages[0]) as { event: string };
