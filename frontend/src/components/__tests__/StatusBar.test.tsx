@@ -66,17 +66,17 @@ function renderBar(connected: boolean, resetLayout = vi.fn()) {
   );
 }
 
-test("shows LIVE when connected and shows time", () => {
+test("shows Live when connected and shows time", () => {
   renderBar(true);
-  expect(screen.getByText(/Market Feed LIVE/)).toBeInTheDocument();
+  expect(screen.getByText(/Live/)).toBeInTheDocument();
   expect(screen.getByText(/Equities Market Simulator/)).toBeInTheDocument();
   // time element should exist
   expect(screen.getByText(/:/)).toBeInTheDocument();
 });
 
-test("shows DISCONNECTED when not connected", () => {
+test("shows Disconnected when not connected", () => {
   renderBar(false);
-  expect(screen.getByText(/DISCONNECTED/)).toBeInTheDocument();
+  expect(screen.getByText(/Disconnected/)).toBeInTheDocument();
 });
 
 test("reset layout button calls resetLayout", () => {

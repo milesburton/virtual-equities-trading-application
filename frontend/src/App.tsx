@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { DashboardLayout, DashboardProvider } from "./components/DashboardLayout.tsx";
 import { LoginPage } from "./components/LoginPage.tsx";
-import { StatusBar } from "./components/StatusBar.tsx";
+import { AppHeader, WorkspaceToolbar } from "./components/StatusBar.tsx";
 import { useWorkspaces, WorkspaceBar, workspaceStorageKey } from "./components/WorkspaceBar.tsx";
 import { TradingProvider } from "./context/TradingContext.tsx";
 import type { AuthUser } from "./store/authSlice.ts";
@@ -46,15 +46,21 @@ function TradingApp() {
   return (
     <TradingProvider>
       <div className="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+        {/* Global header: brand, feed status, services, clock, user */}
+        <AppHeader />
+
+        {/* Workspace tabs row */}
         <WorkspaceBar
           workspaces={workspaces.value}
           activeId={activeId.value}
           onSelect={handleSelect}
           onWorkspacesChange={handleChange}
         />
+
         {/* Key forces DashboardProvider to remount (fresh localStorage read) on workspace switch */}
         <DashboardProvider key={activeId.value} storageKey={workspaceStorageKey(activeId.value)}>
-          <StatusBar />
+          {/* Layout controls scoped to the active workspace/provider */}
+          <WorkspaceToolbar />
           <div className="flex-1 overflow-y-auto">
             <DashboardLayout />
           </div>

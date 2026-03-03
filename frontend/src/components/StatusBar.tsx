@@ -1,6 +1,7 @@
 import { useSignal } from "@preact/signals-react";
 import { useEffect } from "react";
-import { useAppSelector } from "../store/hooks.ts";
+import { clearUser } from "../store/authSlice.ts";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
 import type { ServiceHealth } from "../types.ts";
 import { ComponentPicker } from "./ComponentPicker.tsx";
@@ -50,12 +51,15 @@ function useAllServiceHealth(): ServiceHealth[] {
   });
 }
 
-export function StatusBar() {
+// ─── AppHeader: brand + feed + services + clock + user ───────────────────────
+
+export function AppHeader() {
   const connected = useAppSelector((s) => s.market.connected);
   const updateAvailable = useAppSelector((s) => s.ui.updateAvailable);
+  const user = useAppSelector((s) => s.auth.user);
   const services = useAllServiceHealth();
   const time = useSignal(new Date().toLocaleTimeString());
-  const { resetLayout } = useDashboard();
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -64,8 +68,16 @@ export function StatusBar() {
     return () => clearInterval(id);
   }, [time]);
 
+  async function handleLogout() {
+    try {
+      await fetch("/api/user-service/sessions", { method: "DELETE", credentials: "include" });
+    } finally {
+      dispatch(clearUser());
+    }
+  }
+
   return (
-    <div className="flex flex-col">
+    <div className="shrink-0">
       {updateAvailable && (
         <div className="flex items-center justify-center gap-3 px-4 py-1.5 bg-amber-900/60 border-b border-amber-700/60 text-xs text-amber-300">
           <span>A new version is available.</span>
@@ -78,38 +90,87 @@ export function StatusBar() {
           </button>
         </div>
       )}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 text-xs text-gray-400">
-        <div className="flex items-center gap-6">
-          <span className="text-emerald-400 font-semibold tracking-widest uppercase text-xs">
+      <div className="flex items-center justify-between px-4 h-10 bg-gray-900 border-b border-gray-800 text-xs text-gray-400">
+        <div className="flex items-center gap-5">
+          <span className="text-emerald-400 font-bold tracking-widest uppercase text-[11px]">
             Equities Market Simulator
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span
-              className={`inline-block w-2 h-2 rounded-full ${
+              className={`inline-block w-2 h-2 rounded-full shrink-0 ${
                 connected ? "bg-emerald-400 shadow-[0_0_6px_#34d399]" : "bg-red-500"
               }`}
             />
             <span className={connected ? "text-emerald-400" : "text-red-400"}>
-              Market Feed {connected ? "LIVE" : "DISCONNECTED"}
+              {connected ? "Live" : "Disconnected"}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ComponentPicker />
-          <TemplatePicker />
-          <button
-            type="button"
-            onClick={() => resetLayout()}
-            title="Reset workspace to default layout"
-            className="text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
-            aria-label="Reset layout"
-          >
-            ↺
-          </button>
+
+        <div className="flex items-center gap-4">
           <ServiceStatus services={services} />
-          <span className="tabular-nums">{time.value}</span>
+          <span className="tabular-nums text-gray-500">{time.value}</span>
+          {user && (
+            <div className="flex items-center gap-2 pl-3 border-l border-gray-800">
+              <span className="flex items-center gap-1.5 text-gray-400">
+                <span className="text-base leading-none">{user.avatar_emoji}</span>
+                <span>{user.name}</span>
+                <span
+                  className={`text-[9px] font-medium uppercase px-1 py-0.5 rounded ${
+                    user.role === "admin"
+                      ? "bg-orange-900/50 text-orange-400"
+                      : "bg-blue-900/50 text-blue-400"
+                  }`}
+                >
+                  {user.role}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Log out"
+                className="text-gray-600 hover:text-gray-300 transition-colors text-[10px] leading-none px-1.5 py-0.5 border border-gray-700 hover:border-gray-500 rounded"
+              >
+                Log out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── WorkspaceToolbar: layout controls scoped to the active workspace ─────────
+
+export function WorkspaceToolbar() {
+  const { resetLayout } = useDashboard();
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-950 border-b border-gray-800 text-xs">
+      <ComponentPicker />
+      <div className="w-px h-3.5 bg-gray-800" />
+      <TemplatePicker />
+      <button
+        type="button"
+        onClick={() => resetLayout()}
+        title="Reset workspace to default layout"
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500"
+        aria-label="Reset layout"
+      >
+        ↺ Reset layout
+      </button>
+    </div>
+  );
+}
+
+// ─── StatusBar: kept for backwards-compat imports in tests ────────────────────
+
+export function StatusBar() {
+  return (
+    <>
+      <AppHeader />
+      <WorkspaceToolbar />
+    </>
   );
 }

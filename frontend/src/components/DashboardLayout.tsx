@@ -92,11 +92,61 @@ export interface LayoutItem {
 }
 
 export const DEFAULT_LAYOUT: LayoutItem[] = [
-  { i: "order-ticket", panelType: "order-ticket", x: 0, y: 0, w: 2, h: 14, minW: 2, minH: 8 },
-  { i: "market-ladder", panelType: "market-ladder", x: 2, y: 0, w: 3, h: 14, minW: 2, minH: 6 },
-  { i: "candle-chart", panelType: "candle-chart", x: 5, y: 0, w: 4, h: 10, minW: 3, minH: 4 },
-  { i: "market-depth", panelType: "market-depth", x: 9, y: 0, w: 3, h: 10, minW: 2, minH: 4 },
-  { i: "algo-monitor", panelType: "algo-monitor", x: 5, y: 10, w: 4, h: 4, minW: 3, minH: 3 },
+  {
+    i: "order-ticket",
+    panelType: "order-ticket",
+    x: 0,
+    y: 0,
+    w: 2,
+    h: 14,
+    minW: 2,
+    minH: 8,
+    incoming: 1,
+  },
+  {
+    i: "market-ladder",
+    panelType: "market-ladder",
+    x: 2,
+    y: 0,
+    w: 3,
+    h: 14,
+    minW: 2,
+    minH: 6,
+    outgoing: 1,
+  },
+  {
+    i: "candle-chart",
+    panelType: "candle-chart",
+    x: 5,
+    y: 0,
+    w: 4,
+    h: 10,
+    minW: 3,
+    minH: 4,
+    incoming: 1,
+  },
+  {
+    i: "market-depth",
+    panelType: "market-depth",
+    x: 9,
+    y: 0,
+    w: 3,
+    h: 10,
+    minW: 2,
+    minH: 4,
+    incoming: 1,
+  },
+  {
+    i: "algo-monitor",
+    panelType: "algo-monitor",
+    x: 5,
+    y: 10,
+    w: 4,
+    h: 4,
+    minW: 3,
+    minH: 3,
+    incoming: 1,
+  },
   { i: "observability", panelType: "observability", x: 9, y: 10, w: 3, h: 4, minW: 2, minH: 3 },
   { i: "order-blotter", panelType: "order-blotter", x: 0, y: 14, w: 12, h: 4, minW: 4, minH: 3 },
 ];
@@ -118,8 +168,28 @@ export const LAYOUT_TEMPLATES: {
     label: "Execution",
     description: "Order entry, ladder, and blotter",
     layout: [
-      { i: "order-ticket", panelType: "order-ticket", x: 0, y: 0, w: 3, h: 14, minW: 2, minH: 8 },
-      { i: "market-ladder", panelType: "market-ladder", x: 3, y: 0, w: 5, h: 14, minW: 2, minH: 6 },
+      {
+        i: "order-ticket",
+        panelType: "order-ticket",
+        x: 0,
+        y: 0,
+        w: 3,
+        h: 14,
+        minW: 2,
+        minH: 8,
+        incoming: 1,
+      },
+      {
+        i: "market-ladder",
+        panelType: "market-ladder",
+        x: 3,
+        y: 0,
+        w: 5,
+        h: 14,
+        minW: 2,
+        minH: 6,
+        outgoing: 1,
+      },
       {
         i: "order-blotter",
         panelType: "order-blotter",
@@ -137,9 +207,39 @@ export const LAYOUT_TEMPLATES: {
     label: "Algo Trading",
     description: "Algorithm monitor, chart, and blotter",
     layout: [
-      { i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 7, h: 10, minW: 3, minH: 4 },
-      { i: "market-depth", panelType: "market-depth", x: 7, y: 0, w: 5, h: 10, minW: 2, minH: 4 },
-      { i: "algo-monitor", panelType: "algo-monitor", x: 0, y: 10, w: 7, h: 4, minW: 3, minH: 3 },
+      {
+        i: "candle-chart",
+        panelType: "candle-chart",
+        x: 0,
+        y: 0,
+        w: 7,
+        h: 10,
+        minW: 3,
+        minH: 4,
+        incoming: 1,
+      },
+      {
+        i: "market-depth",
+        panelType: "market-depth",
+        x: 7,
+        y: 0,
+        w: 5,
+        h: 10,
+        minW: 2,
+        minH: 4,
+        incoming: 1,
+      },
+      {
+        i: "algo-monitor",
+        panelType: "algo-monitor",
+        x: 0,
+        y: 10,
+        w: 7,
+        h: 4,
+        minW: 3,
+        minH: 3,
+        incoming: 1,
+      },
       {
         i: "order-blotter",
         panelType: "order-blotter",
@@ -157,9 +257,39 @@ export const LAYOUT_TEMPLATES: {
     label: "Market Analysis",
     description: "Chart, depth, and ladder — no order entry",
     layout: [
-      { i: "market-ladder", panelType: "market-ladder", x: 0, y: 0, w: 3, h: 14, minW: 2, minH: 6 },
-      { i: "candle-chart", panelType: "candle-chart", x: 3, y: 0, w: 6, h: 10, minW: 3, minH: 4 },
-      { i: "market-depth", panelType: "market-depth", x: 9, y: 0, w: 3, h: 10, minW: 2, minH: 4 },
+      {
+        i: "market-ladder",
+        panelType: "market-ladder",
+        x: 0,
+        y: 0,
+        w: 3,
+        h: 14,
+        minW: 2,
+        minH: 6,
+        outgoing: 1,
+      },
+      {
+        i: "candle-chart",
+        panelType: "candle-chart",
+        x: 3,
+        y: 0,
+        w: 6,
+        h: 10,
+        minW: 3,
+        minH: 4,
+        incoming: 1,
+      },
+      {
+        i: "market-depth",
+        panelType: "market-depth",
+        x: 9,
+        y: 0,
+        w: 3,
+        h: 10,
+        minW: 2,
+        minH: 4,
+        incoming: 1,
+      },
     ],
   },
 ];
@@ -168,7 +298,7 @@ export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
 /** Bump when DEFAULT_LAYOUT changes — forces stale stored layouts to reset */
-const LAYOUT_VERSION = 2;
+const LAYOUT_VERSION = 3;
 
 /** Migrate old format (i === panelType, no panelType field) to LayoutItem */
 function migrateItem(raw: Record<string, unknown>): LayoutItem {
@@ -403,26 +533,43 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
   }, [open]);
 
   const colour = current !== null ? CHANNEL_COLOURS[current] : null;
-  const label = dir === "out" ? "OUT" : "IN";
+  const isOut = dir === "out";
+  const arrow = isOut ? "→" : "←";
+  const dirLabel = isOut ? "Broadcast channel" : "Listen channel";
+  const buttonTitle = colour
+    ? `${dirLabel}: ${colour.label} — click to change`
+    : `${dirLabel}: not set — click to connect`;
 
   return (
     <div ref={ref} className="relative flex items-center gap-0.5">
       <button
         type="button"
-        title={`${label} channel${current ? `: ${CHANNEL_COLOURS[current].label}` : ": none"}`}
+        title={buttonTitle}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-0.5 rounded px-1 py-0.5 hover:bg-gray-700/60 transition-colors"
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
+          colour
+            ? "hover:bg-gray-700/60"
+            : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
+        }`}
       >
-        <span className="text-[8px] text-gray-600 leading-none">{label}</span>
+        <span className={colour ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
         <span
-          className="w-2.5 h-2.5 rounded-full border border-gray-700 shrink-0"
-          style={{ backgroundColor: colour ? colour.hex : "transparent" }}
+          className="w-2.5 h-2.5 rounded-full shrink-0 border"
+          style={{
+            backgroundColor: colour ? colour.hex : "transparent",
+            borderColor: colour ? colour.hex : "#4b5563",
+          }}
         />
+        {colour && (
+          <span style={{ color: colour.hex }} className="hidden sm:inline">
+            {colour.label}
+          </span>
+        )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-0.5 z-50 bg-gray-900 border border-gray-700 rounded shadow-xl p-1.5 flex flex-col gap-0.5 min-w-[80px]">
-          <span className="text-[9px] text-gray-500 px-1 pb-0.5">{label} channel</span>
+        <div className="absolute top-full left-0 mt-0.5 z-50 bg-gray-900 border border-gray-700 rounded shadow-xl p-1.5 flex flex-col gap-0.5 min-w-[110px]">
+          <span className="text-[9px] text-gray-500 px-1 pb-0.5">{dirLabel}</span>
           {([1, 2, 3, 4, 5, 6] as ChannelNumber[]).map((n) => {
             const col = CHANNEL_COLOURS[n];
             const blocked = blockedChannels.has(n);
@@ -517,7 +664,7 @@ function PanelChrome({
           />
         )}
 
-        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex-1 truncate">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex-1 truncate">
           {title}
         </span>
 
@@ -534,7 +681,7 @@ function PanelChrome({
           type="button"
           aria-label={`Close ${title}`}
           onClick={() => onRemove(id)}
-          className="text-gray-700 hover:text-gray-400 transition-colors text-xs leading-none ml-0.5"
+          className="text-gray-600 hover:text-gray-300 transition-colors text-xs leading-none ml-1 shrink-0"
         >
           ✕
         </button>
