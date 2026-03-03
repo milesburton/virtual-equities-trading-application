@@ -1,5 +1,7 @@
 # Equities Market Emulator
 
+**Live demo:** https://virtual-equities-trading.fly.dev/
+
 A simulated equities trading environment comprising a market price engine, execution and order management systems, four algorithmic trading strategies, an observability service, and a React frontend.
 
 ## Documentation

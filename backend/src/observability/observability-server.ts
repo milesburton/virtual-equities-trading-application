@@ -74,6 +74,34 @@ async function handle(req: Request): Promise<Response> {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/health/all") {
+    const services = [
+      { name: "market-sim",   url: `http://localhost:${Deno.env.get("MARKET_SIM_PORT") ?? 5000}/health` },
+      { name: "ems",          url: `http://localhost:${Deno.env.get("EMS_PORT") ?? 5001}/health` },
+      { name: "oms",          url: `http://localhost:${Deno.env.get("OMS_PORT") ?? 5002}/health` },
+      { name: "limit-algo",   url: `http://localhost:${Deno.env.get("ALGO_TRADER_PORT") ?? 5003}/health` },
+      { name: "twap-algo",    url: `http://localhost:${Deno.env.get("TWAP_ALGO_PORT") ?? 5004}/health` },
+      { name: "pov-algo",     url: `http://localhost:${Deno.env.get("POV_ALGO_PORT") ?? 5005}/health` },
+      { name: "vwap-algo",    url: `http://localhost:${Deno.env.get("VWAP_ALGO_PORT") ?? 5006}/health` },
+      { name: "observability", url: `http://localhost:${PORT}/health` },
+    ];
+    const results = await Promise.all(
+      services.map(async (svc) => {
+        try {
+          const r = await fetch(svc.url, { signal: AbortSignal.timeout(3000) });
+          return { name: svc.name, status: r.ok ? "ok" : "error" };
+        } catch {
+          return { name: svc.name, status: "unavailable" };
+        }
+      }),
+    );
+    const allOk = results.every((r) => r.status === "ok");
+    return new Response(
+      JSON.stringify({ status: allOk ? "ok" : "degraded", services: results }),
+      { status: allOk ? 200 : 503, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+    );
+  }
+
   if (req.method === "GET" && url.pathname === "/events") {
     const rows = loadRecent(1000);
     return new Response(JSON.stringify(rows), {
