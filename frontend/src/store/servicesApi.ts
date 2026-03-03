@@ -62,6 +62,18 @@ const SERVICES: { name: string; url: string; link?: string; optional?: boolean }
     link: _traefik,
     optional: true,
   },
+  {
+    name: "User Service",
+    url: `${_origin}/api/user-service/health`,
+    link: `${_origin}/api/user-service/health`,
+    optional: true,
+  },
+  {
+    name: "Journal",
+    url: `${_origin}/api/journal/health`,
+    link: `${_origin}/api/journal/health`,
+    optional: true,
+  },
 ];
 
 export { SERVICES };

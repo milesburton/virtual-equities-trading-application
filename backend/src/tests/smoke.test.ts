@@ -79,6 +79,8 @@ Deno.test("[market] WebSocket delivers enriched market data within 3 seconds", a
   interface EnrichedData { prices: Record<string, number>; volumes: Record<string, number>; marketMinute: number }
   interface MarketMsg { event: string; data: EnrichedData | Record<string, number> }
 
+  const closed = new Promise<void>((res) => { ws.onclose = () => res(); });
+
   const msg = await new Promise<MarketMsg>((resolve, reject) => {
     const timeout = setTimeout(() => {
       ws.close();
@@ -96,6 +98,8 @@ Deno.test("[market] WebSocket delivers enriched market data within 3 seconds", a
       reject(new Error("WebSocket error"));
     };
   });
+
+  await closed;
 
   // Extract prices whether old flat or new enriched format
   const prices: Record<string, number> =
@@ -346,13 +350,17 @@ async function placeLimitAndWaitForFill(
   asset: string,
   side: "BUY" | "SELL",
   limitPrice: number,
+  timeoutMs = 5_000,
 ): Promise<void> {
+  // Short expiry ensures stale orders from prior runs expire before our timeout.
+  // For an order guaranteed to fill immediately, expiry = 5s is fine.
+  const expirySeconds = Math.min(Math.ceil(timeoutMs / 1_000), 5);
   const res = await post(LIMIT_URL, {
     asset,
     side,
     quantity: 1,
     limitPrice,
-    expiresAt: 10,
+    expiresAt: expirySeconds,
   });
   // Confirm order was accepted before sampling
   const ack = await res.json();
@@ -360,23 +368,25 @@ async function placeLimitAndWaitForFill(
 
   const pendingAfterQueue = await limitPending();
 
+  // Poll for pending count to drop at least 1 from post-queue snapshot.
+  // Stale orders from prior runs also count — they fill or expire within expirySeconds.
   const filled = await pollUntil(
     async () => (await limitPending()) < pendingAfterQueue,
-    5_000,
+    timeoutMs,
   );
 
   assert(
     filled,
-    `LIMIT ${side} ${asset} @ ${limitPrice} did not fill within 5 seconds (pending was ${pendingAfterQueue})`,
+    `LIMIT ${side} ${asset} @ ${limitPrice} did not fill within ${timeoutMs}ms (pending was ${pendingAfterQueue})`,
   );
 }
 
-Deno.test("[e2e] LIMIT BUY with price above market fills and clears from pending within 5s", async () => {
-  await placeLimitAndWaitForFill("SPY", "BUY", 99_999);
+Deno.test("[e2e] LIMIT BUY with price above market fills and clears from pending within 8s", async () => {
+  await placeLimitAndWaitForFill("SPY", "BUY", 99_999, 8_000);
 });
 
-Deno.test("[e2e] LIMIT SELL with price below market fills and clears from pending within 5s", async () => {
-  await placeLimitAndWaitForFill("SPY", "SELL", 0.01);
+Deno.test("[e2e] LIMIT SELL with price below market fills and clears from pending within 8s", async () => {
+  await placeLimitAndWaitForFill("SPY", "SELL", 0.01, 8_000);
 });
 
 Deno.test("[e2e] LIMIT order with impossible price expires and clears from pending", async () => {

@@ -18,9 +18,11 @@ function useAllServiceHealth(): ServiceHealth[] {
   const r7 = useGetServiceHealthQuery(SERVICES[7], { pollingInterval: 10_000 });
   const r8 = useGetServiceHealthQuery(SERVICES[8], { pollingInterval: 10_000 });
   const r9 = useGetServiceHealthQuery(SERVICES[9], { pollingInterval: 10_000 });
+  const r10 = useGetServiceHealthQuery(SERVICES[10], { pollingInterval: 10_000 });
+  const r11 = useGetServiceHealthQuery(SERVICES[11], { pollingInterval: 10_000 });
 
   return SERVICES.map((svc, i) => {
-    const result = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9][i];
+    const result = [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11][i];
     if (result.data) return result.data;
     if (result.isError) {
       return {

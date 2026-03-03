@@ -1,4 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
+import { authSlice } from "./authSlice.ts";
 import { createBroadcastChannelMiddleware } from "./channel.ts";
 import { channelsSlice } from "./channelsSlice.ts";
 import { marketSlice } from "./marketSlice.ts";
@@ -16,6 +17,7 @@ import { windowSlice } from "./windowSlice.ts";
 
 export const store = configureStore({
   reducer: {
+    auth: authSlice.reducer,
     market: marketSlice.reducer,
     orders: ordersSlice.reducer,
     observability: observabilitySlice.reducer,

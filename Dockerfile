@@ -1,3 +1,9 @@
+# ── Stage 0a: Extract Redpanda broker binary ──────────────────────────────────
+FROM redpandadata/redpanda:v24.3.6 AS redpanda-src
+
+# ── Stage 0b: Extract Redpanda Console binary ─────────────────────────────────
+FROM redpandadata/console:v2.7.2 AS console-src
+
 # ── Stage 1: Build frontend assets ────────────────────────────────────────────
 FROM node:24-alpine AS builder
 WORKDIR /src/frontend
@@ -8,12 +14,19 @@ RUN npm ci --silent || npm install --silent
 RUN npm run build
 
 # ── Stage 2: Runtime image ────────────────────────────────────────────────────
-# Official Deno alpine image + supervisord + Traefik for full-stack single-VM deploy.
+# Official Deno alpine image + supervisord + Traefik + Redpanda for full-stack single-VM deploy.
 FROM denoland/deno:alpine-2.7.1 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install supervisord, curl (health checks), bash
-RUN apk add --no-cache supervisor curl bash
+# Install supervisord, curl (health checks), bash, libstdc++ (required by Redpanda)
+RUN apk add --no-cache supervisor curl bash libstdc++ libc6-compat
+
+# Copy Redpanda broker binary and rpk CLI from the official image
+COPY --from=redpanda-src /opt/redpanda/bin/redpanda /usr/local/bin/redpanda
+COPY --from=redpanda-src /usr/bin/rpk /usr/local/bin/rpk
+# Copy Redpanda Console binary
+COPY --from=console-src /app/console /usr/local/bin/redpanda-console
+RUN chmod +x /usr/local/bin/redpanda /usr/local/bin/rpk /usr/local/bin/redpanda-console
 
 # Download Traefik v3 binary
 ARG TRAEFIK_VERSION=3.3.3
@@ -31,6 +44,7 @@ COPY --from=builder /src/frontend/dist ./frontend/dist
 
 # Pre-cache all backend Deno modules to avoid slow cold-start JIT compilation
 RUN deno cache \
+    backend/src/lib/messaging.ts \
     backend/src/market-sim/market-sim.ts \
     backend/src/ems/ems-server.ts \
     backend/src/oms/oms-server.ts \
@@ -39,6 +53,8 @@ RUN deno cache \
     backend/src/algo/pov-strategy.ts \
     backend/src/algo/vwap-strategy.ts \
     backend/src/observability/observability-server.ts \
+    backend/src/user-service/user-service.ts \
+    backend/src/journal/journal-server.ts \
     backend/src/fix/fix-exchange.ts \
     backend/src/fix/fix-gateway.ts
 
