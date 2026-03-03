@@ -21,9 +21,10 @@ export function TemplatePicker() {
         type="button"
         title="Switch layout template"
         onClick={() => setOpen((o) => !o)}
-        className="text-gray-500 hover:text-gray-300 transition-colors text-xs leading-none px-1.5 py-0.5 rounded hover:bg-gray-800"
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500"
       >
-        ⊞ Layout
+        <span className="text-sm leading-none">⊞</span>
+        Layout
       </button>
 
       {open && (

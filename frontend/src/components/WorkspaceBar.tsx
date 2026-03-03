@@ -1,7 +1,5 @@
 import { useSignal } from "@preact/signals-react";
 import { useCallback, useEffect, useRef } from "react";
-import { clearUser } from "../store/authSlice.ts";
-import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,16 +48,6 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
   const editingId = useSignal<string | null>(null);
   const editValue = useSignal("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const dispatch = useAppDispatch();
-  const user = useAppSelector((s) => s.auth.user);
-
-  async function handleLogout() {
-    try {
-      await fetch("/api/user-service/sessions", { method: "DELETE", credentials: "include" });
-    } finally {
-      dispatch(clearUser());
-    }
-  }
 
   useEffect(() => {
     if (editingId.value !== null) {
@@ -195,36 +183,6 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
       >
         +
       </button>
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* User chip */}
-      {user && (
-        <div className="flex items-center gap-2 px-2">
-          <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
-            <span className="text-base leading-none">{user.avatar_emoji}</span>
-            <span>{user.name}</span>
-            <span
-              className={`text-[9px] font-medium uppercase px-1 py-0.5 rounded ${
-                user.role === "admin"
-                  ? "bg-orange-900/50 text-orange-400"
-                  : "bg-blue-900/50 text-blue-400"
-              }`}
-            >
-              {user.role}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            title="Log out"
-            className="text-gray-600 hover:text-gray-300 transition-colors text-[10px] leading-none px-1.5 py-0.5 border border-gray-700 hover:border-gray-500 rounded"
-          >
-            Log out
-          </button>
-        </div>
-      )}
     </div>
   );
 }
