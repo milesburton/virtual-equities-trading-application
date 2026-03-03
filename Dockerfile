@@ -9,7 +9,7 @@ RUN npm run build
 
 # ── Stage 2: Runtime image ────────────────────────────────────────────────────
 # Official Deno alpine image + supervisord + Traefik for full-stack single-VM deploy.
-FROM denoland/deno:alpine-1.44.0 AS runtime
+FROM denoland/deno:alpine-2.7.1 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install supervisord, curl (health checks), bash
