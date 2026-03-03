@@ -1,3 +1,6 @@
+# Redpanda binaries — copied into the dev container so services can publish/consume
+FROM redpandadata/redpanda:v24.3.6 AS redpanda-src
+
 # Use Ubuntu as base image
 FROM ubuntu:22.04
 
@@ -49,6 +52,13 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
     apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/* || true
+
+# Copy Redpanda broker and rpk CLI
+COPY --from=redpanda-src /opt/redpanda/bin/redpanda /usr/local/bin/redpanda
+COPY --from=redpanda-src /usr/bin/rpk /usr/local/bin/rpk
+RUN chmod +x /usr/local/bin/redpanda /usr/local/bin/rpk && \
+    mkdir -p /var/lib/redpanda/data /etc/redpanda && \
+    chown -R deno:deno /var/lib/redpanda /etc/redpanda
 
 # Create a new user named 'deno' with Fish as the default shell
 RUN useradd -m -s /usr/bin/fish deno
@@ -114,7 +124,7 @@ RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
     echo 'alias run-pov-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
     echo 'alias run-vwap-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/vwap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
     echo 'alias run-observability="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/observability/observability-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias restart-services="supervisorctl restart market-sim ems oms algo-trader twap-algo pov-algo vwap-algo observability && supervisorctl status"' >> /home/deno/.config/fish/config.fish
+    echo 'alias restart-services="supervisorctl restart market-sim ems oms algo-trader twap-algo pov-algo vwap-algo observability user-service && supervisorctl status"' >> /home/deno/.config/fish/config.fish
 
 # Ensure supervisord runs
 CMD ["/usr/bin/supervisord", "-c", "/home/deno/supervisord.conf"]

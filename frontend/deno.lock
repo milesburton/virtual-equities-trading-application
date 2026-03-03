@@ -2,6 +2,7 @@
   "version": "5",
   "specifiers": {
     "npm:@biomejs/biome@^2.4.4": "2.4.4",
+    "npm:@playwright/test@^1.58.2": "1.58.2",
     "npm:@preact/signals-react-transform@~0.8.1": "0.8.1_@babel+core@7.29.0_react@18.3.1",
     "npm:@preact/signals-react@^3.9.0": "3.9.0_react@18.3.1",
     "npm:@reduxjs/toolkit@^2.11.2": "2.11.2_react@18.3.1_react-redux@9.2.0__@types+react@18.3.28__react@18.3.1_@types+react@18.3.28_redux@5.0.1",
@@ -413,6 +414,13 @@
         "@nodelib/fs.scandir",
         "fastq"
       ]
+    },
+    "@playwright/test@1.58.2": {
+      "integrity": "sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA==",
+      "dependencies": [
+        "playwright"
+      ],
+      "bin": true
     },
     "@preact/signals-core@1.13.0": {
       "integrity": "sha512-slT6XeTCAbdql61GVLlGU4x7XHI7kCZV5Um5uhE4zLX4ApgiiXc0UYFvVOKq06xcovzp7p+61l68oPi563ARKg=="

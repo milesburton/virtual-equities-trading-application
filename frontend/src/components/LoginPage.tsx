@@ -2,6 +2,112 @@ import { useState } from "react";
 import type { AuthUser } from "../store/authSlice.ts";
 import { setUser } from "../store/authSlice.ts";
 import { useAppDispatch } from "../store/hooks.ts";
+import { SERVICES, useGetServiceHealthQuery } from "../store/servicesApi.ts";
+
+// Core (non-optional) services that must be up for the platform to be tradeable
+const CORE_SERVICES = SERVICES.filter((s) => !s.optional);
+
+// Each service needs its own hook call — fixed list means fixed hook order is safe
+function useCoreServiceStates() {
+  const r0 = useGetServiceHealthQuery(CORE_SERVICES[0], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[0],
+  });
+  const r1 = useGetServiceHealthQuery(CORE_SERVICES[1], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[1],
+  });
+  const r2 = useGetServiceHealthQuery(CORE_SERVICES[2], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[2],
+  });
+  const r3 = useGetServiceHealthQuery(CORE_SERVICES[3], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[3],
+  });
+  const r4 = useGetServiceHealthQuery(CORE_SERVICES[4], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[4],
+  });
+  const r5 = useGetServiceHealthQuery(CORE_SERVICES[5], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[5],
+  });
+  const r6 = useGetServiceHealthQuery(CORE_SERVICES[6], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[6],
+  });
+  const r7 = useGetServiceHealthQuery(CORE_SERVICES[7], {
+    pollingInterval: 5_000,
+    skip: !CORE_SERVICES[7],
+  });
+  return [r0, r1, r2, r3, r4, r5, r6, r7].slice(0, CORE_SERVICES.length);
+}
+
+function PlatformStatus() {
+  const results = useCoreServiceStates();
+
+  const anyLoading = results.some((r) => r.isLoading);
+  const anyError = results.some((r) => !r.isLoading && r.data?.state !== "ok");
+  const allOk = !anyLoading && !anyError;
+
+  const summaryLabel = anyLoading
+    ? "Checking platform…"
+    : allOk
+      ? "Platform ready"
+      : "Platform degraded";
+  const summaryColor = anyLoading
+    ? "text-gray-500"
+    : allOk
+      ? "text-emerald-400"
+      : "text-yellow-400";
+  const dotColor = anyLoading
+    ? "bg-gray-500 animate-pulse"
+    : allOk
+      ? "bg-emerald-400"
+      : "bg-yellow-400";
+
+  return (
+    <div className="mt-10 border-t border-gray-800 pt-5 space-y-3">
+      {/* Summary */}
+      <div className="flex items-center justify-center gap-2">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor}`} />
+        <span className={`text-xs font-medium ${summaryColor}`}>{summaryLabel}</span>
+      </div>
+      {/* Per-service dots */}
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+        {CORE_SERVICES.map((s, i) => {
+          const r = results[i];
+          const state = r?.isLoading ? "checking" : (r?.data?.state ?? "error");
+          return (
+            <span key={s.name} title={s.name} className="flex items-center gap-1 text-[11px]">
+              <span
+                className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  state === "ok"
+                    ? "bg-emerald-400"
+                    : state === "checking"
+                      ? "bg-gray-500 animate-pulse"
+                      : "bg-red-500"
+                }`}
+              />
+              <span
+                className={
+                  state === "ok"
+                    ? "text-gray-500"
+                    : state === "checking"
+                      ? "text-gray-600"
+                      : "text-red-400"
+                }
+              >
+                {s.name}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 interface SeedUser {
   id: string;
@@ -102,9 +208,7 @@ export function LoginPage() {
           </div>
         )}
 
-        <div className="mt-8 text-center text-gray-700 text-xs">
-          Demo environment — no authentication required
-        </div>
+        <PlatformStatus />
       </div>
     </div>
   );

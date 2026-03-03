@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 9879, 9881],
+  "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 9879, 9881],
   "portsAttributes": {
     "8080": { "label": "Frontend UI", "onAutoForward": "openBrowser" },
     "5000": { "label": "Market Sim" },
@@ -15,6 +15,7 @@
     "5005": { "label": "POV Algo" },
     "5006": { "label": "VWAP Algo" },
     "5007": { "label": "Observability" },
+    "5008": { "label": "User Service" },
     "9879": { "label": "FIX Exchange (health)" },
     "9881": { "label": "FIX Gateway (WS)" }
   },
