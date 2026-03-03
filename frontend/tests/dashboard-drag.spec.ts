@@ -10,15 +10,13 @@ async function mockAuth(page: Page) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) })
   );
 
-  // Also stub the session POST so the login page works if it somehow appears.
   await page.route("/api/user-service/sessions", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) })
   );
 }
 
-/** Stub all WebSocket / market-feed connections so panels don't error. */
+/** Stub backend so panels don't error out. */
 async function stubBackend(page: Page) {
-  // Catch any backend API calls that might fail and return empty-but-valid responses.
   await page.route("/api/**", (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     route.fulfill({ status: 200, contentType: "application/json", body: "null" });
@@ -28,6 +26,31 @@ async function stubBackend(page: Page) {
 /** Wait until at least one panel drag-handle is visible (dashboard has rendered). */
 async function waitForDashboard(page: Page) {
   await page.waitForSelector(".panel-drag-handle", { timeout: 15_000 });
+}
+
+/** Slowly drag from (startX, startY) by (dx, dy) and release. */
+async function drag(page: Page, startX: number, startY: number, dx: number, dy: number) {
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  const steps = 12;
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(startX + (dx * i) / steps, startY + (dy * i) / steps, { steps: 1 });
+  }
+  await page.mouse.up();
+  // Let RGL commit the drop position.
+  await page.waitForTimeout(200);
+}
+
+/** Collect bounding boxes for all grid-item-wrapper elements. */
+async function allPanelBoxes(page: Page) {
+  const wrappers = page.locator(".grid-item-wrapper");
+  const count = await wrappers.count();
+  const boxes: { x: number; y: number; w: number; h: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const bb = await wrappers.nth(i).boundingBox();
+    if (bb) boxes.push({ x: bb.x, y: bb.y, w: bb.width, h: bb.height });
+  }
+  return boxes;
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -46,30 +69,25 @@ test.describe("Dashboard panel drag", () => {
     expect(box).not.toBeNull();
     if (!box) return;
 
-    // Record the panel wrapper's position before any interaction.
     const wrapper = page.locator(".grid-item-wrapper").first();
     const before = await wrapper.boundingBox();
     expect(before).not.toBeNull();
 
-    // Press and immediately release on the handle — simulates the problematic mousedown.
+    // Press and immediately release — simulates the problematic mousedown.
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    // Brief pause to let any erroneous re-render fire.
     await page.waitForTimeout(100);
     await page.mouse.up();
 
     const after = await wrapper.boundingBox();
     expect(after).not.toBeNull();
 
-    // The panel must not have moved on a simple press-release.
     expect(Math.round(after!.x)).toBe(Math.round(before!.x));
     expect(Math.round(after!.y)).toBe(Math.round(before!.y));
   });
 
   test("panel lands at the dragged-to position and does not snap back", async ({ page }) => {
-    const handles = page.locator(".panel-drag-handle");
-    // Use the second panel so we have room to drag horizontally without going off-screen.
-    const handle = handles.nth(1);
+    const handle = page.locator(".panel-drag-handle").nth(1);
     const handleBox = await handle.boundingBox();
     expect(handleBox).not.toBeNull();
     if (!handleBox) return;
@@ -78,53 +96,93 @@ test.describe("Dashboard panel drag", () => {
     const before = await wrapper.boundingBox();
     expect(before).not.toBeNull();
 
-    const startX = handleBox.x + handleBox.width / 2;
-    const startY = handleBox.y + handleBox.height / 2;
-    const dragDeltaX = 120; // move right by ~120px (a couple of grid columns)
-    const dragDeltaY = 60;  // and down by ~60px (one grid row)
-
-    // Perform a deliberate drag: move slowly so RGL's drag logic fires correctly.
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-
-    const steps = 10;
-    for (let i = 1; i <= steps; i++) {
-      await page.mouse.move(
-        startX + (dragDeltaX * i) / steps,
-        startY + (dragDeltaY * i) / steps,
-        { steps: 1 }
-      );
-    }
-
-    // Capture position mid-drag to confirm the panel is actually moving.
-    const mid = await wrapper.boundingBox();
-    expect(mid).not.toBeNull();
-
-    await page.mouse.up();
-
-    // Wait one animation frame for RGL to commit the drop.
-    await page.waitForTimeout(150);
+    await drag(page, handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2, 120, 60);
 
     const after = await wrapper.boundingBox();
     expect(after).not.toBeNull();
 
-    // The panel must have moved from its original position.
-    const movedX = Math.abs(after!.x - before!.x);
-    const movedY = Math.abs(after!.y - before!.y);
-    expect(movedX + movedY).toBeGreaterThan(0);
+    // Must have moved.
+    expect(Math.abs(after!.x - before!.x) + Math.abs(after!.y - before!.y)).toBeGreaterThan(0);
 
-    // Crucially: the panel must NOT have snapped back to exactly where it started.
-    // We allow a 4px tolerance for sub-pixel rounding.
-    const snapBackX = Math.abs(after!.x - before!.x) < 4;
-    const snapBackY = Math.abs(after!.y - before!.y) < 4;
-    expect(snapBackX && snapBackY).toBe(false);
+    // Must not have snapped back (4 px tolerance).
+    expect(Math.abs(after!.x - before!.x) < 4 && Math.abs(after!.y - before!.y) < 4).toBe(false);
 
-    // Wait another 500 ms and verify the panel is still in the new position
-    // (rules out a delayed snap-back on re-render).
+    // Must still be in the same place 500 ms later.
     await page.waitForTimeout(500);
     const stable = await wrapper.boundingBox();
-    expect(stable).not.toBeNull();
     expect(Math.abs(stable!.x - after!.x)).toBeLessThan(4);
     expect(Math.abs(stable!.y - after!.y)).toBeLessThan(4);
+  });
+
+  test("all panels remain visible and non-overlapping after a drag", async ({ page }) => {
+    const before = await allPanelBoxes(page);
+    expect(before.length).toBeGreaterThan(1);
+
+    // Drag the last panel (Order Blotter — bottom row, full width) straight down
+    // into the empty space below it. This avoids any collision with other panels,
+    // so noCompactor has nothing to push and all other panels must stay put.
+    const handles = page.locator(".panel-drag-handle");
+    const lastHandle = handles.last();
+    const handleBox = await lastHandle.boundingBox();
+    expect(handleBox).not.toBeNull();
+    if (!handleBox) return;
+
+    await drag(page, handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2, 0, 160);
+
+    await page.waitForTimeout(500);
+
+    const after = await allPanelBoxes(page);
+
+    // Same number of panels — none got stuck in a ghost state or disappeared.
+    expect(after.length).toBe(before.length);
+
+    // Every panel must have a positive size (no zero-height/collapsed panels).
+    for (const box of after) {
+      expect(box.w).toBeGreaterThan(10);
+      expect(box.h).toBeGreaterThan(10);
+    }
+
+    // No two panels should substantially overlap.
+    // Allow a 4px tolerance for borders/margins.
+    const tolerance = 4;
+    for (let i = 0; i < after.length; i++) {
+      for (let j = i + 1; j < after.length; j++) {
+        const a = after[i];
+        const b = after[j];
+        const overlapX = a.x + a.w - tolerance > b.x && b.x + b.w - tolerance > a.x;
+        const overlapY = a.y + a.h - tolerance > b.y && b.y + b.h - tolerance > a.y;
+        expect(overlapX && overlapY, `Panel ${i} and panel ${j} are overlapping after drag`).toBe(false);
+      }
+    }
+
+    // No panel should be at a suspiciously large y (e.g. > 4000px — indicates a ghost row gap).
+    for (const box of after) {
+      expect(box.y, "A panel has been displaced to an anomalous y position").toBeLessThan(4000);
+    }
+  });
+
+  test("layout is stable after multiple sequential drags", async ({ page }) => {
+    const panelCount = await page.locator(".grid-item-wrapper").count();
+
+    // Drag the last panel (bottom row, full width) down into empty space three
+    // times. Each drag targets free rows so noCompactor never pushes other panels.
+    for (let i = 0; i < 3; i++) {
+      const handle = page.locator(".panel-drag-handle").last();
+      const hb = await handle.boundingBox();
+      if (!hb) continue;
+      await drag(page, hb.x + hb.width / 2, hb.y + hb.height / 2, 0, 54);
+    }
+
+    await page.waitForTimeout(500);
+
+    // All panels still present.
+    expect(await page.locator(".grid-item-wrapper").count()).toBe(panelCount);
+
+    // No anomalous gaps.
+    const boxes = await allPanelBoxes(page);
+    for (const box of boxes) {
+      expect(box.y).toBeLessThan(4000);
+      expect(box.h).toBeGreaterThan(10);
+    }
   });
 });
