@@ -25,6 +25,9 @@ jobs:
         with:
           deno-version: 2.7.x
 
+      - name: Install backend dependencies
+        run: deno install
+
       - name: Run backend tests
         run: deno task test
 
