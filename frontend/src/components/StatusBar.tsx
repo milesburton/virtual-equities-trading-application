@@ -6,6 +6,7 @@ import type { ServiceHealth } from "../types.ts";
 import { ComponentPicker } from "./ComponentPicker.tsx";
 import { useDashboard } from "./DashboardLayout.tsx";
 import { ServiceStatus } from "./ServiceStatus.tsx";
+import { TemplatePicker } from "./TemplatePicker.tsx";
 
 function useAllServiceHealth(): ServiceHealth[] {
   const r0 = useGetServiceHealthQuery(SERVICES[0], { pollingInterval: 10_000 });
@@ -81,9 +82,10 @@ export function StatusBar() {
       </div>
       <div className="flex items-center gap-3">
         <ComponentPicker />
+        <TemplatePicker />
         <button
           type="button"
-          onClick={resetLayout}
+          onClick={() => resetLayout()}
           title="Reset workspace to default layout"
           className="text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
           aria-label="Reset layout"
