@@ -705,14 +705,23 @@ export function DashboardLayout() {
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
 
-  // Live layout fed to RGL during drag — prevents panels jumping mid-drag
-  // when the controlled `layout` prop would otherwise conflict with RGL's internal state.
+  // liveLayout is what RGL renders. It diverges from `layout` during drag/resize
+  // and is reconciled back on stop. It is only reset from `layout` when the item
+  // *set* changes (panel added/removed/reset), not when positions change.
   const [liveLayout, setLiveLayout] = useState(layout);
 
-  // Keep liveLayout in sync when layout changes externally (add/remove/reset)
-  const prevLayoutRef = useRef(layout);
-  if (prevLayoutRef.current !== layout) {
-    prevLayoutRef.current = layout;
+  const prevItemKeys = useRef(
+    layout
+      .map((l) => l.i)
+      .sort()
+      .join(",")
+  );
+  const nextItemKeys = layout
+    .map((l) => l.i)
+    .sort()
+    .join(",");
+  if (prevItemKeys.current !== nextItemKeys) {
+    prevItemKeys.current = nextItemKeys;
     setLiveLayout(layout);
   }
 
@@ -742,12 +751,13 @@ export function DashboardLayout() {
 
   const applyGridPositions = useCallback(
     (newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
-      setLayout((prev) => {
+      setLiveLayout((prev) => {
         const next = prev.map((item) => {
           const updated = newLayout.find((l) => l.i === item.i);
           return updated ? { ...item, ...updated } : item;
         });
         saveLayout(storageKey, next);
+        setLayout(next);
         return next;
       });
     },
@@ -867,7 +877,7 @@ export function DashboardLayout() {
         width={gridWidth}
         compactor={noCompactor}
       >
-        {layout.map((item) => (
+        {liveLayout.map((item) => (
           <div key={item.i} className="grid-item-wrapper">
             <PanelChrome
               id={item.i}
@@ -875,7 +885,7 @@ export function DashboardLayout() {
               title={PANEL_TITLES[item.panelType] ?? item.panelType}
               outgoing={item.outgoing ?? null}
               incoming={item.incoming ?? null}
-              allItems={layout}
+              allItems={liveLayout}
               onRemove={removeByInstanceId}
               onChannelChange={handleChannelChange}
             >
