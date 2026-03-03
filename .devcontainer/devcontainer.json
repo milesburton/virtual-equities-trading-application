@@ -1,5 +1,5 @@
 {
-  "name": "Equities Market Emulator",
+  "name": "Equities Market Simulator",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."

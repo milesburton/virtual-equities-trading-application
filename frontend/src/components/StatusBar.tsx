@@ -67,7 +67,7 @@ export function StatusBar() {
     <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 text-xs text-gray-400">
       <div className="flex items-center gap-6">
         <span className="text-emerald-400 font-semibold tracking-widest uppercase text-xs">
-          Equities Market Emulator
+          Equities Market Simulator
         </span>
         <div className="flex items-center gap-2">
           <span
