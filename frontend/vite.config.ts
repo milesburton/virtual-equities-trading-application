@@ -47,6 +47,10 @@ export default defineConfig({
         target: "http://localhost:5007",
         rewrite: (path) => path.replace(/^\/api\/observability/, ""),
       },
+      "/api/user-service": {
+        target: "http://localhost:5008",
+        rewrite: (path) => path.replace(/^\/api\/user-service/, ""),
+      },
       "/api/fix-gateway": {
         target: "http://localhost:9881",
         rewrite: (path) => path.replace(/^\/api\/fix-gateway/, ""),

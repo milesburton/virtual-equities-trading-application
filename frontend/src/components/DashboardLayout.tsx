@@ -705,17 +705,17 @@ export function DashboardLayout() {
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
 
-  // liveLayout is what RGL renders. It diverges from `layout` during drag/resize
-  // and is reconciled back on stop. It is only reset from `layout` when the item
-  // *set* changes (panel added/removed/reset), not when positions change.
-  const [liveLayout, setLiveLayout] = useState(layout);
-
+  // liveLayout mirrors `layout` exactly. It is only updated when the item
+  // set changes (panel added/removed/reset) or when a drag/resize completes.
+  // RGL manages its own in-drag position state internally.
   const prevItemKeys = useRef(
     layout
       .map((l) => l.i)
       .sort()
       .join(",")
   );
+  const [liveLayout, setLiveLayout] = useState(layout);
+
   const nextItemKeys = layout
     .map((l) => l.i)
     .sort()
@@ -734,20 +734,6 @@ export function DashboardLayout() {
     setGridWidth(containerRef.current.clientWidth);
     return () => ro.disconnect();
   }, []);
-
-  // Called on every layout change (including during drag) — keeps liveLayout in sync
-  // so RGL never fights its own internal state.
-  const handleLayoutChange = useCallback(
-    (newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
-      setLiveLayout((prev) =>
-        prev.map((item) => {
-          const updated = newLayout.find((l) => l.i === item.i);
-          return updated ? { ...item, ...updated } : item;
-        })
-      );
-    },
-    []
-  );
 
   const applyGridPositions = useCallback(
     (newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
@@ -858,8 +844,6 @@ export function DashboardLayout() {
   const gridLayout = liveLayout as any;
   // biome-ignore lint/suspicious/noExplicitAny: untyped third-party callback signature
   const gridOnStop = applyGridPositions as any;
-  // biome-ignore lint/suspicious/noExplicitAny: untyped third-party callback signature
-  const gridOnChange = handleLayoutChange as any;
 
   return (
     <div ref={containerRef} className="w-full">
@@ -870,7 +854,6 @@ export function DashboardLayout() {
         margin={[4, 4]}
         containerPadding={[4, 4]}
         draggableHandle=".panel-drag-handle"
-        onLayoutChange={gridOnChange}
         onDragStop={gridOnStop}
         onResizeStop={gridOnStop}
         resizeHandles={["se"]}

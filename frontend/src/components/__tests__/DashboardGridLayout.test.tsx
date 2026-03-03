@@ -16,7 +16,7 @@
  */
 
 import { configureStore } from "@reduxjs/toolkit";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { noCompactor } from "react-grid-layout";
 import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
@@ -50,7 +50,7 @@ import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
-import { DashboardLayout, DashboardProvider } from "../DashboardLayout";
+import { DashboardLayout, DashboardProvider, DEFAULT_LAYOUT } from "../DashboardLayout";
 
 const MockGridLayout = GridLayoutLib as unknown as ReturnType<typeof vi.fn>;
 
@@ -117,5 +117,43 @@ describe("DashboardLayout – CSS transforms (regression: drag-tracking bug fix)
     // When the grid container is scrolled, absolute top/left positioning
     // misaligns the drag ghost. CSS transforms (the default) are scroll-safe.
     expect(props.useCSSTransforms).not.toBe(false);
+  });
+});
+
+describe("DashboardLayout – onLayoutChange (regression: panels stuck after click)", () => {
+  it("does NOT pass an onLayoutChange handler to GridLayout", () => {
+    // Wiring onLayoutChange caused panels to jump and stick whenever RGL fired
+    // intermediate layout updates during a click/drag. RGL manages in-drag state
+    // internally; we only need onDragStop/onResizeStop to capture final positions.
+    const props = renderDashboard();
+    expect(props).toBeDefined();
+    expect(props.onLayoutChange).toBeUndefined();
+  });
+
+  it("passes onDragStop to persist positions after a drag completes", () => {
+    const props = renderDashboard();
+    expect(typeof props.onDragStop).toBe("function");
+  });
+
+  it("passes onResizeStop to persist positions after a resize completes", () => {
+    const props = renderDashboard();
+    expect(typeof props.onResizeStop).toBe("function");
+  });
+
+  it("onDragStop writes updated positions to localStorage", () => {
+    localStorage.clear();
+    const props = renderDashboard();
+    // Simulate RGL calling onDragStop with the full layout (all DEFAULT_LAYOUT items)
+    // but with order-ticket moved to a new position.
+    const newLayout = DEFAULT_LAYOUT.map((item) =>
+      item.i === "order-ticket" ? { ...item, x: 3, y: 2 } : item
+    );
+    act(() => {
+      (props.onDragStop as (l: unknown[]) => void)(newLayout);
+    });
+    const stored = JSON.parse(localStorage.getItem("dashboard-layout") ?? "{}");
+    const savedTicket = stored.items?.find((l: { i: string }) => l.i === "order-ticket");
+    expect(savedTicket?.x).toBe(3);
+    expect(savedTicket?.y).toBe(2);
   });
 });
