@@ -19,9 +19,9 @@ RUN npm run build
 FROM denoland/deno:2.7.1 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install supervisord, bash, libstdc++ (required by Redpanda)
+# Install supervisord, bash, libstdc++ (required by Redpanda), ca-certificates for curl HTTPS
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    supervisor curl bash libstdc++6 \
+    supervisor curl bash libstdc++6 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Redpanda broker binary and rpk CLI from the official image
