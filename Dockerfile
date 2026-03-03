@@ -14,12 +14,15 @@ RUN npm ci --silent || npm install --silent
 RUN npm run build
 
 # ── Stage 2: Runtime image ────────────────────────────────────────────────────
-# Official Deno alpine image + supervisord + Traefik + Redpanda for full-stack single-VM deploy.
-FROM denoland/deno:alpine-2.7.1 AS runtime
+# Debian slim + official Deno image as base. Deno's alpine image fails on
+# Depot's build platform (glibc symbol mismatches); Debian avoids that.
+FROM denoland/deno:2.7.1 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install supervisord, curl (health checks), bash, libstdc++ (required by Redpanda)
-RUN apk add --no-cache supervisor curl bash libstdc++ libc6-compat
+# Install supervisord, bash, libstdc++ (required by Redpanda)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor curl bash libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy Redpanda broker binary and rpk CLI from the official image
 COPY --from=redpanda-src /opt/redpanda/bin/redpanda /usr/local/bin/redpanda
