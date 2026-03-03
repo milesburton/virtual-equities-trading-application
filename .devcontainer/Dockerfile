@@ -53,15 +53,20 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
     apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/* || true
 
-# Copy Redpanda broker and rpk CLI
-COPY --from=redpanda-src /opt/redpanda/bin/redpanda /usr/local/bin/redpanda
-COPY --from=redpanda-src /usr/bin/rpk /usr/local/bin/rpk
+# Copy Redpanda runtime assets and place real executables on PATH.
+# This avoids relying on wrapper scripts that hard-code /opt/redpanda paths.
+COPY --from=redpanda-src /opt/redpanda/lib /usr/local/lib/redpanda
+COPY --from=redpanda-src /opt/redpanda/libexec/redpanda /usr/local/bin/redpanda
+COPY --from=redpanda-src /opt/redpanda/libexec/rpk /usr/local/bin/rpk
 RUN chmod +x /usr/local/bin/redpanda /usr/local/bin/rpk && \
-    mkdir -p /var/lib/redpanda/data /etc/redpanda && \
-    chown -R deno:deno /var/lib/redpanda /etc/redpanda
+    mkdir -p /var/lib/redpanda/data /etc/redpanda
+# Do NOT set LD_LIBRARY_PATH globally — Redpanda ships its own libc.so.6 which
+# breaks any shell that loads it at startup. Set it only for the redpanda
+# process at runtime (see supervisord.conf [program:redpanda] environment=).
 
-# Create a new user named 'deno' with Fish as the default shell
-RUN useradd -m -s /usr/bin/fish deno
+# Create the 'deno' user with Fish as default shell
+RUN useradd -m -s /usr/bin/fish deno && \
+    chown -R deno:deno /var/lib/redpanda /etc/redpanda
 
 # Ensure the .ssh directory exists and has the correct permissions
 RUN mkdir -p /home/deno/.ssh && \

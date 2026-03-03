@@ -653,7 +653,15 @@ function PanelChrome({
   );
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 border border-gray-800 rounded overflow-hidden">
+    <div
+      className="flex flex-col h-full bg-gray-950 border border-gray-800 rounded overflow-hidden"
+      onMouseDownCapture={(e) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest("button, a, [role='button'], [tabindex]")) return;
+        if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+        e.preventDefault();
+      }}
+    >
       <div className="panel-drag-handle px-2 py-1 border-b border-gray-800 flex items-center gap-1.5 cursor-grab select-none shrink-0 bg-gray-900/60">
         {caps.out && (
           <ChannelPicker

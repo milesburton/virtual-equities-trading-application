@@ -24,12 +24,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor curl bash libstdc++6 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Redpanda broker binary and rpk CLI from the official image
-COPY --from=redpanda-src /opt/redpanda/bin/redpanda /usr/local/bin/redpanda
-COPY --from=redpanda-src /usr/bin/rpk /usr/local/bin/rpk
+# Copy Redpanda runtime assets and place real executables on PATH.
+# This avoids relying on wrapper scripts that hard-code /opt/redpanda paths.
+COPY --from=redpanda-src /opt/redpanda/lib /usr/local/lib/redpanda
+COPY --from=redpanda-src /opt/redpanda/libexec/redpanda /usr/local/bin/redpanda
+COPY --from=redpanda-src /opt/redpanda/libexec/rpk /usr/local/bin/rpk
 # Copy Redpanda Console binary
 COPY --from=console-src /app/console /usr/local/bin/redpanda-console
 RUN chmod +x /usr/local/bin/redpanda /usr/local/bin/rpk /usr/local/bin/redpanda-console
+## Avoid exporting LD_LIBRARY_PATH globally here. Some system utilities
+## (invoked during image builds or by devcontainer features) can break
+## if Redpanda's private libc is picked up. Set the library path only
+## when launching Redpanda at runtime via the supervisord command or
+## wrapper scripts instead.
 
 # Download Traefik v3 binary
 ARG TRAEFIK_VERSION=3.3.3

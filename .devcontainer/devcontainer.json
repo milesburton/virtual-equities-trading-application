@@ -6,11 +6,12 @@
   },
   "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 9879, 9881],
   "portsAttributes": {
-    "8080": { "label": "Frontend UI", "onAutoForward": "openBrowser" },
+    "8080": { "label": "Frontend UI", "onAutoForward": "ignore" },
     "5000": { "label": "Market Sim" },
     "5001": { "label": "EMS" },
     "5002": { "label": "OMS" },
     "5003": { "label": "Limit Algo" },
+    
     "5004": { "label": "TWAP Algo" },
     "5005": { "label": "POV Algo" },
     "5006": { "label": "VWAP Algo" },
@@ -24,9 +25,13 @@
       "settings": {
         "terminal.integrated.defaultProfile.linux": "fish",
         "deno.path": "/home/deno/.deno/bin/deno"
+        ,"security.workspace.trust.startupPrompt": "never"
+        ,"extensions.autoUpdate": true
+        ,"extensions.autoCheckUpdates": true
       },
       "extensions": [
         "GitHub.copilot",
+        "anthropic.claude-code",
         "Codeium.codeium",
         "denoland.vscode-deno",
         "redhat.vscode-json",
@@ -53,6 +58,6 @@
     "source=${localEnv:HOME}/.config/gh,target=/home/deno/.config/gh,type=bind,consistency=cached",
     "source=${localEnv:HOME}/.gitconfig,target=/home/deno/.gitconfig,type=bind,consistency=cached"
   ],
-  "postCreateCommand": "cd /workspaces/virtual-equities-trading-application/frontend && npm ci --ignore-scripts && npx playwright install && cd /workspaces/virtual-equities-trading-application && ./frontend/node_modules/.bin/husky install .husky"
+  "postCreateCommand": "cd /workspaces/virtual-equities-trading-application/frontend && npm ci --ignore-scripts && npx playwright install && cd /workspaces/virtual-equities-trading-application && ./frontend/node_modules/.bin/husky install .husky",
   "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && cd /workspaces/virtual-equities-trading-application/frontend && deno install --allow-scripts && cd /workspaces/virtual-equities-trading-application && supervisord -c /home/deno/supervisord.conf"
 }
