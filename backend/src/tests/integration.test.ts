@@ -102,7 +102,7 @@ Deno.test("POV algo - accepts trade and starts execution", async () => {
   assertEquals(res.status, 200);
   const body = await res.json();
   assertEquals(body.success, true);
-  assertEquals(typeof body.orderId, "number");
+  assertEquals(typeof body.orderId, "string");
 });
 
 Deno.test("POV algo - OPTIONS preflight returns 204", async () => {
@@ -119,7 +119,7 @@ Deno.test("VWAP algo - accepts trade and returns orderId", async () => {
   assertEquals(res.status, 200);
   const body = await res.json();
   assertEquals(body.success, true);
-  assertEquals(typeof body.orderId, "number");
+  assertEquals(typeof body.orderId, "string");
 });
 
 Deno.test("VWAP algo - OPTIONS preflight returns 204", async () => {
