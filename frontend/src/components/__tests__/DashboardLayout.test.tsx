@@ -58,16 +58,24 @@ describe("DashboardProvider – initial state", () => {
     expect(activeIds).toBe(defaultIds);
   });
 
-  it("loads layout from localStorage if present", () => {
+  it("loads layout from localStorage if present and versioned", () => {
     const custom = [
-      { i: "candle-chart", x: 0, y: 0, w: 6, h: 6 },
-      { i: "market-depth", x: 6, y: 0, w: 6, h: 6 },
+      { i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 6, h: 6 },
+      { i: "market-depth", panelType: "market-depth", x: 6, y: 0, w: 6, h: 6 },
     ];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, items: custom }));
     renderProvider();
     const activeIds = screen.getByTestId("active-ids").textContent;
     expect(activeIds).toContain("candle-chart");
     expect(activeIds).toContain("market-depth");
+  });
+
+  it("falls back to DEFAULT_LAYOUT when localStorage contains an old unversioned plain array", () => {
+    const oldLayout = [{ i: "candle-chart", x: 0, y: 0, w: 6, h: 6 }];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(oldLayout));
+    renderProvider();
+    const count = Number(screen.getByTestId("active-count").textContent);
+    expect(count).toBe(DEFAULT_LAYOUT.length);
   });
 
   it("falls back to DEFAULT_LAYOUT when localStorage contains invalid JSON", () => {
@@ -82,9 +90,8 @@ describe("DashboardProvider – initial state", () => {
 
 describe("DashboardProvider – addPanel", () => {
   it("adds a panel that was not in the active set", () => {
-    // Start with a layout that does not include candle-chart
     const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutChart));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, items: withoutChart }));
     renderProvider();
     const before = Number(screen.getByTestId("active-count").textContent);
     act(() => {
@@ -106,17 +113,17 @@ describe("DashboardProvider – addPanel", () => {
   });
 
   it("persists the updated layout to localStorage", () => {
-    // Start without candle-chart so addPanel actually fires
     const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutChart));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, items: withoutChart }));
     renderProvider();
     act(() => {
       fireEvent.click(screen.getByText("Add Chart"));
     });
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    // instanceId is now "candle-chart-<timestamp>"; check panelType instead
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
     expect(
-      stored.some((l: { panelType?: string; i: string }) => (l.panelType ?? l.i) === "candle-chart")
+      stored.items.some(
+        (l: { panelType?: string; i: string }) => (l.panelType ?? l.i) === "candle-chart"
+      )
     ).toBe(true);
   });
 });
@@ -140,8 +147,8 @@ describe("DashboardProvider – removePanel", () => {
     act(() => {
       fireEvent.click(screen.getByText("Remove Blotter"));
     });
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    expect(stored.every((l: { i: string }) => l.i !== "order-blotter")).toBe(true);
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+    expect(stored.items.every((l: { i: string }) => l.i !== "order-blotter")).toBe(true);
   });
 });
 
@@ -149,9 +156,8 @@ describe("DashboardProvider – removePanel", () => {
 
 describe("DashboardProvider – resetLayout", () => {
   it("restores the DEFAULT_LAYOUT panel set", () => {
-    // Start with a non-default layout
-    const custom = [{ i: "candle-chart", x: 0, y: 0, w: 6, h: 6 }];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+    const custom = [{ i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 6, h: 6 }];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, items: custom }));
     renderProvider();
 
     act(() => {
@@ -165,10 +171,13 @@ describe("DashboardProvider – resetLayout", () => {
     expect(activeIds).toBe(defaultIds);
   });
 
-  it("writes DEFAULT_LAYOUT to localStorage", () => {
+  it("writes DEFAULT_LAYOUT to localStorage in versioned format", () => {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify([{ i: "candle-chart", x: 0, y: 0, w: 4, h: 4 }])
+      JSON.stringify({
+        _v: 2,
+        items: [{ i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 4, h: 4 }],
+      })
     );
     renderProvider();
 
@@ -177,7 +186,8 @@ describe("DashboardProvider – resetLayout", () => {
     });
 
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    expect(stored).toEqual(DEFAULT_LAYOUT);
+    expect(stored._v).toBe(2);
+    expect(stored.items).toEqual(DEFAULT_LAYOUT);
   });
 });
 
@@ -190,9 +200,9 @@ describe("Panel registry", () => {
     }
   });
 
-  it("DEFAULT_LAYOUT IDs are all valid PANEL_IDs", () => {
+  it("DEFAULT_LAYOUT panelTypes are all valid PANEL_IDs", () => {
     for (const item of DEFAULT_LAYOUT) {
-      expect(PANEL_IDS).toContain(item.i as PanelId);
+      expect(PANEL_IDS).toContain(item.panelType as PanelId);
     }
   });
 });

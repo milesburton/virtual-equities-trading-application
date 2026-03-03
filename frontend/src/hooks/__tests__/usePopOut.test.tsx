@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardContextValue } from "../../components/DashboardLayout";
-import { DashboardContext, STORAGE_KEY } from "../../components/DashboardLayout";
+import { DashboardContext, DEFAULT_LAYOUT, STORAGE_KEY } from "../../components/DashboardLayout";
 import { ChannelContext } from "../../contexts/ChannelContext";
 import { windowSlice } from "../../store/windowSlice";
 import { usePopOut } from "../usePopOut";
@@ -16,6 +16,8 @@ function makeStore() {
 }
 
 const dashCtx: DashboardContextValue = {
+  layout: DEFAULT_LAYOUT,
+  setLayout: () => {},
   activePanelIds: new Set(),
   addPanel: () => {},
   removePanel: () => {},

@@ -165,8 +165,10 @@ export const LAYOUT_TEMPLATES: {
 ];
 
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
-/** Kept for backwards-compat and tests that don't pass a storageKey. */
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
+
+/** Bump when DEFAULT_LAYOUT changes — forces stale stored layouts to reset */
+const LAYOUT_VERSION = 2;
 
 /** Migrate old format (i === panelType, no panelType field) to LayoutItem */
 function migrateItem(raw: Record<string, unknown>): LayoutItem {
@@ -177,12 +179,20 @@ function migrateItem(raw: Record<string, unknown>): LayoutItem {
   };
 }
 
+function saveLayout(storageKey: string, items: LayoutItem[]) {
+  localStorage.setItem(storageKey, JSON.stringify({ _v: LAYOUT_VERSION, items }));
+}
+
 function loadLayout(storageKey: string): LayoutItem[] {
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw) {
-      const parsed = JSON.parse(raw) as Record<string, unknown>[];
-      return parsed.map(migrateItem);
+      const parsed = JSON.parse(raw);
+      // Accept only versioned format with the current version
+      if (!Array.isArray(parsed) && parsed._v === LAYOUT_VERSION && Array.isArray(parsed.items)) {
+        return (parsed.items as Record<string, unknown>[]).map(migrateItem);
+      }
+      // Unversioned (plain array) or wrong version — fall through to reset
     }
   } catch {
     // corrupted — fall through to default
@@ -282,6 +292,8 @@ function findOpenSpot(layout: LayoutItem[], w: number, h: number): { x: number; 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 export interface DashboardContextValue {
+  layout: LayoutItem[];
+  setLayout: (next: LayoutItem[]) => void;
   activePanelIds: Set<PanelId>;
   addPanel: (id: PanelId) => void;
   removePanel: (id: PanelId) => void;
@@ -290,6 +302,8 @@ export interface DashboardContextValue {
 }
 
 export const DashboardContext = createContext<DashboardContextValue>({
+  layout: DEFAULT_LAYOUT,
+  setLayout: () => {},
   activePanelIds: new Set(),
   addPanel: () => {},
   removePanel: () => {},
@@ -309,14 +323,17 @@ interface DashboardProviderProps {
 }
 
 export function DashboardProvider({ children, storageKey = STORAGE_KEY }: DashboardProviderProps) {
-  const [layout, setLayout] = useState<LayoutItem[]>(() => loadLayout(storageKey));
+  const [layout, setLayoutState] = useState<LayoutItem[]>(() => loadLayout(storageKey));
 
-  // activePanelIds tracks which panel types are currently present (deduplicated)
   const activePanelIds = new Set(layout.map((l) => l.panelType));
+
+  const setLayout = useCallback((next: LayoutItem[]) => {
+    setLayoutState(next);
+  }, []);
 
   const addPanel = useCallback(
     (panelType: PanelId) => {
-      setLayout((prev) => {
+      setLayoutState((prev) => {
         const instanceId = `${panelType}-${Date.now()}`;
         const w = 4;
         const h = 6;
@@ -325,7 +342,7 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
           ...prev,
           { i: instanceId, panelType, x, y, w, h, minW: 2, minH: 3 },
         ];
-        localStorage.setItem(storageKey, JSON.stringify(next));
+        saveLayout(storageKey, next);
         return next;
       });
     },
@@ -334,11 +351,11 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
 
   const removePanel = useCallback(
     (panelType: PanelId) => {
-      setLayout((prev) => {
+      setLayoutState((prev) => {
         const idx = prev.findIndex((l) => l.panelType === panelType);
         if (idx === -1) return prev;
         const next = prev.filter((_, i) => i !== idx);
-        localStorage.setItem(storageKey, JSON.stringify(next));
+        saveLayout(storageKey, next);
         return next;
       });
     },
@@ -348,15 +365,15 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
   const resetLayout = useCallback(
     (templateLayout?: LayoutItem[]) => {
       const next = templateLayout ?? DEFAULT_LAYOUT;
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      setLayout(next);
+      saveLayout(storageKey, next);
+      setLayoutState(next);
     },
     [storageKey]
   );
 
   return (
     <DashboardContext.Provider
-      value={{ activePanelIds, addPanel, removePanel, resetLayout, storageKey }}
+      value={{ layout, setLayout, activePanelIds, addPanel, removePanel, resetLayout, storageKey }}
     >
       {children}
     </DashboardContext.Provider>
@@ -533,28 +550,13 @@ export function DashboardLayout() {
   const dispatch = useAppDispatch();
   const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
   const candleHistory = useAppSelector((s) => s.market.candleHistory);
-  const { storageKey } = useDashboard();
+  const { layout, setLayout, storageKey } = useDashboard();
 
-  const [layout, setLayout] = useState<LayoutItem[]>(() => loadLayout(storageKey));
   const containerRef = useRef<HTMLDivElement>(null);
   // deno-lint-ignore no-window
   const [gridWidth, setGridWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1200
   );
-
-  useEffect(() => {
-    const saved = (() => {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        return raw
-          ? (JSON.parse(raw) as Record<string, unknown>[]).map(migrateItem)
-          : DEFAULT_LAYOUT;
-      } catch {
-        return DEFAULT_LAYOUT;
-      }
-    })();
-    setLayout(saved);
-  }, [storageKey]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -568,43 +570,37 @@ export function DashboardLayout() {
 
   const handleLayoutChange = useCallback(
     (newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
-      setLayout((prev) => {
-        const next = prev.map((item) => {
-          const updated = newLayout.find((l) => l.i === item.i);
-          return updated ? { ...item, ...updated } : item;
-        });
-        localStorage.setItem(storageKey, JSON.stringify(next));
-        return next;
+      const next = layout.map((item) => {
+        const updated = newLayout.find((l) => l.i === item.i);
+        return updated ? { ...item, ...updated } : item;
       });
+      saveLayout(storageKey, next);
+      setLayout(next);
     },
-    [storageKey]
+    [layout, storageKey, setLayout]
   );
 
   function removeByInstanceId(instanceId: string) {
-    setLayout((prev) => {
-      const next = prev.filter((l) => l.i !== instanceId);
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
+    const next = layout.filter((l) => l.i !== instanceId);
+    saveLayout(storageKey, next);
+    setLayout(next);
   }
 
   function handleChannelChange(instanceId: string, dir: "out" | "in", ch: ChannelNumber | null) {
-    setLayout((prev) => {
-      const next = prev.map((item) => {
-        if (item.i !== instanceId) return item;
-        const updated = { ...item };
-        if (dir === "out") {
-          if (ch === null) delete updated.outgoing;
-          else updated.outgoing = ch;
-        } else {
-          if (ch === null) delete updated.incoming;
-          else updated.incoming = ch;
-        }
-        return updated;
-      });
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
+    const next = layout.map((item) => {
+      if (item.i !== instanceId) return item;
+      const updated = { ...item };
+      if (dir === "out") {
+        if (ch === null) delete updated.outgoing;
+        else updated.outgoing = ch;
+      } else {
+        if (ch === null) delete updated.incoming;
+        else updated.incoming = ch;
+      }
+      return updated;
     });
+    saveLayout(storageKey, next);
+    setLayout(next);
   }
 
   function renderPanelContent(item: LayoutItem): React.ReactNode {
@@ -680,7 +676,7 @@ export function DashboardLayout() {
   const gridOnLayoutChange = handleLayoutChange as any;
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-y-auto">
+    <div ref={containerRef} className="w-full">
       <GridLayout
         layout={gridLayout}
         cols={12}
