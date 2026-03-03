@@ -8,9 +8,15 @@ const OBS_URL = import.meta.env.VITE_OBS_URL ?? `${_origin}/api/observability`;
 export const observabilityMiddleware: Middleware = (storeAPI) => {
   let es: EventSource | null = null;
   let started = false;
+  let reconnectDelay = 2_000;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   function connect() {
-    // Fetch historic events
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
     fetch(`${OBS_URL}/events`)
       .then(async (r) => {
         if (!r.ok) return;
@@ -19,8 +25,12 @@ export const observabilityMiddleware: Middleware = (storeAPI) => {
       })
       .catch(() => {});
 
-    // Connect SSE stream
     es = new EventSource(`${OBS_URL}/stream`);
+
+    es.onopen = () => {
+      reconnectDelay = 2_000;
+    };
+
     es.onmessage = (ev) => {
       try {
         const parsed = JSON.parse(ev.data as string) as ObsEvent;
@@ -28,6 +38,15 @@ export const observabilityMiddleware: Middleware = (storeAPI) => {
       } catch {
         // ignore parse errors
       }
+    };
+
+    es.onerror = () => {
+      es?.close();
+      es = null;
+      reconnectTimer = setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, 30_000);
+        connect();
+      }, reconnectDelay);
     };
   }
 
@@ -38,6 +57,7 @@ export const observabilityMiddleware: Middleware = (storeAPI) => {
     }
     if ((action as { type: string }).type === "observability/stop") {
       es?.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     }
     return next(action);
   };

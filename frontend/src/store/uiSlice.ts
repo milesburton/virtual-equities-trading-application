@@ -7,6 +7,7 @@ interface UiState {
   activeSide: "BUY" | "SELL";
   showShortcuts: boolean;
   selectedAsset: string | null;
+  updateAvailable: boolean;
 }
 
 const initialState: UiState = {
@@ -14,6 +15,7 @@ const initialState: UiState = {
   activeSide: "BUY",
   showShortcuts: false,
   selectedAsset: null,
+  updateAvailable: false,
 };
 
 export const uiSlice = createSlice({
@@ -35,6 +37,9 @@ export const uiSlice = createSlice({
     setSelectedAsset(state, action: PayloadAction<string | null>) {
       state.selectedAsset = action.payload;
     },
+    setUpdateAvailable(state) {
+      state.updateAvailable = true;
+    },
   },
 });
 
@@ -44,4 +49,5 @@ export const {
   toggleShortcuts,
   hideShortcuts,
   setSelectedAsset,
+  setUpdateAvailable,
 } = uiSlice.actions;
