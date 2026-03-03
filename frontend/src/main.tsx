@@ -10,14 +10,17 @@ import { store } from "./store/index.ts";
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");
 
-const panelParam = new URLSearchParams(window.location.search).get("panel");
+const searchParams = new URLSearchParams(window.location.search);
+const instanceId = searchParams.get("panel");
+const panelType = searchParams.get("type") ?? instanceId ?? "";
+const layoutKey = searchParams.get("layout") ?? "dashboard-layout";
 
-if (panelParam) {
+if (instanceId) {
   // Pop-out window mode: render just the requested panel
   createRoot(root).render(
     <StrictMode>
       <Provider store={store}>
-        <PopOutHost panelId={panelParam} />
+        <PopOutHost instanceId={instanceId} panelType={panelType} layoutKey={layoutKey} />
       </Provider>
     </StrictMode>
   );

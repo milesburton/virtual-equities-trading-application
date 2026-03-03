@@ -2,6 +2,7 @@ import { useSignal } from "@preact/signals-react";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTradingContext } from "../context/TradingContext.tsx";
+import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { submitOrderThunk } from "../store/ordersSlice.ts";
 import { setActiveSide, setActiveStrategy } from "../store/uiSlice.ts";
@@ -16,6 +17,7 @@ function formatPrice(symbol: string, price: number) {
 export function OrderTicket() {
   const dispatch = useAppDispatch();
   const { registerTicketRef } = useTradingContext();
+  const channelIn = useChannelIn();
 
   const assets = useAppSelector((s) => s.market.assets);
   const prices = useAppSelector((s) => s.market.prices);
@@ -60,6 +62,15 @@ export function OrderTicket() {
     const price = prices[symbol];
     limitPrice.value = price ? formatPrice(symbol, price) : "";
   }
+
+  // Pre-fill asset from incoming channel when the field hasn't been manually set
+  const channelAsset = channelIn.selectedAsset;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: assetSearch.value is a signal (read access does not need to be in deps); selectAsset is stable
+  useEffect(() => {
+    if (channelAsset && channelAsset !== assetSearch.value) {
+      selectAsset(channelAsset);
+    }
+  }, [channelAsset]);
 
   const isValid =
     Number(quantity.value) > 0 &&

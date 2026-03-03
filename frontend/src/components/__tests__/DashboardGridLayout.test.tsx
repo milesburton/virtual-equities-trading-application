@@ -46,6 +46,7 @@ vi.mock("../MarketDepth", () => ({ MarketDepth: () => <div /> }));
 // ── Import DashboardLayout AFTER mocks are set up ─────────────────────────────
 
 import GridLayoutLib from "react-grid-layout";
+import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
@@ -59,6 +60,7 @@ function makeStore() {
       market: marketSlice.reducer,
       ui: uiSlice.reducer,
       windows: windowSlice.reducer,
+      channels: channelsSlice.reducer,
     },
     preloadedState: {
       market: {

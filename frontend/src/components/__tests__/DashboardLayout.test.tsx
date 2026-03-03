@@ -114,7 +114,10 @@ describe("DashboardProvider – addPanel", () => {
       fireEvent.click(screen.getByText("Add Chart"));
     });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    expect(stored.some((l: { i: string }) => l.i === "candle-chart")).toBe(true);
+    // instanceId is now "candle-chart-<timestamp>"; check panelType instead
+    expect(
+      stored.some((l: { panelType?: string; i: string }) => (l.panelType ?? l.i) === "candle-chart")
+    ).toBe(true);
   });
 });
 

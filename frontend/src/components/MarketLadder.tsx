@@ -2,8 +2,8 @@ import { useSignal } from "@preact/signals-react";
 import { useEffect, useMemo, useRef } from "react";
 import { List } from "react-window";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
-import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import { setSelectedAsset } from "../store/uiSlice.ts";
+import { useChannelOut } from "../hooks/useChannelOut.ts";
+import { useAppSelector } from "../store/hooks.ts";
 import type { AssetDef, MarketPrices, PriceHistory } from "../types.ts";
 import { PopOutButton } from "./PopOutButton.tsx";
 
@@ -150,7 +150,7 @@ function Row({
 }
 
 export function MarketLadder() {
-  const dispatch = useAppDispatch();
+  const broadcast = useChannelOut();
   const assets = useAppSelector((s) => s.market.assets);
   const prices = useAppSelector((s) => s.market.prices);
   const priceHistory = useAppSelector((s) => s.market.priceHistory);
@@ -189,7 +189,7 @@ export function MarketLadder() {
   }, [listHeight]);
 
   function onSelectAsset(symbol: string | null) {
-    dispatch(setSelectedAsset(symbol));
+    broadcast({ selectedAsset: symbol });
   }
 
   const rowData: RowData = { filtered, prices, priceHistory, selectedAsset, onSelectAsset };

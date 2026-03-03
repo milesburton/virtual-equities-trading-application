@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { createBroadcastChannelMiddleware } from "./channel.ts";
+import { channelsSlice } from "./channelsSlice.ts";
 import { marketSlice } from "./marketSlice.ts";
 import { fixMiddleware } from "./middleware/fixMiddleware.ts";
 import { marketFeedMiddleware } from "./middleware/marketFeedMiddleware.ts";
@@ -20,6 +21,7 @@ export const store = configureStore({
     observability: observabilitySlice.reducer,
     ui: uiSlice.reducer,
     windows: windowSlice.reducer,
+    channels: channelsSlice.reducer,
     [servicesApi.reducerPath]: servicesApi.reducer,
     [obsApi.reducerPath]: obsApi.reducer,
   },

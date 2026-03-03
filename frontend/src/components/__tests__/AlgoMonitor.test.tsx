@@ -1,10 +1,14 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ChannelContext } from "../../contexts/ChannelContext";
+import { channelsSlice } from "../../store/channelsSlice";
+import { marketSlice } from "../../store/marketSlice";
 import { ordersSlice } from "../../store/ordersSlice";
+import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
-import type { OrderRecord } from "../../types";
+import type { MarketPrices, OrderRecord } from "../../types";
 import { AlgoMonitor } from "../AlgoMonitor";
 
 const now = Date.now();
@@ -27,38 +31,55 @@ function makeOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
   };
 }
 
-function makeStore(orders: OrderRecord[] = []) {
+function makeStore(orders: OrderRecord[] = [], prices: MarketPrices = {}) {
   return configureStore({
     reducer: {
       orders: ordersSlice.reducer,
+      market: marketSlice.reducer,
       windows: windowSlice.reducer,
+      ui: uiSlice.reducer,
+      channels: channelsSlice.reducer,
     },
     preloadedState: {
       orders: { orders },
+      market: {
+        assets: [],
+        prices,
+        priceHistory: {},
+        candleHistory: {},
+        connected: false,
+        orderBook: {},
+      },
     },
   });
 }
 
-function renderMonitor(orders: OrderRecord[] = []) {
+function renderMonitor(orders: OrderRecord[] = [], prices: MarketPrices = {}) {
   return render(
-    <Provider store={makeStore(orders)}>
-      <AlgoMonitor />
+    <Provider store={makeStore(orders, prices)}>
+      <ChannelContext.Provider
+        value={{
+          instanceId: "algo-monitor",
+          panelType: "algo-monitor",
+          outgoing: null,
+          incoming: null,
+        }}
+      >
+        <AlgoMonitor />
+      </ChannelContext.Provider>
     </Provider>
   );
 }
 
-describe("AlgoMonitor – empty state", () => {
-  it("shows 'No active algo orders' when there are no active orders", () => {
+// ── Active tab (default) ──────────────────────────────────────────────────────
+
+describe("AlgoMonitor – Active tab (default)", () => {
+  it("shows empty message when there are no active orders", () => {
     renderMonitor([]);
     expect(screen.getByText(/No active algo orders/i)).toBeInTheDocument();
   });
 
-  it("shows 0 active in header with no orders", () => {
-    renderMonitor([]);
-    expect(screen.getByText(/0 active/i)).toBeInTheDocument();
-  });
-
-  it("hides filled/expired orders from the active list", () => {
+  it("hides filled and expired orders from active list", () => {
     const orders = [
       makeOrder({ status: "filled" }),
       makeOrder({ id: "order-2", status: "expired" }),
@@ -66,24 +87,17 @@ describe("AlgoMonitor – empty state", () => {
     renderMonitor(orders);
     expect(screen.getByText(/No active algo orders/i)).toBeInTheDocument();
   });
-});
 
-describe("AlgoMonitor – active orders", () => {
-  it("renders executing order", () => {
+  it("renders an executing order with asset, side, strategy", () => {
     renderMonitor([makeOrder()]);
     expect(screen.getByText("AAPL")).toBeInTheDocument();
-    // "TWAP" appears in both the dropdown option and the table cell
-    expect(screen.getAllByText("TWAP").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("BUY")).toBeInTheDocument();
-  });
-
-  it("shows 1 active in header", () => {
-    renderMonitor([makeOrder()]);
-    expect(screen.getByText(/1 active/i)).toBeInTheDocument();
+    // TWAP appears in the dropdown option AND the table cell
+    expect(screen.getAllByText("TWAP").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows queued order as 'Waiting'", () => {
-    renderMonitor([makeOrder({ status: "queued" })]);
+    renderMonitor([makeOrder({ status: "queued", filled: 0 })]);
     expect(screen.getByText("Waiting")).toBeInTheDocument();
   });
 
@@ -98,9 +112,8 @@ describe("AlgoMonitor – active orders", () => {
     expect(screen.getByText("Monitoring")).toBeInTheDocument();
   });
 
-  it("shows seconds left for non-LIMIT executing orders", () => {
+  it("shows seconds remaining for non-LIMIT executing orders", () => {
     renderMonitor([makeOrder({ expiresAt: now + 30_000 })]);
-    // Should show something like "30s left"
     expect(screen.getByText(/\d+s left/)).toBeInTheDocument();
   });
 
@@ -109,17 +122,122 @@ describe("AlgoMonitor – active orders", () => {
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
-  it("clamps progress at 100%", () => {
-    renderMonitor([makeOrder({ quantity: 100, filled: 150 })]);
-    expect(screen.getByText("150%")).toBeInTheDocument(); // label shows raw, bar clamps via CSS
-  });
-
   it("renders filled quantity", () => {
     renderMonitor([makeOrder({ filled: 25 })]);
-    // filled column
     expect(screen.getByText("25")).toBeInTheDocument();
   });
+
+  it("shows unfilled quantity", () => {
+    // quantity=100, filled=25 → unfilled=75
+    renderMonitor([makeOrder({ quantity: 100, filled: 25 })]);
+    expect(screen.getByText("75")).toBeInTheDocument();
+  });
+
+  it("shows limit price column", () => {
+    renderMonitor([makeOrder({ limitPrice: 150 })]);
+    expect(screen.getByText("150.00")).toBeInTheDocument();
+  });
+
+  it("shows current market price when available", () => {
+    renderMonitor([makeOrder()], { AAPL: 148.5 });
+    expect(screen.getByText("148.50")).toBeInTheDocument();
+  });
 });
+
+// ── Needs Action tab ──────────────────────────────────────────────────────────
+
+describe("AlgoMonitor – Needs Action tab", () => {
+  function clickNeedsAction() {
+    fireEvent.click(screen.getByText(/Needs Action/));
+  }
+
+  it("shows empty message when no orders need action", () => {
+    renderMonitor([makeOrder()]);
+    clickNeedsAction();
+    expect(screen.getByText(/No orders need attention/i)).toBeInTheDocument();
+  });
+
+  it("shows expired partially-filled order in Needs Action tab", () => {
+    const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
+    renderMonitor([order]);
+    clickNeedsAction();
+    expect(screen.getByText("AAPL")).toBeInTheDocument();
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+  });
+
+  it("does NOT show fully-filled expired order in Needs Action tab", () => {
+    const order = makeOrder({ status: "expired", filled: 100, quantity: 100 });
+    renderMonitor([order]);
+    clickNeedsAction();
+    expect(screen.getByText(/No orders need attention/i)).toBeInTheDocument();
+  });
+
+  it("shows unfilled quantity for partial order", () => {
+    const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
+    renderMonitor([order]);
+    clickNeedsAction();
+    // unfilled = 60
+    expect(screen.getByText("60")).toBeInTheDocument();
+  });
+
+  it("renders badge count on Needs Action tab button", () => {
+    const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
+    renderMonitor([order]);
+    // The badge should show "1" beside "Needs Action"
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("shows 'Trade at Last' button for expired partial order with market price", () => {
+    const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
+    renderMonitor([order], { AAPL: 148 });
+    clickNeedsAction();
+    expect(screen.getByRole("button", { name: /Trade at Last/i })).toBeInTheDocument();
+  });
+
+  it("does NOT show 'Trade at Last' button when market price is unavailable", () => {
+    const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
+    renderMonitor([order], {}); // no price
+    clickNeedsAction();
+    expect(screen.queryByRole("button", { name: /Trade at Last/i })).not.toBeInTheDocument();
+  });
+
+  it("dispatches submitOrderThunk when Trade at Last is clicked", () => {
+    const order = makeOrder({
+      id: "o1",
+      status: "expired",
+      filled: 40,
+      quantity: 100,
+      asset: "AAPL",
+      side: "BUY",
+    });
+    const store = makeStore([order], { AAPL: 148 });
+    const dispatchSpy = vi.spyOn(store, "dispatch");
+
+    render(
+      <Provider store={store}>
+        <ChannelContext.Provider
+          value={{
+            instanceId: "algo-monitor",
+            panelType: "algo-monitor",
+            outgoing: null,
+            incoming: null,
+          }}
+        >
+          <AlgoMonitor />
+        </ChannelContext.Provider>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText(/Needs Action/));
+    fireEvent.click(screen.getByRole("button", { name: /Trade at Last/i }));
+
+    // A thunk was dispatched (it's a function)
+    const thunkCalls = dispatchSpy.mock.calls.filter(([arg]) => typeof arg === "function");
+    expect(thunkCalls.length).toBeGreaterThan(0);
+  });
+});
+
+// ── Strategy filter ───────────────────────────────────────────────────────────
 
 describe("AlgoMonitor – strategy filter", () => {
   const orders = [
@@ -166,6 +284,8 @@ describe("AlgoMonitor – strategy filter", () => {
   });
 });
 
+// ── Child orders ──────────────────────────────────────────────────────────────
+
 describe("AlgoMonitor – child orders", () => {
   const child = {
     id: "child-1",
@@ -181,7 +301,6 @@ describe("AlgoMonitor – child orders", () => {
 
   it("renders child order rows when present", () => {
     renderMonitor([makeOrder({ children: [child] })]);
-    // Child rows show "child" as strategy label
     expect(screen.getByText("child")).toBeInTheDocument();
   });
 });

@@ -3,6 +3,9 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { DashboardContextValue } from "../../components/DashboardLayout";
+import { DashboardContext, STORAGE_KEY } from "../../components/DashboardLayout";
+import { ChannelContext } from "../../contexts/ChannelContext";
 import { windowSlice } from "../../store/windowSlice";
 import { usePopOut } from "../usePopOut";
 
@@ -12,9 +15,32 @@ function makeStore() {
   });
 }
 
+const dashCtx: DashboardContextValue = {
+  activePanelIds: new Set(),
+  addPanel: () => {},
+  removePanel: () => {},
+  resetLayout: () => {},
+  storageKey: STORAGE_KEY,
+};
+
 function wrapper(store: ReturnType<typeof makeStore>) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <Provider store={store}>{children}</Provider>;
+    return (
+      <Provider store={store}>
+        <DashboardContext.Provider value={dashCtx}>
+          <ChannelContext.Provider
+            value={{
+              instanceId: "unknown",
+              panelType: "market-ladder",
+              outgoing: null,
+              incoming: null,
+            }}
+          >
+            {children}
+          </ChannelContext.Provider>
+        </DashboardContext.Provider>
+      </Provider>
+    );
   };
 }
 
@@ -80,7 +106,7 @@ describe("usePopOut – popOut()", () => {
 
     result.current.popOut();
 
-    expect(store.getState().windows.popOuts["order-blotter"].open).toBe(false);
+    expect(store.getState().windows.popOuts["order-blotter"]?.open ?? false).toBe(false);
   });
 });
 

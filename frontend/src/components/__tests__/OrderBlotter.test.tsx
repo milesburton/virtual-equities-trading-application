@@ -2,7 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { ChannelContext } from "../../contexts/ChannelContext";
+import { channelsSlice } from "../../store/channelsSlice";
 import { ordersSlice } from "../../store/ordersSlice";
+import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
 import type { OrderRecord } from "../../types";
 import { OrderBlotter } from "../OrderBlotter";
@@ -32,6 +35,8 @@ function makeStore(orders: OrderRecord[] = []) {
     reducer: {
       orders: ordersSlice.reducer,
       windows: windowSlice.reducer,
+      channels: channelsSlice.reducer,
+      ui: uiSlice.reducer,
     },
     preloadedState: {
       orders: { orders },
@@ -42,7 +47,16 @@ function makeStore(orders: OrderRecord[] = []) {
 function renderBlotter(orders: OrderRecord[] = []) {
   return render(
     <Provider store={makeStore(orders)}>
-      <OrderBlotter />
+      <ChannelContext.Provider
+        value={{
+          instanceId: "order-blotter",
+          panelType: "order-blotter",
+          outgoing: null,
+          incoming: null,
+        }}
+      >
+        <OrderBlotter />
+      </ChannelContext.Provider>
     </Provider>
   );
 }
