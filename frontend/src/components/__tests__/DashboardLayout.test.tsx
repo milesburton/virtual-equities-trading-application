@@ -165,7 +165,7 @@ describe("DashboardProvider – resetLayout", () => {
     expect(activeIds).toBe(defaultIds);
   });
 
-  it("removes STORAGE_KEY from localStorage", () => {
+  it("writes DEFAULT_LAYOUT to localStorage", () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify([{ i: "candle-chart", x: 0, y: 0, w: 4, h: 4 }])
@@ -176,7 +176,8 @@ describe("DashboardProvider – resetLayout", () => {
       fireEvent.click(screen.getByText("Reset"));
     });
 
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    expect(stored).toEqual(DEFAULT_LAYOUT);
   });
 });
 

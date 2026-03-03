@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { vi } from "vitest";
+import { authSlice } from "../../store/authSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { servicesApi } from "../../store/servicesApi";
 import { uiSlice } from "../../store/uiSlice";
@@ -25,6 +26,7 @@ vi.mock("../../store/servicesApi", async (importOriginal) => {
 function makeStore(connected: boolean) {
   return configureStore({
     reducer: {
+      auth: authSlice.reducer,
       market: marketSlice.reducer,
       ui: uiSlice.reducer,
       windows: windowSlice.reducer,

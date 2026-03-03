@@ -109,10 +109,13 @@ describe("DashboardLayout – grid compaction (regression: panels jumping on cli
   });
 });
 
-describe("DashboardLayout – CSS transforms (regression: transform animation on state change)", () => {
-  it("passes useCSSTransforms={false} to GridLayout", () => {
+describe("DashboardLayout – CSS transforms (regression: drag-tracking bug fix)", () => {
+  it("does NOT disable CSS transforms — useCSSTransforms must not be false for correct drag tracking", () => {
     const props = renderDashboard();
     expect(props).toBeDefined();
-    expect(props.useCSSTransforms).toBe(false);
+    // useCSSTransforms={false} was removed to fix the cursor drag-tracking bug.
+    // When the grid container is scrolled, absolute top/left positioning
+    // misaligns the drag ghost. CSS transforms (the default) are scroll-safe.
+    expect(props.useCSSTransforms).not.toBe(false);
   });
 });
