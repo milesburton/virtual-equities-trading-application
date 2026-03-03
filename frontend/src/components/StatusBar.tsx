@@ -52,6 +52,7 @@ function useAllServiceHealth(): ServiceHealth[] {
 
 export function StatusBar() {
   const connected = useAppSelector((s) => s.market.connected);
+  const updateAvailable = useAppSelector((s) => s.ui.updateAvailable);
   const services = useAllServiceHealth();
   const time = useSignal(new Date().toLocaleTimeString());
   const { resetLayout } = useDashboard();
@@ -64,36 +65,50 @@ export function StatusBar() {
   }, [time]);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 text-xs text-gray-400">
-      <div className="flex items-center gap-6">
-        <span className="text-emerald-400 font-semibold tracking-widest uppercase text-xs">
-          Equities Market Simulator
-        </span>
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-block w-2 h-2 rounded-full ${
-              connected ? "bg-emerald-400 shadow-[0_0_6px_#34d399]" : "bg-red-500"
-            }`}
-          />
-          <span className={connected ? "text-emerald-400" : "text-red-400"}>
-            Market Feed {connected ? "LIVE" : "DISCONNECTED"}
-          </span>
+    <div className="flex flex-col">
+      {updateAvailable && (
+        <div className="flex items-center justify-center gap-3 px-4 py-1.5 bg-amber-900/60 border-b border-amber-700/60 text-xs text-amber-300">
+          <span>A new version is available.</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
+          >
+            Reload
+          </button>
         </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <ComponentPicker />
-        <TemplatePicker />
-        <button
-          type="button"
-          onClick={() => resetLayout()}
-          title="Reset workspace to default layout"
-          className="text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
-          aria-label="Reset layout"
-        >
-          ↺
-        </button>
-        <ServiceStatus services={services} />
-        <span className="tabular-nums">{time.value}</span>
+      )}
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 text-xs text-gray-400">
+        <div className="flex items-center gap-6">
+          <span className="text-emerald-400 font-semibold tracking-widest uppercase text-xs">
+            Equities Market Simulator
+          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                connected ? "bg-emerald-400 shadow-[0_0_6px_#34d399]" : "bg-red-500"
+              }`}
+            />
+            <span className={connected ? "text-emerald-400" : "text-red-400"}>
+              Market Feed {connected ? "LIVE" : "DISCONNECTED"}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <ComponentPicker />
+          <TemplatePicker />
+          <button
+            type="button"
+            onClick={() => resetLayout()}
+            title="Reset workspace to default layout"
+            className="text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
+            aria-label="Reset layout"
+          >
+            ↺
+          </button>
+          <ServiceStatus services={services} />
+          <span className="tabular-nums">{time.value}</span>
+        </div>
       </div>
     </div>
   );

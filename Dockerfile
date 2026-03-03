@@ -37,8 +37,8 @@ RUN curl -fsSL "https://github.com/traefik/traefik/releases/download/v${TRAEFIK_
     | tar -xz -C /usr/local/bin traefik \
     && chmod +x /usr/local/bin/traefik
 
-# Pre-cache the file-server module (Deno 2.x: use deno cache instead of deno install for non-global tools)
-RUN deno cache jsr:@std/http/file-server
+# Pre-cache the file-server and crypto modules used by the frontend server
+RUN deno cache jsr:@std/http/file-server jsr:@std/crypto jsr:@std/encoding/hex
 
 # Copy application source and Fly.io configs
 WORKDIR /app
@@ -50,6 +50,7 @@ RUN deno install
 
 # Pre-cache all backend Deno modules to avoid slow cold-start JIT compilation
 RUN deno cache \
+    frontend-server.ts \
     backend/src/lib/messaging.ts \
     backend/src/market-sim/market-sim.ts \
     backend/src/ems/ems-server.ts \
