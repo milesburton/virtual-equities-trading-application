@@ -29,6 +29,8 @@ function renderPicker(overrides?: {
     <Provider store={makeStore()}>
       <DashboardContext.Provider
         value={{
+          layout: DEFAULT_LAYOUT,
+          setLayout: vi.fn(),
           activePanelIds,
           addPanel,
           removePanel,

@@ -55,7 +55,7 @@ function TradingApp() {
         {/* Key forces DashboardProvider to remount (fresh localStorage read) on workspace switch */}
         <DashboardProvider key={activeId.value} storageKey={workspaceStorageKey(activeId.value)}>
           <StatusBar />
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
             <DashboardLayout />
           </div>
         </DashboardProvider>

@@ -7,7 +7,7 @@ import { marketSlice } from "../../store/marketSlice";
 import { servicesApi } from "../../store/servicesApi";
 import { uiSlice } from "../../store/uiSlice";
 import { windowSlice } from "../../store/windowSlice";
-import { DashboardContext } from "../DashboardLayout";
+import { DashboardContext, DEFAULT_LAYOUT } from "../DashboardLayout";
 import { StatusBar } from "../StatusBar";
 
 // Stub the RTK Query hook so the test doesn't need a real HTTP server
@@ -51,6 +51,8 @@ function renderBar(connected: boolean, resetLayout = vi.fn()) {
     <Provider store={makeStore(connected)}>
       <DashboardContext.Provider
         value={{
+          layout: DEFAULT_LAYOUT,
+          setLayout: vi.fn(),
           activePanelIds: new Set(),
           addPanel: vi.fn(),
           removePanel: vi.fn(),
