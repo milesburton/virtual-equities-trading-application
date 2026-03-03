@@ -1,0 +1,165 @@
+# Traefik v3 dynamic configuration for Fly.io single-VM deployment.
+# All backend services run on localhost at fixed ports.
+# Routing priority: specific /api/* and /ws/* paths win over the catch-all frontend.
+
+http:
+  routers:
+    market-sim:
+      rule: "PathPrefix(`/api/market-sim`)"
+      entryPoints: [web]
+      middlewares: [market-sim-strip]
+      service: market-sim
+      priority: 10
+
+    market-sim-ws:
+      rule: "PathPrefix(`/ws/market-sim`)"
+      entryPoints: [web]
+      middlewares: [market-sim-ws-strip]
+      service: market-sim
+      priority: 10
+
+    ems:
+      rule: "PathPrefix(`/api/ems`)"
+      entryPoints: [web]
+      middlewares: [ems-strip]
+      service: ems
+      priority: 10
+
+    oms:
+      rule: "PathPrefix(`/api/oms`)"
+      entryPoints: [web]
+      middlewares: [oms-strip]
+      service: oms
+      priority: 10
+
+    limit-algo:
+      rule: "PathPrefix(`/api/limit-algo`)"
+      entryPoints: [web]
+      middlewares: [limit-strip]
+      service: limit-algo
+      priority: 10
+
+    twap-algo:
+      rule: "PathPrefix(`/api/twap-algo`)"
+      entryPoints: [web]
+      middlewares: [twap-strip]
+      service: twap-algo
+      priority: 10
+
+    pov-algo:
+      rule: "PathPrefix(`/api/pov-algo`)"
+      entryPoints: [web]
+      middlewares: [pov-strip]
+      service: pov-algo
+      priority: 10
+
+    vwap-algo:
+      rule: "PathPrefix(`/api/vwap-algo`)"
+      entryPoints: [web]
+      middlewares: [vwap-strip]
+      service: vwap-algo
+      priority: 10
+
+    observability:
+      rule: "PathPrefix(`/api/observability`)"
+      entryPoints: [web]
+      middlewares: [obs-strip]
+      service: observability
+      priority: 10
+
+    fix-gateway:
+      rule: "PathPrefix(`/api/fix-gateway`)"
+      entryPoints: [web]
+      middlewares: [fix-gw-strip]
+      service: fix-gateway
+      priority: 10
+
+    fix-gateway-ws:
+      rule: "PathPrefix(`/ws/fix`)"
+      entryPoints: [web]
+      middlewares: [fix-gw-ws-strip]
+      service: fix-gateway
+      priority: 10
+
+    frontend:
+      rule: "PathPrefix(`/`)"
+      entryPoints: [web]
+      service: frontend
+      priority: 1
+
+  middlewares:
+    market-sim-strip:
+      stripPrefix:
+        prefixes: ["/api/market-sim"]
+    market-sim-ws-strip:
+      stripPrefix:
+        prefixes: ["/ws/market-sim"]
+    ems-strip:
+      stripPrefix:
+        prefixes: ["/api/ems"]
+    oms-strip:
+      stripPrefix:
+        prefixes: ["/api/oms"]
+    limit-strip:
+      stripPrefix:
+        prefixes: ["/api/limit-algo"]
+    twap-strip:
+      stripPrefix:
+        prefixes: ["/api/twap-algo"]
+    pov-strip:
+      stripPrefix:
+        prefixes: ["/api/pov-algo"]
+    vwap-strip:
+      stripPrefix:
+        prefixes: ["/api/vwap-algo"]
+    obs-strip:
+      stripPrefix:
+        prefixes: ["/api/observability"]
+    fix-gw-strip:
+      stripPrefix:
+        prefixes: ["/api/fix-gateway"]
+    fix-gw-ws-strip:
+      stripPrefix:
+        prefixes: ["/ws/fix"]
+
+  services:
+    market-sim:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5000"
+    ems:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5001"
+    oms:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5002"
+    limit-algo:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5003"
+    twap-algo:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5004"
+    pov-algo:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5005"
+    vwap-algo:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5006"
+    observability:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5007"
+    fix-gateway:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:9881"
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8080"
