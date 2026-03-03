@@ -86,6 +86,69 @@ test.describe("Dashboard panel drag", () => {
     expect(Math.round(after!.y)).toBe(Math.round(before!.y));
   });
 
+  test("clicking inside any panel body does not cause dashboard jump", async ({ page }) => {
+    const dashboardScroller = page.locator(".flex-1.overflow-y-auto").first();
+    await expect(dashboardScroller).toBeVisible();
+
+    const wrappers = page.locator(".grid-item-wrapper");
+    const panelCount = await wrappers.count();
+    expect(panelCount).toBeGreaterThan(0);
+
+    const beforeScroll = await dashboardScroller.evaluate((el) => el.scrollTop);
+
+    for (let i = 0; i < panelCount; i++) {
+      const wrapper = wrappers.nth(i);
+      const before = await wrapper.boundingBox();
+      if (!before) continue;
+
+      const clickX = before.x + Math.min(24, Math.max(8, before.width / 5));
+      const clickY = before.y + Math.min(58, Math.max(34, before.height / 3));
+      await page.mouse.click(clickX, clickY);
+      await page.waitForTimeout(80);
+
+      const after = await wrapper.boundingBox();
+      if (!after) continue;
+
+      expect(Math.abs(after.x - before.x), `panel ${i} x changed after click`).toBeLessThan(3);
+      expect(Math.abs(after.y - before.y), `panel ${i} y changed after click`).toBeLessThan(3);
+    }
+
+    const afterScroll = await dashboardScroller.evaluate((el) => el.scrollTop);
+    expect(Math.abs(afterScroll - beforeScroll)).toBeLessThan(3);
+  });
+
+  test("clicking a Market Ladder row does not move the panel", async ({ page }) => {
+    const dashboardScroller = page.locator(".flex-1.overflow-y-auto").first();
+    await expect(dashboardScroller).toBeVisible();
+
+    const marketLadderPanel = page
+      .locator(".grid-item-wrapper")
+      .filter({ has: page.locator(".panel-drag-handle", { hasText: "Market Ladder" }) })
+      .first();
+
+    await expect(marketLadderPanel).toBeVisible();
+    const before = await marketLadderPanel.boundingBox();
+    expect(before).not.toBeNull();
+    if (!before) return;
+
+    const beforeScroll = await dashboardScroller.evaluate((el) => el.scrollTop);
+
+    const firstRow = marketLadderPanel.locator("[role='listitem']").first();
+    await expect(firstRow).toBeVisible();
+    await firstRow.click();
+    await page.waitForTimeout(100);
+
+    const after = await marketLadderPanel.boundingBox();
+    expect(after).not.toBeNull();
+    if (!after) return;
+
+    const afterScroll = await dashboardScroller.evaluate((el) => el.scrollTop);
+
+    expect(Math.abs(after.x - before.x)).toBeLessThan(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThan(3);
+    expect(Math.abs(afterScroll - beforeScroll)).toBeLessThan(3);
+  });
+
   test("panel lands at the dragged-to position and does not snap back", async ({ page }) => {
     const handle = page.locator(".panel-drag-handle").nth(1);
     const handleBox = await handle.boundingBox();

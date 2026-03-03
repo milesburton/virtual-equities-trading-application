@@ -117,6 +117,9 @@ function Row({
           ? "bg-emerald-900/40 border-b-2 border-emerald-500 shadow-[inset_0_0_8px_rgba(52,211,153,0.2)]"
           : "hover:bg-gray-800/30"
       }`}
+      onMouseDown={(e) => {
+        e.preventDefault();
+      }}
       onClick={handleSelect}
       title={isSelected ? "Click again to deselect" : "Click to view in chart"}
     >
