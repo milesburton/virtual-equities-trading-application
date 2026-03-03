@@ -1,8 +1,15 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
+import { authSlice } from "../../store/authSlice";
 import { ComponentPicker } from "../ComponentPicker";
 import type { PanelId } from "../DashboardLayout";
 import { DashboardContext, DEFAULT_LAYOUT } from "../DashboardLayout";
+
+function makeStore() {
+  return configureStore({ reducer: { auth: authSlice.reducer } });
+}
 
 // ─── Helper: render ComponentPicker with a custom context value ───────────────
 
@@ -19,17 +26,19 @@ function renderPicker(overrides?: {
   const activePanelIds = overrides?.activePanelIds ?? defaultActive;
 
   const utils = render(
-    <DashboardContext.Provider
-      value={{
-        activePanelIds,
-        addPanel,
-        removePanel,
-        resetLayout,
-        storageKey: "dashboard-layout",
-      }}
-    >
-      <ComponentPicker />
-    </DashboardContext.Provider>
+    <Provider store={makeStore()}>
+      <DashboardContext.Provider
+        value={{
+          activePanelIds,
+          addPanel,
+          removePanel,
+          resetLayout,
+          storageKey: "dashboard-layout",
+        }}
+      >
+        <ComponentPicker />
+      </DashboardContext.Provider>
+    </Provider>
   );
   return { ...utils, addPanel, removePanel, resetLayout };
 }

@@ -98,6 +98,18 @@ jobs:
             done
           done
 
+      - name: Wait for market data (EMS needs prices before integration tests)
+        run: |
+          for i in $(seq 1 30); do
+            PRICE=$(curl -sf http://localhost:5000/assets | python3 -c "import sys,json; data=json.load(sys.stdin); print(data[0]['price'] if data else 0)" 2>/dev/null || echo 0)
+            if [ "$PRICE" != "0" ] && [ -n "$PRICE" ]; then
+              echo "Market data ready: AAPL price=$PRICE"
+              break
+            fi
+            echo "Waiting for market tick ($i/30)..."
+            sleep 2
+          done
+
       - name: Integration tests
         run: deno task test:integration
 
