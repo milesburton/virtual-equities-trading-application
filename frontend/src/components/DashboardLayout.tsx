@@ -293,7 +293,7 @@ function findOpenSpot(layout: LayoutItem[], w: number, h: number): { x: number; 
 
 export interface DashboardContextValue {
   layout: LayoutItem[];
-  setLayout: (next: LayoutItem[]) => void;
+  setLayout: (next: LayoutItem[] | ((prev: LayoutItem[]) => LayoutItem[])) => void;
   activePanelIds: Set<PanelId>;
   addPanel: (id: PanelId) => void;
   removePanel: (id: PanelId) => void;
@@ -327,7 +327,7 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
 
   const activePanelIds = new Set(layout.map((l) => l.panelType));
 
-  const setLayout = useCallback((next: LayoutItem[]) => {
+  const setLayout = useCallback((next: LayoutItem[] | ((prev: LayoutItem[]) => LayoutItem[])) => {
     setLayoutState(next);
   }, []);
 
@@ -568,16 +568,18 @@ export function DashboardLayout() {
     return () => ro.disconnect();
   }, []);
 
-  const handleLayoutChange = useCallback(
+  const applyGridPositions = useCallback(
     (newLayout: { i: string; x: number; y: number; w: number; h: number }[]) => {
-      const next = layout.map((item) => {
-        const updated = newLayout.find((l) => l.i === item.i);
-        return updated ? { ...item, ...updated } : item;
+      setLayout((prev) => {
+        const next = prev.map((item) => {
+          const updated = newLayout.find((l) => l.i === item.i);
+          return updated ? { ...item, ...updated } : item;
+        });
+        saveLayout(storageKey, next);
+        return next;
       });
-      saveLayout(storageKey, next);
-      setLayout(next);
     },
-    [layout, storageKey, setLayout]
+    [storageKey, setLayout]
   );
 
   function removeByInstanceId(instanceId: string) {
@@ -673,7 +675,7 @@ export function DashboardLayout() {
   // biome-ignore lint/suspicious/noExplicitAny: untyped third-party props
   const gridLayout = layout as any;
   // biome-ignore lint/suspicious/noExplicitAny: untyped third-party callback signature
-  const gridOnLayoutChange = handleLayoutChange as any;
+  const gridOnStop = applyGridPositions as any;
 
   return (
     <div ref={containerRef} className="w-full">
@@ -684,7 +686,8 @@ export function DashboardLayout() {
         margin={[4, 4]}
         containerPadding={[4, 4]}
         draggableHandle=".panel-drag-handle"
-        onLayoutChange={gridOnLayoutChange}
+        onDragStop={gridOnStop}
+        onResizeStop={gridOnStop}
         resizeHandles={["se"]}
         width={gridWidth}
         compactor={noCompactor}
