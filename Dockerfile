@@ -45,6 +45,9 @@ WORKDIR /app
 COPY . .
 COPY --from=builder /src/frontend/dist ./frontend/dist
 
+# Install npm dependencies (populates node_modules/ for npm: imports like kafkajs)
+RUN deno install
+
 # Pre-cache all backend Deno modules to avoid slow cold-start JIT compilation
 RUN deno cache \
     backend/src/lib/messaging.ts \
