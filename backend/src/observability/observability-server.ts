@@ -1,6 +1,7 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
+import { createConsumer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("OBSERVABILITY_PORT")) || 5007;
 
@@ -45,6 +46,11 @@ function persistEvent(evt: ObsEvent) {
   }
 }
 
+function ingestEvent(evt: ObsEvent) {
+  persistEvent(evt);
+  sendToClients(evt);
+}
+
 function loadRecent(limit = 1000) {
   const rows = [] as ObsEvent[];
   for (const [_id, type, ts, payload] of db.query(
@@ -62,6 +68,39 @@ function loadRecent(limit = 1000) {
   return rows;
 }
 
+// ── Redpanda consumer ────────────────────────────────────────────────────────
+// Subscribe to all system topics; each message becomes an observability event.
+// Non-fatal if Redpanda is not yet available — HTTP POST still works as fallback.
+const BUS_TOPICS = [
+  "market.ticks",
+  "orders.submitted",
+  "orders.routed",
+  "orders.child",
+  "orders.filled",
+  "orders.expired",
+  "algo.heartbeat",
+  "user.session",
+];
+
+createConsumer("observability-group", BUS_TOPICS).then((consumer) => {
+  consumer.onMessage((topic, value) => {
+    // Skip high-frequency market ticks from being stored — they'd flood the DB.
+    // Ticks are still available via the WebSocket from market-sim directly.
+    if (topic === "market.ticks") return;
+
+    ingestEvent({
+      type: topic,
+      ts: Date.now(),
+      payload: value as Record<string, unknown>,
+    });
+  });
+  console.log(`[observability] Subscribed to Redpanda topics: ${BUS_TOPICS.join(", ")}`);
+}).catch((err) => {
+  console.warn("[observability] Redpanda unavailable, falling back to HTTP-only ingest:", err.message);
+});
+
+// ── HTTP handlers ─────────────────────────────────────────────────────────────
+
 async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -76,14 +115,16 @@ async function handle(req: Request): Promise<Response> {
 
   if (req.method === "GET" && url.pathname === "/health/all") {
     const services = [
-      { name: "market-sim",   url: `http://localhost:${Deno.env.get("MARKET_SIM_PORT") ?? 5000}/health` },
-      { name: "ems",          url: `http://localhost:${Deno.env.get("EMS_PORT") ?? 5001}/health` },
-      { name: "oms",          url: `http://localhost:${Deno.env.get("OMS_PORT") ?? 5002}/health` },
-      { name: "limit-algo",   url: `http://localhost:${Deno.env.get("ALGO_TRADER_PORT") ?? 5003}/health` },
-      { name: "twap-algo",    url: `http://localhost:${Deno.env.get("TWAP_ALGO_PORT") ?? 5004}/health` },
-      { name: "pov-algo",     url: `http://localhost:${Deno.env.get("POV_ALGO_PORT") ?? 5005}/health` },
-      { name: "vwap-algo",    url: `http://localhost:${Deno.env.get("VWAP_ALGO_PORT") ?? 5006}/health` },
+      { name: "market-sim",    url: `http://localhost:${Deno.env.get("MARKET_SIM_PORT") ?? 5000}/health` },
+      { name: "ems",           url: `http://localhost:${Deno.env.get("EMS_PORT") ?? 5001}/health` },
+      { name: "oms",           url: `http://localhost:${Deno.env.get("OMS_PORT") ?? 5002}/health` },
+      { name: "limit-algo",    url: `http://localhost:${Deno.env.get("ALGO_TRADER_PORT") ?? 5003}/health` },
+      { name: "twap-algo",     url: `http://localhost:${Deno.env.get("TWAP_ALGO_PORT") ?? 5004}/health` },
+      { name: "pov-algo",      url: `http://localhost:${Deno.env.get("POV_ALGO_PORT") ?? 5005}/health` },
+      { name: "vwap-algo",     url: `http://localhost:${Deno.env.get("VWAP_ALGO_PORT") ?? 5006}/health` },
       { name: "observability", url: `http://localhost:${PORT}/health` },
+      { name: "user-service",  url: `http://localhost:${Deno.env.get("USER_SERVICE_PORT") ?? 5008}/health` },
+      { name: "journal",       url: `http://localhost:${Deno.env.get("JOURNAL_PORT") ?? 5009}/health` },
     ];
     const results = await Promise.all(
       services.map(async (svc) => {
@@ -143,6 +184,7 @@ async function handle(req: Request): Promise<Response> {
     });
   }
 
+  // HTTP POST fallback — kept for backwards compat and local dev without Redpanda
   if (req.method === "POST" && url.pathname === "/events") {
     let body: ObsEvent | null = null;
     try {
@@ -155,9 +197,7 @@ async function handle(req: Request): Promise<Response> {
     }
 
     const evt: ObsEvent = { ts: Date.now(), ...(body as ObsEvent) };
-    // persist and broadcast
-    persistEvent(evt);
-    sendToClients(evt);
+    ingestEvent(evt);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },

@@ -1,10 +1,18 @@
 import { useSignal } from "@preact/signals-react";
+import { useAppSelector } from "../store/hooks.ts";
 import type { PanelId } from "./DashboardLayout.tsx";
 import { PANEL_IDS, PANEL_TITLES, useDashboard } from "./DashboardLayout.tsx";
 
 export function ComponentPicker() {
   const open = useSignal(false);
   const { activePanelIds, addPanel, removePanel } = useDashboard();
+  const user = useAppSelector((s) => s.auth.user);
+
+  // Filter panel IDs: admin panel only shown to admin users
+  const visiblePanelIds = PANEL_IDS.filter((id) => {
+    if (id === "admin") return user?.role === "admin";
+    return true;
+  });
 
   return (
     <div className="relative">
@@ -37,7 +45,7 @@ export function ComponentPicker() {
               Panels
             </div>
             <ul className="py-1">
-              {PANEL_IDS.map((id: PanelId) => {
+              {visiblePanelIds.map((id: PanelId) => {
                 const active = activePanelIds.has(id);
                 return (
                   <li key={id}>
@@ -51,6 +59,9 @@ export function ComponentPicker() {
                     >
                       <span className={active ? "text-gray-200" : "text-gray-500"}>
                         {PANEL_TITLES[id]}
+                        {id === "admin" && (
+                          <span className="ml-1 text-[9px] text-orange-400">admin</span>
+                        )}
                       </span>
                       <span
                         className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${

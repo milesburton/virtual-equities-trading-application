@@ -1,5 +1,6 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
+import { createProducer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("OMS_PORT")) || 5_002;
 const ALGO_TRADER_PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5_003;
@@ -19,11 +20,19 @@ const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
 console.log(`🚀 Order Management System (OMS) running on port ${PORT}`);
 
+const producer = await createProducer("oms").catch((err) => {
+  console.warn("[oms] Redpanda unavailable, orders will not be published to bus:", err.message);
+  return null;
+});
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
+
+// Monotonically increasing order ID for this session
+let nextOrderId = 1;
 
 async function handleTradeRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -44,7 +53,13 @@ async function handleTradeRequest(req: Request): Promise<Response> {
 
   try {
     const trade = await req.json();
+    const orderId = `oms-${nextOrderId++}`;
+    const ts = Date.now();
+
     console.log("📥 Received Trade Request:", trade);
+
+    // Publish orders.submitted to the message bus
+    await producer?.send("orders.submitted", { orderId, ts, ...trade }).catch(() => {});
 
     const strategy: string = (trade.strategy ?? "LIMIT").toUpperCase();
     const algoUrl = STRATEGY_URLS[strategy];
@@ -58,16 +73,19 @@ async function handleTradeRequest(req: Request): Promise<Response> {
 
     console.log(`📤 Routing ${strategy} order to ${algoUrl}`);
 
+    // Publish orders.routed to the message bus
+    await producer?.send("orders.routed", { orderId, ts, strategy, algoUrl, ...trade }).catch(() => {});
+
     const algoResponse = await fetch(algoUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(trade),
+      body: JSON.stringify({ ...trade, orderId }),
     });
 
     const result = await algoResponse.json();
     console.log(`✅ Algo acknowledged:`, result);
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ ...result, orderId }), {
       status: algoResponse.status,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });

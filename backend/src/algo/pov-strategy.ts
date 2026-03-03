@@ -1,7 +1,7 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import type { Trade } from "../types/types.ts";
 import { MarketSimClient, type MarketTick } from "../lib/marketSimClient.ts";
-import { sendDecisionEvent } from "../observability/client.ts";
+import { createProducer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("POV_ALGO_PORT")) || 5_005;
 const EMS_PORT = Number(Deno.env.get("EMS_PORT")) || 5_001;
@@ -18,8 +18,14 @@ console.log(`POV Algo running on port ${PORT}, rate=${(POV_RATE * 100).toFixed(0
 const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
+const producer = await createProducer("pov-algo").catch((err) => {
+  console.warn("[pov-algo] Redpanda unavailable:", err.message);
+  return null;
+});
+
 interface PovOrder {
   id: number;
+  orderId: string;
   order: Trade;
   expiresAt: number;
   filledQty: number;
@@ -37,8 +43,23 @@ async function processTickForOrder(state: PovOrder, tick: MarketTick): Promise<v
 
   const rawSlice = Math.round(tickVolume * POV_RATE);
   const sliceQty = Math.max(MIN_SLICE, Math.min(MAX_SLICE, Math.min(rawSlice, remaining)));
+  const childId = `${state.orderId}-pov-${Date.now()}`;
 
   try {
+    await producer?.send("orders.child", {
+      childId,
+      parentOrderId: state.orderId,
+      algo: "POV",
+      asset: state.order.asset,
+      side: state.order.side,
+      quantity: sliceQty,
+      limitPrice: state.order.limitPrice,
+      marketPrice: tick.prices[state.order.asset] ?? 0,
+      tickVolume,
+      algoParams: { povRate: POV_RATE, minSlice: MIN_SLICE, maxSlice: MAX_SLICE },
+      ts: Date.now(),
+    }).catch(() => {});
+
     const res = await fetch(`http://${EMS_HOST}:${EMS_PORT}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -56,36 +77,32 @@ async function processTickForOrder(state: PovOrder, tick: MarketTick): Promise<v
       const avgFill = state.costBasis / state.filledQty;
       const pct = ((state.filledQty / state.order.quantity) * 100).toFixed(1);
       const mktPrice = tick.prices[state.order.asset] ?? "N/A";
+
+      await producer?.send("orders.filled", {
+        childId,
+        parentOrderId: state.orderId,
+        algo: "POV",
+        asset: state.order.asset,
+        side: state.order.side,
+        filledQty: result.filledQty,
+        avgFillPrice: result.avgFillPrice,
+        marketImpactBps: result.marketImpactBps,
+        totalFilled: state.filledQty,
+        totalQty: state.order.quantity,
+        ts: Date.now(),
+      }).catch(() => {});
+
       console.log(
         `📊 POV [${state.id}] tick fill: ${result.filledQty} ${state.order.asset} ` +
         `@ ${result.avgFillPrice} (mkt ${mktPrice}) | ` +
         `tickVol=${tickVolume} slice=${sliceQty} ` +
         `total=${state.filledQty}/${state.order.quantity} (${pct}%) avgFill=${avgFill.toFixed(4)}`,
       );
-      // decision log: tick fill
-      sendDecisionEvent("fill", {
-        algo: "POV",
-        id: state.id,
-        asset: state.order.asset,
-        sliceQty,
-        filled: result.filledQty,
-        avgFillPrice: result.avgFillPrice,
-        tickVolume,
-      });
     } else {
       console.log(`⚠️  POV [${state.id}] no fill this tick: ${result.message}`);
-      sendDecisionEvent("no_fill", {
-        algo: "POV",
-        id: state.id,
-        asset: state.order.asset,
-        sliceQty,
-        reason: result.message,
-        tickVolume,
-      });
     }
   } catch (error) {
     console.error(`❌ POV EMS call failed [${state.id}]:`, error);
-    sendDecisionEvent("error", { algo: "POV", id: state.id, error: String(error) });
   }
 }
 
@@ -98,14 +115,31 @@ marketClient.onTick((tick) => {
       console.log(
         `✅ POV [${id}] complete: filled ${state.filledQty}/${state.order.quantity} ${state.order.asset} avgFill=${avgFill}`,
       );
+      if (now >= state.expiresAt && state.filledQty < state.order.quantity) {
+        producer?.send("orders.expired", {
+          orderId: state.orderId,
+          algo: "POV",
+          asset: state.order.asset,
+          side: state.order.side,
+          quantity: state.order.quantity,
+          filledQty: state.filledQty,
+          avgFillPrice: state.filledQty > 0 ? state.costBasis / state.filledQty : 0,
+          ts: now,
+        }).catch(() => {});
+      }
       activeOrders.delete(id);
       continue;
     }
 
-    // decision log: process tick
-    sendDecisionEvent("tick", { algo: "POV", id: state.id, asset: state.order.asset, tickTime: Date.now() });
     processTickForOrder(state, tick);
   }
+
+  // Heartbeat
+  producer?.send("algo.heartbeat", {
+    algo: "POV",
+    ts: now,
+    activeOrders: activeOrders.size,
+  }).catch(() => {});
 });
 
 const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
@@ -135,10 +169,12 @@ Deno.serve({ port: PORT }, async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: CORS_HEADERS });
 
   try {
-    const raw: Trade = await req.json();
+    const raw: Trade & { orderId?: string } = await req.json();
     const id = nextId++;
+    const orderId = raw.orderId ?? `pov-${id}-${Date.now()}`;
     const state: PovOrder = {
       id,
+      orderId,
       order: raw,
       expiresAt: Date.now() + raw.expiresAt * 1_000,
       filledQty: 0,
@@ -150,11 +186,10 @@ Deno.serve({ port: PORT }, async (req) => {
       `rate=${(POV_RATE * 100).toFixed(0)}% expiry ${new Date(state.expiresAt).toLocaleTimeString()}`,
     );
     return new Response(
-      JSON.stringify({ success: true, message: "POV execution started.", orderId: id }),
+      JSON.stringify({ success: true, message: "POV execution started.", orderId }),
       { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
     );
   } catch (_error) {
     return new Response("Internal Server Error", { status: 500, headers: CORS_HEADERS });
   }
 });
-

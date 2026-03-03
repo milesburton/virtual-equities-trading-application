@@ -18,6 +18,8 @@ primary_region = "iad"
   POV_ALGO_PORT = "5005"
   VWAP_ALGO_PORT = "5006"
   OBSERVABILITY_PORT = "5007"
+  USER_SERVICE_PORT = "5008"
+  JOURNAL_PORT = "5009"
   FRONTEND_PORT = "8080"
 
 [http_service]
@@ -41,5 +43,5 @@ primary_region = "iad"
   initial_size = "1gb"
 
 [[vm]]
-  memory = "512mb"
+  memory = "1gb"
   cpus = 1

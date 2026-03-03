@@ -74,6 +74,13 @@ http:
       service: observability
       priority: 20
 
+    redpanda-console:
+      rule: "PathPrefix(`/admin/redpanda`)"
+      entryPoints: [web]
+      middlewares: [redpanda-strip]
+      service: redpanda-console
+      priority: 15
+
     fix-gateway:
       rule: "PathPrefix(`/api/fix-gateway`)"
       entryPoints: [web]
@@ -86,6 +93,20 @@ http:
       entryPoints: [web]
       middlewares: [fix-gw-ws-strip]
       service: fix-gateway
+      priority: 10
+
+    user-service:
+      rule: "PathPrefix(`/api/user-service`)"
+      entryPoints: [web]
+      middlewares: [user-service-strip]
+      service: user-service
+      priority: 10
+
+    journal:
+      rule: "PathPrefix(`/api/journal`)"
+      entryPoints: [web]
+      middlewares: [journal-strip]
+      service: journal
       priority: 10
 
     frontend:
@@ -131,6 +152,15 @@ http:
     fix-gw-ws-strip:
       stripPrefix:
         prefixes: ["/ws/fix"]
+    redpanda-strip:
+      stripPrefix:
+        prefixes: ["/admin/redpanda"]
+    user-service-strip:
+      stripPrefix:
+        prefixes: ["/api/user-service"]
+    journal-strip:
+      stripPrefix:
+        prefixes: ["/api/journal"]
 
   services:
     market-sim:
@@ -169,6 +199,18 @@ http:
       loadBalancer:
         servers:
           - url: "http://localhost:9881"
+    redpanda-console:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8081"
+    user-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5008"
+    journal:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:5009"
     frontend:
       loadBalancer:
         servers:

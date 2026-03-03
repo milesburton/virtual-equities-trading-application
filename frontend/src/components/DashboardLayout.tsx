@@ -11,6 +11,7 @@ import { ChannelContext } from "../contexts/ChannelContext.tsx";
 import type { ChannelNumber } from "../store/channelsSlice.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { setSelectedAsset } from "../store/uiSlice.ts";
+import { AdminPanel } from "./AdminPanel.tsx";
 import { AlgoMonitor } from "./AlgoMonitor.tsx";
 import { CandlestickChart } from "./CandlestickChart.tsx";
 import { MarketDepth } from "./MarketDepth.tsx";
@@ -42,6 +43,7 @@ export const PANEL_IDS = [
   "observability",
   "candle-chart",
   "market-depth",
+  "admin",
 ] as const;
 
 export type PanelId = (typeof PANEL_IDS)[number];
@@ -54,6 +56,7 @@ export const PANEL_TITLES: Record<PanelId, string> = {
   observability: "Observability",
   "candle-chart": "Chart",
   "market-depth": "Market Depth",
+  admin: "Admin",
 };
 
 /** Which channels each panel type supports */
@@ -65,6 +68,7 @@ export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> 
   "order-blotter": { out: true, in: false },
   "algo-monitor": { out: false, in: true },
   observability: { out: false, in: false },
+  admin: { out: false, in: false },
 };
 
 // ─── Layout item ───────────────────────────────────────────────────────────────
@@ -582,6 +586,8 @@ export function DashboardLayout() {
             )}
           </div>
         );
+      case "admin":
+        return wrap(<AdminPanel />);
     }
   }
 

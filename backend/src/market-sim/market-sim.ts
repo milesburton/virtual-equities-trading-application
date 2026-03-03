@@ -3,9 +3,15 @@ import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 import { generatePrice, marketData } from "./priceEngine.ts";
 import { SP500_ASSETS } from "./sp500Assets.ts";
 import { intradayVolumeFactor } from "../lib/timeScale.ts";
+import { createProducer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
 const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
+
+const producer = await createProducer("market-sim").catch((err) => {
+  console.warn("[market-sim] Redpanda unavailable, ticks will not be published to bus:", err.message);
+  return null;
+});
 
 let marketMinute = 0;
 
@@ -52,6 +58,26 @@ function computeOrderBook(
   return book;
 }
 
+// Track active WebSocket clients for broadcast
+const clients = new Set<WebSocket>();
+
+// Global tick loop — advances market and broadcasts to all WS clients + Redpanda
+setInterval(() => {
+  marketMinute = (marketMinute + 1) % 390;
+  Object.keys(marketData).forEach((asset) => generatePrice(asset));
+  const volumes = computeTickVolumes(marketMinute);
+  const orderBook = computeOrderBook(marketData, volumes);
+  const tick = { prices: { ...marketData }, volumes, marketMinute, orderBook };
+  const msg = JSON.stringify({ event: "marketUpdate", data: tick });
+
+  for (const socket of clients) {
+    try { socket.send(msg); } catch { clients.delete(socket); }
+  }
+
+  // Publish once to Redpanda per tick (not per client)
+  producer?.send("market.ticks", tick).catch(() => {});
+}, 1_000);
+
 console.log(`Market Simulator running on ws://localhost:${PORT}`);
 
 serve((req) => {
@@ -78,35 +104,19 @@ serve((req) => {
 
   socket.onopen = () => {
     console.log("New WebSocket connection");
+    clients.add(socket);
     const volumes = computeTickVolumes(marketMinute);
     const orderBook = computeOrderBook(marketData, volumes);
-    socket.send(
-      JSON.stringify({
-        event: "marketData",
-        data: { prices: { ...marketData }, volumes, marketMinute, orderBook },
-      }),
-    );
+    const snapshot = { prices: { ...marketData }, volumes, marketMinute, orderBook };
+    socket.send(JSON.stringify({ event: "marketData", data: snapshot }));
   };
 
   socket.onmessage = (event) => {
     console.log(`Message from client: ${event.data}`);
   };
 
-  const interval = setInterval(() => {
-    marketMinute = (marketMinute + 1) % 390;
-    Object.keys(marketData).forEach((asset) => generatePrice(asset));
-    const volumes = computeTickVolumes(marketMinute);
-    const orderBook = computeOrderBook(marketData, volumes);
-    socket.send(
-      JSON.stringify({
-        event: "marketUpdate",
-        data: { prices: { ...marketData }, volumes, marketMinute, orderBook },
-      }),
-    );
-  }, 1_000);
-
   socket.onclose = () => {
-    clearInterval(interval);
+    clients.delete(socket);
     console.log("WebSocket connection closed");
   };
 

@@ -1,6 +1,7 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 import { MarketSimClient } from "../lib/marketSimClient.ts";
+import { createProducer } from "../lib/messaging.ts";
 
 const MARKET_SIM_PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
 const MARKET_SIM_HOST = Deno.env.get("MARKET_SIM_HOST") || "localhost";
@@ -10,6 +11,11 @@ marketClient.start();
 
 const PARTICIPATION_CAP = Number(Deno.env.get("EMS_PARTICIPATION_CAP")) || 0.20;
 const IMPACT_PER_1000 = Number(Deno.env.get("EMS_IMPACT_PER_1000_BPS")) || 1.0;
+
+const producer = await createProducer("ems").catch((err) => {
+  console.warn("[ems] Redpanda unavailable, fills will not be published to bus:", err.message);
+  return null;
+});
 
 interface FillResult {
   filledQty: number;
@@ -103,6 +109,23 @@ async function handleTradeRequest(req: Request): Promise<Response> {
     `📊 ${trade.side} ${trade.quantity} ${trade.asset} | price=${midPrice} tickVol=${tickVolume} ` +
     `filled=${fill.filledQty} remaining=${fill.remainingQty} avgFill=${fill.avgFillPrice} impact=${fill.marketImpactBps.toFixed(2)}bps`,
   );
+
+  // Publish execution report to the bus (non-blocking — algos already got the fill via HTTP response)
+  if (fill.filledQty > 0) {
+    producer?.send("orders.filled", {
+      source: "ems",
+      asset: trade.asset,
+      side: trade.side,
+      requestedQty: trade.quantity,
+      filledQty: fill.filledQty,
+      remainingQty: fill.remainingQty,
+      avgFillPrice: fill.avgFillPrice,
+      marketImpactBps: fill.marketImpactBps,
+      midPrice,
+      tickVolume,
+      ts: Date.now(),
+    }).catch(() => {});
+  }
 
   const response: TradeResponse = {
     success: true,

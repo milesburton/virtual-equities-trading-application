@@ -4,6 +4,51 @@ networks:
 
 services:
 
+  # ── Message Bus (Redpanda – Kafka-compatible) ─────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:v24.3.6
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=200M
+      - --default-log-level=warn
+      - --kafka-addr=0.0.0.0:9092
+      - --advertise-kafka-addr=redpanda:9092
+    networks:
+      - trading-net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    labels:
+      - "traefik.enable=false"
+
+  # Redpanda Console (UI)
+  redpanda-console:
+    image: redpandadata/console:v2.7.2
+    container_name: redpanda-console
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redpanda-console.rule=PathPrefix(`/admin/redpanda`)"
+      - "traefik.http.routers.redpanda-console.entrypoints=web"
+      - "traefik.http.routers.redpanda-console.middlewares=redpanda-strip"
+      - "traefik.http.middlewares.redpanda-strip.stripprefix.prefixes=/admin/redpanda"
+      - "traefik.http.services.redpanda-console.loadbalancer.server.port=8080"
+      - "traefik.http.routers.redpanda-console.priority=15"
+
   # ── Ingress ──────────────────────────────────────────────────────────────────
   traefik:
     image: traefik:v3.1
@@ -29,8 +74,12 @@ services:
     restart: unless-stopped
     networks:
       - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
     environment:
       MARKET_SIM_PORT: 5000
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
@@ -65,12 +114,15 @@ services:
     depends_on:
       market-sim:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       EMS_PORT: 5001
       MARKET_SIM_HOST: market-sim
       MARKET_SIM_PORT: 5000
       EMS_PARTICIPATION_CAP: ${EMS_PARTICIPATION_CAP:-0.20}
       EMS_IMPACT_PER_1000_BPS: ${EMS_IMPACT_PER_1000_BPS:-1.0}
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
@@ -98,6 +150,8 @@ services:
     depends_on:
       ems:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       OMS_PORT: 5002
       ALGO_HOST: limit-algo   # default route; strategies are addressed individually
@@ -105,6 +159,7 @@ services:
       TWAP_ALGO_PORT: 5004
       POV_ALGO_PORT: 5005
       VWAP_ALGO_PORT: 5006
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5002/health"]
@@ -134,6 +189,8 @@ services:
         condition: service_healthy
       market-sim:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       ALGO_TRADER_PORT: 5003
       EMS_HOST: ems
@@ -142,6 +199,7 @@ services:
       MARKET_SIM_PORT: 5000
       OBSERVABILITY_HOST: observability
       OBSERVABILITY_PORT: 5007
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5003/health"]
@@ -171,6 +229,8 @@ services:
         condition: service_healthy
       market-sim:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       TWAP_ALGO_PORT: 5004
       EMS_HOST: ems
@@ -180,6 +240,7 @@ services:
       TWAP_INTERVAL_MS: ${TWAP_INTERVAL_MS:-5000}
       OBSERVABILITY_HOST: observability
       OBSERVABILITY_PORT: 5007
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5004/health"]
@@ -209,6 +270,8 @@ services:
         condition: service_healthy
       market-sim:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       POV_ALGO_PORT: 5005
       EMS_HOST: ems
@@ -220,6 +283,7 @@ services:
       POV_MAX_SLICE: ${POV_MAX_SLICE:-5000}
       OBSERVABILITY_HOST: observability
       OBSERVABILITY_PORT: 5007
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5005/health"]
@@ -249,6 +313,8 @@ services:
         condition: service_healthy
       market-sim:
         condition: service_healthy
+      redpanda:
+        condition: service_healthy
     environment:
       VWAP_ALGO_PORT: 5006
       EMS_HOST: ems
@@ -258,6 +324,7 @@ services:
       VWAP_WINDOW_TICKS: ${VWAP_WINDOW_TICKS:-20}
       OBSERVABILITY_HOST: observability
       OBSERVABILITY_PORT: 5007
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5006/health"]
@@ -282,10 +349,14 @@ services:
     restart: unless-stopped
     networks:
       - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
     environment:
       OBSERVABILITY_PORT: 5007
       OBS_DB_PATH: /app/backend/data/observability.db
       OBS_RETENTION_MS: ${OBS_RETENTION_MS:-86400000}
+      REDPANDA_BROKERS: redpanda:9092
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     volumes:
       - observability-data:/app/backend/data
@@ -304,6 +375,73 @@ services:
       - "traefik.http.services.observability.loadbalancer.server.port=5007"
       # SSE requires buffering disabled
       - "traefik.http.middlewares.observability-sse.headers.customResponseHeaders.X-Accel-Buffering=no"
+
+  # ── User Service ─────────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/user-service/user-service.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      USER_SERVICE_PORT: 5008
+      USER_DB_PATH: /app/backend/data/users.db
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    volumes:
+      - observability-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5008/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/user-service`)"
+      - "traefik.http.routers.user-service.entrypoints=web"
+      - "traefik.http.routers.user-service.middlewares=user-service-strip"
+      - "traefik.http.middlewares.user-service-strip.stripprefix.prefixes=/api/user-service"
+      - "traefik.http.services.user-service.loadbalancer.server.port=5008"
+
+  # ── Journal Service ───────────────────────────────────────────────────────────
+  journal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/journal/journal-server.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      JOURNAL_PORT: 5009
+      JOURNAL_DB_PATH: /app/backend/data/journal.db
+      JOURNAL_RETENTION_DAYS: ${JOURNAL_RETENTION_DAYS:-90}
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    volumes:
+      - observability-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5009/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.journal.rule=PathPrefix(`/api/journal`)"
+      - "traefik.http.routers.journal.entrypoints=web"
+      - "traefik.http.routers.journal.middlewares=journal-strip"
+      - "traefik.http.middlewares.journal-strip.stripprefix.prefixes=/api/journal"
+      - "traefik.http.services.journal.loadbalancer.server.port=5009"
 
   # ── FIX Exchange (internal TCP, not browser-facing) ──────────────────────────
   fix-exchange:

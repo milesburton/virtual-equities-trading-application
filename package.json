@@ -13,5 +13,8 @@
     "test:frontend": "cd frontend && npm run test:unit -- --run",
     "test:integration": "deno task test:integration",
     "test:smoke": "deno task test:smoke"
+  },
+  "dependencies": {
+    "kafkajs": "2.2.4"
   }
 }
