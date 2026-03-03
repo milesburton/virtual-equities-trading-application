@@ -119,14 +119,15 @@ jobs:
   playwright-ui:
     name: Playwright UI tests
     runs-on: ubuntu-latest
-    needs: integration
-    continue-on-error: true
+    needs: [frontend, integration]
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+
       - name: Cache npm and Playwright browsers
         uses: actions/cache@v4
         with:
@@ -134,28 +135,37 @@ jobs:
             frontend/node_modules
             ~/.npm
             ~/.cache/ms-playwright
-          key: npm-${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          key: npm-playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
           restore-keys: |
-            npm-${{ runner.os }}-frontend-
+            npm-playwright-${{ runner.os }}-
 
-      - name: Install frontend dependencies & Playwright browsers
+      - name: Install frontend dependencies
         working-directory: frontend
-        run: |
-          npm ci
-          npx playwright install
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build
-      - name: Ensure CSS loads before JS
-        working-directory: frontend
-        run: |
-          # Move the first stylesheet link before the first module script to avoid FOUC/layout jumps
-          sed -n '1,200p' dist/index.html > dist/index.html.tmp && \
-          awk 'BEGIN{p=1} /<script type="module"/{s=NR} {a[NR]=$0} END{for(i=1;i<=NR;i++){if(i==s){for(j=1;j<=NR;j++) if(a[j]~/rel=\"stylesheet\"/){print a[j]; a[j]=""; break} } if(a[i]!="") print a[i]}}' dist/index.html.tmp > dist/index.html && \
-          rm -f dist/index.html.tmp || true
+
       - name: Run Playwright UI tests (headless)
         working-directory: frontend
         run: npx playwright test --reporter=list
+        env:
+          CI: true
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
 
   docker:
     name: Docker build

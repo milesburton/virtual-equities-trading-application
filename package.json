@@ -12,7 +12,8 @@
     "test:backend": "deno task test",
     "test:frontend": "cd frontend && npm run test:unit -- --run",
     "test:integration": "deno task test:integration",
-    "test:smoke": "deno task test:smoke"
+    "test:smoke": "deno task test:smoke",
+    "test:e2e": "cd frontend && npm run build && npm run test:ui"
   },
   "dependencies": {
     "kafkajs": "2.2.4"
