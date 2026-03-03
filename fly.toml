@@ -41,5 +41,5 @@ primary_region = "iad"
   initial_size = "1gb"
 
 [[vm]]
-  memory = "256mb"
+  memory = "512mb"
   cpus = 1
