@@ -1,7 +1,7 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
-import { generatePrice, marketData } from "./priceEngine.ts";
-import { SP500_ASSETS } from "./sp500Assets.ts";
+import { advanceRegime, generatePrice, marketData, refreshSectorShocks } from "./priceEngine.ts";
+import { ASSET_MAP, SP500_ASSETS } from "./sp500Assets.ts";
 import { intradayVolumeFactor } from "../lib/timeScale.ts";
 import { createProducer } from "../lib/messaging.ts";
 
@@ -44,7 +44,11 @@ function computeOrderBook(
   for (const [symbol, mid] of Object.entries(prices)) {
     const tickVol = volumes[symbol] ?? 1_000;
     const baseSize = Math.max(1, Math.round(tickVol / 390));
-    const spread = mid * 0.0001; // 1 bps half-spread per level
+    // Spread scales with daily volatility: more volatile assets have wider spreads.
+    // Anchor at ~5 bps half-spread for a low-vol stock (vol=0.01), up to ~20 bps for high-vol.
+    const dailyVol = ASSET_MAP.get(symbol)?.volatility ?? 0.02;
+    const spreadBps = Math.max(3, Math.min(20, dailyVol * 600)); // 3–20 bps
+    const spread = mid * (spreadBps / 10_000); // half-spread per level
     const bids: OrderBookLevel[] = [];
     const asks: OrderBookLevel[] = [];
     for (let i = 0; i < 10; i++) {
@@ -64,6 +68,9 @@ const clients = new Set<WebSocket>();
 // Global tick loop — advances market and broadcasts to all WS clients + Redpanda
 setInterval(() => {
   marketMinute = (marketMinute + 1) % 390;
+  // Advance shared state before generating individual prices
+  advanceRegime();
+  refreshSectorShocks();
   Object.keys(marketData).forEach((asset) => generatePrice(asset));
   const volumes = computeTickVolumes(marketMinute);
   const orderBook = computeOrderBook(marketData, volumes);
