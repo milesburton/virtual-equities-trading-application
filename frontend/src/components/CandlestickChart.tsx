@@ -28,6 +28,7 @@ const CHART_THEME = {
     horzLines: { color: "#111827" },
   },
   crosshair: { mode: CrosshairMode.Normal },
+  leftPriceScale: { visible: false },
   rightPriceScale: { borderColor: "#1f2937" },
   timeScale: { borderColor: "#1f2937", timeVisible: true, secondsVisible: false },
 };
