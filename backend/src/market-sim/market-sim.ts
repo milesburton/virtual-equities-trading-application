@@ -14,6 +14,8 @@ const producer = await createProducer("market-sim").catch((err) => {
 });
 
 let marketMinute = 0;
+let tickCount = 0;
+const TICKS_PER_MINUTE = 240; // 4 ticks/s × 60 s
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +69,8 @@ const clients = new Set<WebSocket>();
 
 // Global tick loop — advances market and broadcasts to all WS clients + Redpanda
 setInterval(() => {
-  marketMinute = (marketMinute + 1) % 390;
+  tickCount++;
+  if (tickCount % TICKS_PER_MINUTE === 0) marketMinute = (marketMinute + 1) % 390;
   // Advance shared state before generating individual prices
   advanceRegime();
   refreshSectorShocks();
@@ -83,7 +86,7 @@ setInterval(() => {
 
   // Publish once to Redpanda per tick (not per client)
   producer?.send("market.ticks", tick).catch(() => {});
-}, 1_000);
+}, 250);
 
 console.log(`Market Simulator running on ws://localhost:${PORT}`);
 

@@ -3,24 +3,21 @@ import { ASSET_MAP, SP500_ASSETS } from "./sp500Assets.ts";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /**
- * Trading seconds per day: 390 minutes × 60 seconds.
- * Used to scale annual/daily volatility to a per-tick figure.
+ * Ticks per simulated trading day.
  *
- * NOTE: We use a compressed time scale so 1 simulated second = 1 real second
- * but represents a much shorter slice of the trading day. Without compression
- * the per-tick σ would be ~0.012% (invisible wicks). The compression factor
- * makes 1 tick behave like ~1 trading minute, producing realistic candlestick
- * bodies and wicks.
+ * We run at 4 ticks/second (250 ms interval). Each tick represents
+ * 1/93600 of a trading day (390 min × 60 s/min × 4 ticks/s).
+ * Scaling daily volatility by 1/√93600 gives fine-grained price steps
+ * that accumulate realistically over a 1-minute candle (240 ticks).
+ * This produces visible wicks without coarse jumps between ticks.
  */
-const TICKS_PER_DAY = 390; // 390 trading minutes per day (1 tick ≈ 1 minute)
+const TICKS_PER_DAY = 93_600; // 4 ticks/s × 390 min × 60 s/min
 
 /**
  * Mean-reversion strength (Ornstein–Uhlenbeck κ).
- * At 390 ticks/day, a value of 0.006 means prices drift back to their anchor
- * over roughly 1/κ ≈ 167 ticks (≈ 7 trading hours). Keeps the simulation
- * anchored without making movements look rubbery.
+ * At 93600 ticks/day a value of 0.0002 reverts over ~5000 ticks ≈ 1.25 trading hours.
  */
-const MEAN_REVERSION_SPEED = 0.006;
+const MEAN_REVERSION_SPEED = 0.0002;
 
 /**
  * Hard floor as a fraction of the initial price.
@@ -66,13 +63,13 @@ function refreshRegime() {
   if (r < 0.40) {
     marketDrift = 0; // neutral (most common)
   } else if (r < 0.65) {
-    marketDrift = 0.0002; // mild bull
+    marketDrift = 0.000008; // mild bull
   } else if (r < 0.85) {
-    marketDrift = -0.0002; // mild bear
+    marketDrift = -0.000008; // mild bear
   } else if (r < 0.93) {
-    marketDrift = 0.0006; // strong bull
+    marketDrift = 0.000025; // strong bull
   } else {
-    marketDrift = -0.0006; // strong bear
+    marketDrift = -0.000025; // strong bear
   }
 }
 
