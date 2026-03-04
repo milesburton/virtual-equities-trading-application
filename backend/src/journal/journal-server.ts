@@ -193,6 +193,74 @@ function handle(req: Request): Response {
     return json({ orderId, entries: rows.map(rowToEntry) });
   }
 
+  // GET /orders?limit=200 — reconstruct OrderRecord[] from journal events for UI hydration
+  if (req.method === "GET" && path === "/orders") {
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? 200), 500);
+    const since = Date.now() - RETENTION_MS;
+
+    // Fetch all order-related events within retention window, oldest first
+    const rows = [...db.query(
+      `SELECT order_id, event_type, ts, raw FROM journal
+       WHERE order_id IS NOT NULL AND ts >= ?
+       ORDER BY ts ASC;`,
+      [since],
+    )] as [string, string, number, string][];
+
+    // Group events by order_id and reconstruct OrderRecord
+    const orderMap = new Map<string, Record<string, unknown>>();
+    for (const [orderId, eventType, ts, rawStr] of rows) {
+      let raw: Record<string, unknown> = {};
+      try { raw = JSON.parse(rawStr); } catch { /* skip */ }
+
+      if (eventType === "orders.submitted") {
+        orderMap.set(orderId, {
+          id: orderId,
+          submittedAt: ts,
+          asset: raw.asset ?? raw.instrument ?? "",
+          side: raw.side ?? "BUY",
+          quantity: raw.quantity ?? raw.requestedQty ?? 0,
+          limitPrice: raw.limitPrice ?? 0,
+          expiresAt: raw.expiresAt ?? ts + 86_400_000,
+          strategy: raw.strategy ?? raw.algo ?? "LIMIT",
+          status: "queued",
+          filled: 0,
+          algoParams: raw.algoParams ?? { strategy: raw.strategy ?? "LIMIT" },
+          children: [],
+        });
+      } else if (orderMap.has(orderId)) {
+        const order = orderMap.get(orderId)!;
+        if (eventType === "orders.filled") {
+          const filledQty = Number(raw.filledQty ?? 0);
+          const totalFilled = Number(raw.totalFilled ?? filledQty);
+          const qty = Number(order.quantity ?? 0);
+          order.filled = totalFilled;
+          order.status = qty > 0 && totalFilled >= qty ? "filled" : "executing";
+        } else if (eventType === "orders.expired") {
+          order.status = "expired";
+        } else if (eventType === "orders.child") {
+          const children = order.children as unknown[];
+          children.push({
+            id: raw.childId ?? raw.orderId ?? "",
+            side: raw.side ?? order.side,
+            quantity: raw.qty ?? raw.quantity ?? 0,
+            limitPrice: raw.price ?? raw.limitPrice ?? 0,
+            filledQty: 0,
+            avgFillPrice: 0,
+            commissionUSD: 0,
+            submittedAt: ts,
+            status: "queued",
+          });
+        }
+      }
+    }
+
+    const orders = [...orderMap.values()]
+      .sort((a, b) => Number(b.submittedAt) - Number(a.submittedAt))
+      .slice(0, limit);
+
+    return json(orders);
+  }
+
   return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
 }
 
