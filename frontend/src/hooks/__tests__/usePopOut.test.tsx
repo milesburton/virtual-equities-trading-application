@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { renderHook } from "@testing-library/react";
+import { Model } from "flexlayout-react";
 import type { ReactNode } from "react";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +24,8 @@ const dashCtx: DashboardContextValue = {
   removePanel: () => {},
   resetLayout: () => {},
   storageKey: STORAGE_KEY,
+  model: Model.fromJson({ global: {}, layout: { type: "row", children: [] } }),
+  setModel: () => {},
 };
 
 function wrapper(store: ReturnType<typeof makeStore>) {

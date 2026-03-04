@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Model } from "flexlayout-react";
 import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
 import { authSlice } from "../../store/authSlice";
@@ -36,6 +37,8 @@ function renderPicker(overrides?: {
           removePanel,
           resetLayout,
           storageKey: "dashboard-layout",
+          model: Model.fromJson({ global: {}, layout: { type: "row", children: [] } }),
+          setModel: vi.fn(),
         }}
       >
         <ComponentPicker />

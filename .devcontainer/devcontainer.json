@@ -6,7 +6,7 @@
   },
   "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 9879, 9881],
   "portsAttributes": {
-    "8080": { "label": "Frontend UI", "onAutoForward": "ignore" },
+    "8080": { "label": "Frontend UI", "onAutoForward": "notify" },
     "5000": { "label": "Market Sim" },
     "5001": { "label": "EMS" },
     "5002": { "label": "OMS" },
@@ -59,5 +59,5 @@
     "source=${localEnv:HOME}/.gitconfig,target=/home/deno/.gitconfig,type=bind,consistency=cached"
   ],
   "postCreateCommand": "cd /workspaces/virtual-equities-trading-application/frontend && npm ci --ignore-scripts && npx playwright install && cd /workspaces/virtual-equities-trading-application && ./frontend/node_modules/.bin/husky install .husky",
-  "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && cd /workspaces/virtual-equities-trading-application/frontend && deno install --allow-scripts && cd /workspaces/virtual-equities-trading-application && supervisord -c /home/deno/supervisord.conf"
+  "postStartCommand": "chmod 700 /home/deno/.ssh && chmod 600 /home/deno/.ssh/* || true && rm -f /var/lib/redpanda/data/pid.lock && cd /workspaces/virtual-equities-trading-application/frontend && deno install --allow-scripts && cd /workspaces/virtual-equities-trading-application && supervisord -c /home/deno/supervisord.conf"
 }

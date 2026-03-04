@@ -61,7 +61,8 @@ function TradingApp() {
         <DashboardProvider key={activeId.value} storageKey={workspaceStorageKey(activeId.value)}>
           {/* Layout controls scoped to the active workspace/provider */}
           <WorkspaceToolbar />
-          <div className="flex-1 overflow-y-auto">
+          {/* flexlayout needs a positioned container with explicit height */}
+          <div className="flex-1 relative min-h-0">
             <DashboardLayout />
           </div>
         </DashboardProvider>

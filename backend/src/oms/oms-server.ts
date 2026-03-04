@@ -56,10 +56,18 @@ async function handleTradeRequest(req: Request): Promise<Response> {
     const orderId = `oms-${nextOrderId++}`;
     const ts = Date.now();
 
+    // Derive TimeInForce from expiry duration (FIX tag 59)
+    const expiresInSecs = Number(trade.expiresAt ?? 0);
+    const timeInForce = expiresInSecs <= 0 ? "GTC" : expiresInSecs <= 60 ? "IOC" : "DAY";
+
+    // Default destination venue for order routing (smart-router would select per asset)
+    const destinationVenue = "XNAS";
+    const accountId = trade.accountId ?? "ACC-001"; // in a real system pulled from session
+
     console.log("📥 Received Trade Request:", trade);
 
     // Publish orders.submitted to the message bus
-    await producer?.send("orders.submitted", { orderId, ts, ...trade }).catch(() => {});
+    await producer?.send("orders.submitted", { orderId, ts, timeInForce, destinationVenue, accountId, ...trade }).catch(() => {});
 
     const strategy: string = (trade.strategy ?? "LIMIT").toUpperCase();
     const algoUrl = STRATEGY_URLS[strategy];

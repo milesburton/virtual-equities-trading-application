@@ -1,7 +1,10 @@
+import type { IJsonModel } from "flexlayout-react";
+import { Model } from "flexlayout-react";
 import type { ChannelContextValue } from "../contexts/ChannelContext.tsx";
 import { ChannelContext } from "../contexts/ChannelContext.tsx";
 import { AlgoMonitor } from "./AlgoMonitor.tsx";
 import type { LayoutItem, PanelId } from "./DashboardLayout.tsx";
+import { modelToLayoutItems } from "./DashboardLayout.tsx";
 import { MarketLadder } from "./MarketLadder.tsx";
 import { ObservabilityPanel } from "./ObservabilityPanel.tsx";
 import { OrderBlotter } from "./OrderBlotter.tsx";
@@ -13,7 +16,8 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   "market-ladder": MarketLadder,
 };
 
-/** Read channel assignments for a given instance from the persisted layout. */
+/** Read channel assignments for a given instance from the persisted layout.
+ *  Supports both the new flexlayout format (_v:4) and old grid format (_v:3). */
 function loadChannelContext(
   instanceId: string,
   panelType: PanelId,
@@ -22,15 +26,35 @@ function loadChannelContext(
   try {
     const raw = localStorage.getItem(layoutKey);
     if (raw) {
-      const items: LayoutItem[] = JSON.parse(raw);
-      const item = items.find((it) => it.i === instanceId);
-      if (item) {
-        return {
-          instanceId,
-          panelType,
-          outgoing: item.outgoing ?? null,
-          incoming: item.incoming ?? null,
-        };
+      const parsed = JSON.parse(raw);
+
+      // New flexlayout format
+      if (parsed._v === 4 && parsed.flex) {
+        const model = Model.fromJson(parsed.flex as IJsonModel);
+        const items = modelToLayoutItems(model);
+        const item = items.find((it) => it.i === instanceId);
+        if (item) {
+          return {
+            instanceId,
+            panelType,
+            outgoing: item.outgoing ?? null,
+            incoming: item.incoming ?? null,
+          };
+        }
+      }
+
+      // Legacy grid format (_v:3)
+      if (parsed._v === 3 && Array.isArray(parsed.items)) {
+        const items: LayoutItem[] = parsed.items;
+        const item = items.find((it) => it.i === instanceId);
+        if (item) {
+          return {
+            instanceId,
+            panelType,
+            outgoing: item.outgoing ?? null,
+            incoming: item.incoming ?? null,
+          };
+        }
       }
     }
   } catch {
