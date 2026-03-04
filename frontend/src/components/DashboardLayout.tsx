@@ -899,6 +899,7 @@ function patchTabConfig(
 export function DashboardLayout() {
   const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
   const candleHistory = useAppSelector((s) => s.market.candleHistory);
+  const candlesReady = useAppSelector((s) => s.market.candlesReady);
   const channelsData = useAppSelector((s) => s.channels.data);
   const { model, setModel, layout, removePanel, addPanel } = useDashboard();
 
@@ -955,7 +956,7 @@ export function DashboardLayout() {
               ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
               : legacySelectedAsset;
           return wrap(
-            chartSymbol && candleHistory[chartSymbol] ? (
+            chartSymbol && candlesReady[chartSymbol] && candleHistory[chartSymbol] ? (
               <CandlestickChart symbol={chartSymbol} candles={candleHistory[chartSymbol]} />
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 h-full bg-gray-950">
@@ -1014,7 +1015,7 @@ export function DashboardLayout() {
           return wrap(<div className="text-gray-600 text-xs p-4">Unknown panel: {panelType}</div>);
       }
     },
-    [legacySelectedAsset, candleHistory, channelsData]
+    [legacySelectedAsset, candleHistory, candlesReady, channelsData]
   );
 
   const onRenderTab = useCallback(

@@ -47,6 +47,7 @@ function makeStore(orders: OrderRecord[] = [], prices: MarketPrices = {}) {
         prices,
         priceHistory: {},
         candleHistory: {},
+        candlesReady: {},
         connected: false,
         orderBook: {},
       },

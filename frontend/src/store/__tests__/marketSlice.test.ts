@@ -17,6 +17,7 @@ const initialState = {
   prices: {},
   priceHistory: {},
   candleHistory: {},
+  candlesReady: {},
   orderBook: {},
   connected: false,
 };

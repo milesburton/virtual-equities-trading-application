@@ -34,6 +34,7 @@ function makeStore() {
         prices,
         priceHistory: {},
         candleHistory: {},
+        candlesReady: {},
         connected: true,
         orderBook: {},
       },

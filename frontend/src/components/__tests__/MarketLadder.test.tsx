@@ -42,6 +42,7 @@ function makeStore(
         prices: overrides.prices ?? prices,
         priceHistory: overrides.priceHistory ?? priceHistory,
         candleHistory: {},
+        candlesReady: {},
         connected: true,
         orderBook: {},
       },

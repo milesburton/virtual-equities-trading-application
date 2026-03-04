@@ -6,7 +6,7 @@
   },
   "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 9879, 9881],
   "portsAttributes": {
-    "8080": { "label": "Frontend UI", "onAutoForward": "openBrowserOnce", "protocol": "http", "elevateIfNeeded": false },
+    "8080": { "label": "Frontend UI", "onAutoForward": "notify", "protocol": "http", "elevateIfNeeded": false },
     "5000": { "label": "Market Sim", "onAutoForward": "ignore" },
     "5001": { "label": "EMS", "onAutoForward": "ignore" },
     "5002": { "label": "OMS", "onAutoForward": "ignore" },

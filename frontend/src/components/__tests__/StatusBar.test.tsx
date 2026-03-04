@@ -40,6 +40,7 @@ function makeStore(connected: boolean) {
         prices: {},
         priceHistory: {},
         candleHistory: {},
+        candlesReady: {},
         connected,
         orderBook: {},
       },
