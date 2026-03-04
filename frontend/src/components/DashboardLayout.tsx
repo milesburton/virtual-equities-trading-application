@@ -447,9 +447,10 @@ export function makeAnalysisModel(): IJsonModel {
     layout: {
       type: "row",
       children: [
+        // ── Left: Market Ladder ───────────────────────────────────────────────
         {
           type: "tabset",
-          weight: 28,
+          weight: 25,
           children: [
             {
               type: "tab",
@@ -460,13 +461,14 @@ export function makeAnalysisModel(): IJsonModel {
             },
           ],
         },
+        // ── Centre: Chart (top) + Market Depth (bottom) ───────────────────────
         {
           type: "row",
-          weight: 72,
+          weight: 45,
           children: [
             {
               type: "tabset",
-              weight: 60,
+              weight: 62,
               children: [
                 {
                   type: "tab",
@@ -479,7 +481,7 @@ export function makeAnalysisModel(): IJsonModel {
             },
             {
               type: "tabset",
-              weight: 40,
+              weight: 38,
               children: [
                 {
                   type: "tab",
@@ -489,6 +491,20 @@ export function makeAnalysisModel(): IJsonModel {
                   config: { panelType: "market-depth", incoming: 1 } satisfies TabChannelConfig,
                 },
               ],
+            },
+          ],
+        },
+        // ── Right: News & Signals ─────────────────────────────────────────────
+        {
+          type: "tabset",
+          weight: 30,
+          children: [
+            {
+              type: "tab",
+              id: "news",
+              name: PANEL_TITLES.news,
+              component: "news",
+              config: { panelType: "news" } satisfies TabChannelConfig,
             },
           ],
         },
@@ -945,10 +961,50 @@ function patchTabConfig(
   return false;
 }
 
+/** Isolated candle-chart panel — subscribes only to its own symbol's candle data. */
+function CandleChartPanel({ incoming }: { incoming: ChannelNumber | null }) {
+  const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
+  const channelsData = useAppSelector((s) => s.channels.data);
+  const symbol =
+    incoming !== null
+      ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
+      : legacySelectedAsset;
+  const candles = useAppSelector((s) => (symbol ? s.market.candleHistory[symbol] : undefined));
+  const ready = useAppSelector((s) => (symbol ? s.market.candlesReady[symbol] : false));
+
+  if (symbol && ready && candles) {
+    return <CandlestickChart symbol={symbol} candles={candles} />;
+  }
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 h-full bg-gray-950">
+      <svg
+        aria-label="Loading"
+        className="animate-spin w-6 h-6 text-emerald-500/60"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
+      </svg>
+      <span className="text-[11px] text-gray-600">Connecting to market…</span>
+    </div>
+  );
+}
+
 export function DashboardLayout() {
   const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
-  const candleHistory = useAppSelector((s) => s.market.candleHistory);
-  const candlesReady = useAppSelector((s) => s.market.candlesReady);
   const channelsData = useAppSelector((s) => s.channels.data);
   const { model, setModel, layout, removePanel, addPanel, activePanelIds } = useDashboard();
 
@@ -1078,42 +1134,8 @@ export function DashboardLayout() {
           return wrap(<AlgoMonitor />);
         case "observability":
           return wrap(<ObservabilityPanel />);
-        case "candle-chart": {
-          const chartSymbol =
-            incoming !== null
-              ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
-              : legacySelectedAsset;
-          return wrap(
-            chartSymbol && candlesReady[chartSymbol] && candleHistory[chartSymbol] ? (
-              <CandlestickChart symbol={chartSymbol} candles={candleHistory[chartSymbol]} />
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 h-full bg-gray-950">
-                <svg
-                  aria-label="Loading"
-                  className="animate-spin w-6 h-6 text-emerald-500/60"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                <span className="text-[11px] text-gray-600">Connecting to market…</span>
-              </div>
-            )
-          );
-        }
+        case "candle-chart":
+          return wrap(<CandleChartPanel incoming={incoming} />);
         case "market-depth": {
           const depthSymbol =
             incoming !== null
@@ -1145,7 +1167,7 @@ export function DashboardLayout() {
           return wrap(<div className="text-gray-600 text-xs p-4">Unknown panel: {panelType}</div>);
       }
     },
-    [legacySelectedAsset, candleHistory, candlesReady, channelsData]
+    [legacySelectedAsset, channelsData]
   );
 
   const onRenderTab = useCallback(

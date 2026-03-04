@@ -20,10 +20,37 @@ const MARKET_HTTP_URL = import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/
 const CANDLE_STORE_URL = import.meta.env.VITE_CANDLE_STORE_URL ?? `${_origin}/api/candle-store`;
 const JOURNAL_URL = import.meta.env.VITE_JOURNAL_URL ?? `${_origin}/api/journal`;
 
+// UI throttle: batch ticks and dispatch to Redux at most 4 times per second.
+// The candle-store accumulates full-rate data server-side; the UI only needs
+// ~4 renders/s to look smooth. This halves React render work vs raw 4/s ticks.
+const UI_TICK_INTERVAL_MS = 250;
+
 export const marketFeedMiddleware: Middleware = (storeAPI) => {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let started = false;
+
+  // Tick batching state
+  let pendingPrices: MarketPrices | null = null;
+  let pendingVolumes: Record<string, number> = {};
+  let pendingOrderBook: Record<string, OrderBookSnapshot> | null = null;
+  let tickTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flushTick() {
+    tickTimer = null;
+    if (!pendingPrices) return;
+    storeAPI.dispatch(
+      marketSlice.actions.tickReceived({
+        prices: pendingPrices,
+        volumes: pendingVolumes,
+        ts: Date.now(),
+      })
+    );
+    if (pendingOrderBook) storeAPI.dispatch(orderBookUpdated(pendingOrderBook));
+    pendingPrices = null;
+    pendingVolumes = {};
+    pendingOrderBook = null;
+  }
 
   function connect() {
     if (reconnectTimer) {
@@ -57,12 +84,20 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
         const volumes: Record<string, number> = hasEnvelope
           ? ((data as { volumes?: Record<string, number> }).volumes ?? {})
           : {};
-        storeAPI.dispatch(
-          marketSlice.actions.tickReceived({ prices: newPrices, volumes, ts: Date.now() })
-        );
+
+        // Accumulate — last prices win, volumes accumulate
+        pendingPrices = newPrices;
+        for (const [sym, vol] of Object.entries(volumes)) {
+          pendingVolumes[sym] = (pendingVolumes[sym] ?? 0) + vol;
+        }
         if (hasEnvelope) {
           const ob = (data as { orderBook?: Record<string, OrderBookSnapshot> }).orderBook;
-          if (ob) storeAPI.dispatch(orderBookUpdated(ob));
+          if (ob) pendingOrderBook = ob;
+        }
+
+        // Schedule a single flush if not already pending
+        if (!tickTimer) {
+          tickTimer = setTimeout(flushTick, UI_TICK_INTERVAL_MS);
         }
       } catch {
         // unparseable frame — discard
@@ -70,6 +105,10 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
     };
 
     ws.onclose = () => {
+      if (tickTimer) {
+        clearTimeout(tickTimer);
+        tickTimer = null;
+      }
       storeAPI.dispatch(marketSlice.actions.setConnected(false));
       reconnectTimer = setTimeout(connect, 2000);
     };

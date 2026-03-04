@@ -53,6 +53,34 @@ export function applyTick(
   return [...candles, newCandle].slice(-MAX_CANDLES);
 }
 
+/** Immer-safe in-place mutation of a candle array. No allocations for the common case. */
+export function applyTickMut(
+  candles: OhlcCandle[],
+  price: number,
+  ts: number,
+  intervalMs: number,
+  tickVolume = 0
+): void {
+  const bucket = bucketStart(ts, intervalMs);
+  const last = candles.length > 0 ? candles[candles.length - 1] : undefined;
+  if (last && last.time === bucket) {
+    if (price > last.high) last.high = price;
+    if (price < last.low) last.low = price;
+    last.close = price;
+    last.volume = (last.volume ?? 0) + tickVolume;
+  } else {
+    candles.push({
+      time: bucket,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume: tickVolume,
+    });
+    if (candles.length > MAX_CANDLES) candles.splice(0, candles.length - MAX_CANDLES);
+  }
+}
+
 export interface MarketState {
   assets: AssetDef[];
   prices: MarketPrices;
@@ -96,14 +124,20 @@ export const marketSlice = createSlice({
       for (const asset of Object.keys(prices)) {
         const price = prices[asset];
         const tickVolume = (volumes[asset] ?? 0) / TICKS_PER_MINUTE;
-        const history = state.priceHistory[asset] ?? [];
-        state.priceHistory[asset] = [...history, price].slice(-HISTORY_LENGTH);
-        const current = state.candleHistory[asset] ?? { "1m": [], "5m": [] };
-        const updated = { ...current };
-        for (const { key, ms } of INTERVALS) {
-          updated[key] = applyTick(current[key], price, ts, ms, tickVolume);
+
+        // priceHistory: mutate in place via Immer (no spread/slice allocation)
+        const hist = state.priceHistory[asset] ?? [];
+        state.priceHistory[asset] = hist; // ensure initialised
+        hist.push(price);
+        if (hist.length > HISTORY_LENGTH) hist.splice(0, hist.length - HISTORY_LENGTH);
+
+        // candleHistory: mutate in place via Immer
+        if (!state.candleHistory[asset]) {
+          state.candleHistory[asset] = { "1m": [], "5m": [] };
         }
-        state.candleHistory[asset] = updated;
+        for (const { key, ms } of INTERVALS) {
+          applyTickMut(state.candleHistory[asset][key], price, ts, ms, tickVolume);
+        }
       }
     },
     candlesSeeded(
