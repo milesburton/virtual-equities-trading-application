@@ -2,7 +2,11 @@ import { useEffect } from "react";
 import { DashboardLayout, DashboardProvider } from "./components/DashboardLayout.tsx";
 import { LoginPage } from "./components/LoginPage.tsx";
 import { AppHeader, WorkspaceToolbar } from "./components/StatusBar.tsx";
-import { useWorkspaces, WorkspaceBar, workspaceStorageKey } from "./components/WorkspaceBar.tsx";
+import {
+  useWorkspaces,
+  WorkspaceSidebar,
+  workspaceStorageKey,
+} from "./components/WorkspaceBar.tsx";
 import { TradingProvider } from "./context/TradingContext.tsx";
 import type { AuthUser } from "./store/authSlice.ts";
 import { setStatus, setUser } from "./store/authSlice.ts";
@@ -50,26 +54,32 @@ function TradingApp() {
         {/* Global header: brand, feed status, services, clock, user */}
         <AppHeader />
 
-        {/* Workspace tabs row */}
-        <WorkspaceBar
-          workspaces={workspaces}
-          activeId={activeId}
-          onSelect={handleSelect}
-          onWorkspacesChange={handleChange}
-        />
+        {/* Body: left workspace sidebar + main content */}
+        <div className="flex flex-1 min-h-0">
+          {/* Left workspace sidebar — collapsed by default, expands on toggle */}
+          <WorkspaceSidebar
+            workspaces={workspaces}
+            activeId={activeId}
+            onSelect={handleSelect}
+            onWorkspacesChange={handleChange}
+          />
 
-        {/* Key scoped to userId+workspaceId — ensures each user's workspaces are isolated */}
-        <DashboardProvider
-          key={`${userId}:${activeId}`}
-          storageKey={workspaceStorageKey(userId, activeId)}
-        >
-          {/* Layout controls scoped to the active workspace/provider */}
-          <WorkspaceToolbar />
-          {/* flexlayout needs a positioned container with explicit height */}
-          <div className="flex-1 relative min-h-0">
-            <DashboardLayout />
-          </div>
-        </DashboardProvider>
+          {/* Main content area: toolbar + dashboard */}
+          {/* Key scoped to userId+workspaceId — ensures each user's workspaces are isolated */}
+          <DashboardProvider
+            key={`${userId}:${activeId}`}
+            storageKey={workspaceStorageKey(userId, activeId)}
+          >
+            <div className="flex flex-col flex-1 min-w-0 min-h-0">
+              {/* Layout controls scoped to the active workspace/provider */}
+              <WorkspaceToolbar />
+              {/* flexlayout needs a positioned container with explicit height */}
+              <div className="flex-1 relative min-h-0">
+                <DashboardLayout />
+              </div>
+            </div>
+          </DashboardProvider>
+        </div>
       </div>
     </TradingProvider>
   );
