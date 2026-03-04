@@ -54,7 +54,7 @@ function pushWorkspaceHistory(workspaceId: string, workspaceName: string) {
   history.pushState({ workspaceId }, workspaceName, url.toString());
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Vertical workspace sidebar ───────────────────────────────────────────────
 
 interface Props {
   activeId: string;
@@ -63,10 +63,12 @@ interface Props {
   workspaces: Workspace[];
 }
 
-export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspaces }: Props) {
+export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, workspaces }: Props) {
+  const expanded = useSignal(false);
   const editingId = useSignal<string | null>(null);
   const editValue = useSignal("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
 
   useEffect(() => {
     if (editingId.value !== null) {
@@ -75,135 +77,160 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
     }
   }, [editingId.value]);
 
-  const addWorkspace = useCallback(
-    (userId: string) => {
-      const id = `ws-${Date.now()}`;
-      const name = `Workspace ${workspaces.length + 1}`;
-      const next = [...workspaces, { id, name }];
-      saveWorkspaces(userId, next);
-      onWorkspacesChange(next);
-      onSelect(id);
-    },
-    [workspaces, onSelect, onWorkspacesChange]
-  );
+  const addWorkspace = useCallback(() => {
+    const id = `ws-${Date.now()}`;
+    const name = `Workspace ${workspaces.length + 1}`;
+    const next = [...workspaces, { id, name }];
+    saveWorkspaces(userId, next);
+    onWorkspacesChange(next);
+    onSelect(id);
+    expanded.value = true;
+  }, [workspaces, onSelect, onWorkspacesChange, userId, expanded]);
 
   const renameWorkspace = useCallback(
-    (userId: string, id: string, name: string) => {
+    (id: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       const next = workspaces.map((w) => (w.id === id ? { ...w, name: trimmed } : w));
       saveWorkspaces(userId, next);
       onWorkspacesChange(next);
     },
-    [workspaces, onWorkspacesChange]
+    [workspaces, onWorkspacesChange, userId]
   );
 
   const removeWorkspace = useCallback(
-    (userId: string, id: string) => {
+    (id: string) => {
       if (workspaces.length <= 1) return;
       const next = workspaces.filter((w) => w.id !== id);
       saveWorkspaces(userId, next);
       onWorkspacesChange(next);
       if (activeId === id) onSelect(next[0].id);
     },
-    [workspaces, activeId, onSelect, onWorkspacesChange]
+    [workspaces, activeId, onSelect, onWorkspacesChange, userId]
   );
-
-  const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
 
   function commitRename() {
     if (editingId.value !== null) {
-      renameWorkspace(userId, editingId.value, editValue.value);
+      renameWorkspace(editingId.value, editValue.value);
       editingId.value = null;
     }
   }
 
+  const isExpanded = expanded.value;
+
   return (
-    <div className="flex items-center gap-0 bg-gray-950 border-b border-gray-800 px-2 h-8 shrink-0">
-      {workspaces.map((ws) => {
-        const active = ws.id === activeId;
-        const isEditing = editingId.value === ws.id;
+    <div
+      className={`flex flex-col shrink-0 bg-gray-950 border-r border-gray-800 transition-all duration-200 ${
+        isExpanded ? "w-40" : "w-8"
+      }`}
+    >
+      {/* Toggle button */}
+      <button
+        type="button"
+        title={isExpanded ? "Collapse workspaces" : "Expand workspaces"}
+        onClick={() => {
+          expanded.value = !expanded.value;
+        }}
+        className="flex items-center justify-center h-8 w-full shrink-0 text-gray-600 hover:text-gray-300 hover:bg-gray-900/50 transition-colors border-b border-gray-800 text-xs"
+      >
+        {isExpanded ? "‹" : "›"}
+      </button>
 
-        return (
-          <div
-            key={ws.id}
-            role="tab"
-            tabIndex={0}
-            className={`group relative flex items-center h-full px-3 border-r border-gray-800 text-[11px] cursor-pointer select-none appearance-none bg-transparent border-t-2 border-t-transparent ${
-              active
-                ? "bg-gray-900 text-gray-200 border-t-emerald-500"
-                : "text-gray-500 hover:text-gray-300 hover:bg-gray-900/40"
-            }`}
-            onClick={() => {
-              if (!isEditing) onSelect(ws.id);
-            }}
-            onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !isEditing) onSelect(ws.id);
-            }}
-          >
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                value={editValue.value}
-                onChange={(e) => {
-                  editValue.value = e.target.value;
-                }}
-                onBlur={commitRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitRename();
-                  if (e.key === "Escape") {
-                    editingId.value = null;
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-gray-800 text-gray-100 text-[11px] px-1 rounded outline-none w-24 border border-emerald-500"
-              />
-            ) : (
-              <button
-                type="button"
-                className="text-[11px] cursor-pointer bg-transparent border-0 p-0 text-inherit"
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  editingId.value = ws.id;
-                  editValue.value = ws.name;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    editingId.value = ws.id;
-                    editValue.value = ws.name;
-                  }
-                }}
-                onClick={() => onSelect(ws.id)}
-              >
-                {ws.name}
-              </button>
-            )}
+      {/* Workspace list */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {workspaces.map((ws) => {
+          const active = ws.id === activeId;
+          const isEditing = editingId.value === ws.id;
 
-            {active && workspaces.length > 1 && !isEditing && (
-              <button
-                type="button"
-                aria-label={`Close ${ws.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeWorkspace(userId, ws.id);
-                }}
-                className="ml-1.5 text-gray-600 hover:text-gray-300 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        );
-      })}
+          return (
+            <div
+              key={ws.id}
+              className={`group relative flex items-center border-b border-gray-800/60 ${
+                active
+                  ? "bg-gray-900 border-l-2 border-l-emerald-500"
+                  : "border-l-2 border-l-transparent hover:bg-gray-900/40"
+              }`}
+            >
+              {isExpanded ? (
+                // Expanded: show name horizontally
+                <div className="flex items-center w-full min-w-0 px-2 py-1.5 gap-1">
+                  {isEditing ? (
+                    <input
+                      ref={inputRef}
+                      value={editValue.value}
+                      onChange={(e) => {
+                        editValue.value = e.target.value;
+                      }}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") {
+                          editingId.value = null;
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-w-0 bg-gray-800 text-gray-100 text-[11px] px-1 rounded outline-none border border-emerald-500"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className={`flex-1 min-w-0 text-left text-[11px] truncate bg-transparent border-0 p-0 cursor-pointer ${
+                        active ? "text-gray-200" : "text-gray-500 hover:text-gray-300"
+                      }`}
+                      onClick={() => onSelect(ws.id)}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        editingId.value = ws.id;
+                        editValue.value = ws.name;
+                      }}
+                    >
+                      {ws.name}
+                    </button>
+                  )}
+                  {active && workspaces.length > 1 && !isEditing && (
+                    <button
+                      type="button"
+                      aria-label={`Close ${ws.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeWorkspace(ws.id);
+                      }}
+                      className="shrink-0 text-gray-700 hover:text-gray-400 text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ) : (
+                // Collapsed: show rotated name as icon button
+                <button
+                  type="button"
+                  title={ws.name}
+                  onClick={() => onSelect(ws.id)}
+                  className={`flex items-center justify-center w-8 h-8 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                    active ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"
+                  }`}
+                >
+                  {ws.name.charAt(0)}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
+      {/* Add workspace button */}
       <button
         type="button"
         aria-label="New workspace"
-        onClick={() => addWorkspace(userId)}
-        className="flex items-center justify-center w-7 h-full text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
+        onClick={addWorkspace}
         title="New workspace"
+        className={`shrink-0 flex items-center border-t border-gray-800 text-gray-600 hover:text-gray-300 hover:bg-gray-900/50 transition-colors text-sm ${
+          isExpanded ? "px-3 py-1.5 gap-1.5 text-[11px]" : "justify-center h-8"
+        }`}
       >
-        +
+        <span>+</span>
+        {isExpanded && <span className="text-[11px]">New workspace</span>}
       </button>
     </div>
   );
@@ -223,7 +250,6 @@ export function useWorkspaces(userId: string) {
   });
 
   // Push initial history entry if none exists (so back button works from the start).
-  // Use a ref so we can read the initial values without Biome exhaustive-deps warnings.
   const initRef = useRef({ activeId, workspaces });
   useEffect(() => {
     const { activeId: id, workspaces: ws } = initRef.current;

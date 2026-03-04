@@ -10,15 +10,19 @@ interface NewsItem {
   related: string[]; // ticker symbols if parseable
 }
 
-// Free RSS-to-JSON proxy — no API key required
+// Free RSS-to-JSON proxy — no API key required (max 10 items/feed, no count param)
 const RSS_FEEDS = [
-  {
-    label: "Reuters Markets",
-    url: "https://feeds.reuters.com/reuters/businessNews",
-  },
   {
     label: "Yahoo Finance",
     url: "https://finance.yahoo.com/news/rssindex",
+  },
+  {
+    label: "MarketWatch",
+    url: "https://feeds.marketwatch.com/marketwatch/topstories/",
+  },
+  {
+    label: "Investing.com",
+    url: "https://www.investing.com/rss/news.rss",
   },
 ];
 
@@ -106,7 +110,7 @@ function relativeTime(ms: number): string {
 }
 
 async function fetchFeed(feedUrl: string, label: string): Promise<NewsItem[]> {
-  const res = await fetch(`${RSS2JSON}${encodeURIComponent(feedUrl)}&count=15`, {
+  const res = await fetch(`${RSS2JSON}${encodeURIComponent(feedUrl)}`, {
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) return [];
