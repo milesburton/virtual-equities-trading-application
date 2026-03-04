@@ -1,7 +1,6 @@
 import { useSignal } from "@preact/signals-react";
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { List } from "react-window";
-import { Line, LineChart, Tooltip, YAxis } from "recharts";
 import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
@@ -52,21 +51,31 @@ function PriceFlash({ value, asset }: { value: number; asset: string }) {
 }
 
 function Sparkline({ data }: { data: number[] }) {
-  const chartData = data.map((v) => ({ v }));
-  const isUp = data.length >= 2 && data[data.length - 1] >= data[0];
-  return (
-    <LineChart width={60} height={28} data={chartData}>
-      <YAxis domain={["auto", "auto"]} hide />
-      <Line
-        type="monotone"
-        dataKey="v"
-        dot={false}
-        strokeWidth={1.5}
-        stroke={isUp ? "#34d399" : "#f87171"}
-      />
-      <Tooltip contentStyle={{ display: "none" }} cursor={false} />
-    </LineChart>
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || data.length < 2) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { width, height } = canvas;
+    ctx.clearRect(0, 0, width, height);
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+    const isUp = data[data.length - 1] >= data[0];
+    ctx.strokeStyle = isUp ? "#34d399" : "#f87171";
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let i = 0; i < data.length; i++) {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((data[i] - min) / range) * height;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }, [data]);
+  return <canvas ref={canvasRef} width={60} height={28} className="block" />;
 }
 
 interface RowData {
@@ -87,7 +96,7 @@ interface RowComponentProps extends RowData {
   onContextMenu: (e: React.MouseEvent, symbol: string) => void;
 }
 
-function Row({
+const Row = memo(function Row({
   index,
   style,
   filtered,
@@ -206,7 +215,7 @@ function Row({
       </div>
     </button>
   );
-}
+});
 
 export function MarketLadder() {
   const broadcast = useChannelOut();
@@ -396,7 +405,7 @@ export function MarketLadder() {
 
       <div ref={containerRef} className="flex-1 overflow-hidden">
         <List<RowData>
-          rowComponent={Row}
+          rowComponent={Row as Parameters<typeof List<RowData>>[0]["rowComponent"]}
           rowCount={filtered.length}
           rowHeight={ROW_HEIGHT}
           rowProps={rowData}
