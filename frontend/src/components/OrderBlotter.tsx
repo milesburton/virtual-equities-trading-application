@@ -1,7 +1,10 @@
 import { useSignal } from "@preact/signals-react";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
-import { useAppSelector } from "../store/hooks.ts";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
+import { orderPatched } from "../store/ordersSlice.ts";
 import type { ChildOrder, LiquidityFlag, OrderStatus } from "../types.ts";
+import type { ContextMenuEntry } from "./ContextMenu.tsx";
+import { ContextMenu } from "./ContextMenu.tsx";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
@@ -107,6 +110,8 @@ export function OrderBlotter() {
   const expanded = useSignal<Set<string>>(new Set());
   const selectedOrderId = useSignal<string | null>(null);
   const broadcast = useChannelOut();
+  const dispatch = useAppDispatch();
+  const ctxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
 
   function selectOrder(id: string) {
     const next = selectedOrderId.value === id ? null : id;
@@ -121,18 +126,61 @@ export function OrderBlotter() {
     expanded.value = next;
   }
 
+  function openOrderCtxMenu(e: React.MouseEvent, orderId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const isActive = order.status === "queued" || order.status === "executing";
+    const items: ContextMenuEntry[] = [
+      {
+        label: "Select & broadcast",
+        icon: "↗",
+        onClick: () => selectOrder(order.id),
+      },
+      {
+        label: "View asset in ladder",
+        icon: "📈",
+        onClick: () => broadcast({ selectedAsset: order.asset }),
+      },
+      { separator: true },
+      {
+        label: "Copy order ID",
+        icon: "⎘",
+        onClick: () => navigator.clipboard.writeText(order.id),
+      },
+      { separator: true },
+      {
+        label: "Cancel order",
+        icon: "✕",
+        danger: true,
+        disabled: !isActive,
+        title: isActive ? "Mark order as expired/cancelled" : "Order is already complete",
+        onClick: () => {
+          dispatch(orderPatched({ id: order.id, patch: { status: "expired" } }));
+        },
+      },
+    ];
+    ctxMenu.value = { x: e.clientX, y: e.clientY, items };
+  }
+
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Order Blotter
+      {ctxMenu.value && (
+        <ContextMenu
+          items={ctxMenu.value.items}
+          x={ctxMenu.value.x}
+          y={ctxMenu.value.y}
+          onClose={() => {
+            ctxMenu.value = null;
+          }}
+        />
+      )}
+      <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-end gap-2">
+        <span className="text-[10px] text-gray-600">
+          {orders.length} order{orders.length !== 1 ? "s" : ""}
         </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600">
-            {orders.length} order{orders.length !== 1 ? "s" : ""}
-          </span>
-          <PopOutButton panelId="order-blotter" />
-        </div>
+        <PopOutButton panelId="order-blotter" />
       </div>
       <div className="overflow-auto flex-1">
         {orders.length === 0 ? (
@@ -143,18 +191,57 @@ export function OrderBlotter() {
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-500 border-b border-gray-800 sticky top-0 bg-gray-950">
-                <th className="text-left px-3 py-2">Time</th>
-                <th className="text-left px-3 py-2">ID</th>
-                <th className="text-left px-3 py-2">Asset</th>
-                <th className="text-left px-3 py-2">Side</th>
-                <th className="text-right px-3 py-2">Qty</th>
-                <th className="text-right px-3 py-2">Limit/Fill</th>
-                <th className="text-left px-3 py-2">Strat/Venue</th>
-                <th className="text-left px-3 py-2">Status</th>
-                <th className="text-left px-3 py-2">Cpty</th>
-                <th className="text-left px-3 py-2">Liq</th>
-                <th className="text-right px-3 py-2">Comm</th>
-                <th className="text-left px-3 py-2">Settle</th>
+                <th className="text-left px-3 py-2" title="Time order was submitted">
+                  Time
+                </th>
+                <th
+                  className="text-left px-3 py-2"
+                  title="Order ID — click ▸ to expand child executions"
+                >
+                  ID
+                </th>
+                <th className="text-left px-3 py-2" title="Instrument / ticker symbol">
+                  Asset
+                </th>
+                <th className="text-left px-3 py-2" title="Order direction: BUY or SELL">
+                  Side
+                </th>
+                <th className="text-right px-3 py-2" title="Total order quantity (shares)">
+                  Qty
+                </th>
+                <th
+                  className="text-right px-3 py-2"
+                  title="Limit price for parent orders; average fill price for algo orders with child executions"
+                >
+                  Limit/Fill
+                </th>
+                <th
+                  className="text-left px-3 py-2"
+                  title="Execution strategy (LIMIT, TWAP, POV, VWAP) or execution venue for child orders"
+                >
+                  Strat/Venue
+                </th>
+                <th className="text-left px-3 py-2" title="Order lifecycle status">
+                  Status
+                </th>
+                <th
+                  className="text-left px-3 py-2"
+                  title="Counterparty that took the other side of the trade"
+                >
+                  Cpty
+                </th>
+                <th
+                  className="text-left px-3 py-2"
+                  title="Liquidity flag: MAKER (passive, added liquidity), TAKER (aggressive, removed liquidity), CROSS (internal match)"
+                >
+                  Liq
+                </th>
+                <th className="text-right px-3 py-2" title="Total execution commission in USD">
+                  Comm
+                </th>
+                <th className="text-left px-3 py-2" title="Settlement date (T+2 for equities)">
+                  Settle
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -163,6 +250,9 @@ export function OrderBlotter() {
                   <tr
                     key={order.id}
                     onClick={() => selectOrder(order.id)}
+                    onContextMenu={(e) => openOrderCtxMenu(e, order.id)}
+                    aria-selected={selectedOrderId.value === order.id}
+                    title={`${order.side} ${order.quantity.toLocaleString()} ${order.asset} @ ${formatPrice(order.asset, order.limitPrice)} — ${order.status}. Right-click for actions. Click to ${selectedOrderId.value === order.id ? "deselect" : "select and broadcast to linked panels"}`}
                     className={`border-b border-gray-800/40 cursor-pointer transition-colors ${
                       selectedOrderId.value === order.id
                         ? "bg-sky-900/20 border-l-2 border-l-sky-500"
@@ -176,6 +266,8 @@ export function OrderBlotter() {
                       {order.children.length > 0 ? (
                         <button
                           type="button"
+                          aria-expanded={expanded.value.has(order.id)}
+                          aria-label={`${expanded.value.has(order.id) ? "Collapse" : "Expand"} ${order.children.length} child executions for order ${order.id.slice(0, 8)}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleExpand(order.id);

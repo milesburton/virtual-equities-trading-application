@@ -290,11 +290,13 @@ export function AlgoMonitor() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+      <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="flex rounded overflow-hidden border border-gray-700 text-[11px]">
             <button
               type="button"
+              title="Orders currently queued or executing"
+              aria-pressed={tab.value === "active"}
               onClick={() => {
                 tab.value = "active";
               }}
@@ -309,6 +311,8 @@ export function AlgoMonitor() {
             </button>
             <button
               type="button"
+              title="Expired or stalled orders with unfilled quantity that may need manual intervention"
+              aria-pressed={tab.value === "needs-action"}
               onClick={() => {
                 tab.value = "needs-action";
               }}
@@ -323,6 +327,8 @@ export function AlgoMonitor() {
             </button>
             <button
               type="button"
+              title="Completed orders — filled or expired. Click a row to view execution performance."
+              aria-pressed={tab.value === "history"}
               onClick={() => {
                 tab.value = "history";
               }}
@@ -337,6 +343,8 @@ export function AlgoMonitor() {
             </button>
           </div>
           <select
+            aria-label="Filter by strategy"
+            title="Show only orders using this execution strategy"
             value={stratFilter.value}
             onChange={(e) => {
               stratFilter.value = e.target.value;
@@ -366,17 +374,51 @@ export function AlgoMonitor() {
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-500 border-b border-gray-800 sticky top-0 bg-gray-950">
-                <th className="text-left px-3 py-2">Asset</th>
-                <th className="text-left px-3 py-2">Side</th>
-                <th className="text-left px-3 py-2">Strategy</th>
-                <th className="text-right px-3 py-2">Filled</th>
-                <th className="text-right px-3 py-2">Unfilled</th>
-                <th className="text-right px-3 py-2">Total</th>
-                <th className="px-3 py-2 w-28">Progress</th>
-                <th className="text-right px-3 py-2">Limit</th>
-                <th className="text-right px-3 py-2">Last</th>
-                <th className="text-right px-3 py-2">Impact</th>
-                <th className="text-right px-3 py-2">Comm</th>
+                <th className="text-left px-3 py-2" title="Instrument being traded">
+                  Asset
+                </th>
+                <th className="text-left px-3 py-2" title="Order direction: BUY or SELL">
+                  Side
+                </th>
+                <th
+                  className="text-left px-3 py-2"
+                  title="Execution algorithm: LIMIT, TWAP, POV, or VWAP"
+                >
+                  Strategy
+                </th>
+                <th className="text-right px-3 py-2" title="Quantity filled so far">
+                  Filled
+                </th>
+                <th className="text-right px-3 py-2" title="Remaining quantity not yet filled">
+                  Unfilled
+                </th>
+                <th className="text-right px-3 py-2" title="Total order quantity">
+                  Total
+                </th>
+                <th className="px-3 py-2 w-28" title="Fill completion percentage">
+                  Progress
+                </th>
+                <th
+                  className="text-right px-3 py-2"
+                  title="Original limit price submitted with the order"
+                >
+                  Limit
+                </th>
+                <th
+                  className="text-right px-3 py-2"
+                  title="Current market price — green if order is in-the-money"
+                >
+                  Last
+                </th>
+                <th
+                  className="text-right px-3 py-2"
+                  title="Market impact in basis points (1bp = 0.01%) — measures execution quality vs arrival price. Positive = paid more than arrival, negative = better than arrival"
+                >
+                  Impact
+                </th>
+                <th className="text-right px-3 py-2" title="Total execution commission in USD">
+                  Comm
+                </th>
                 {isNeedsAction && <th className="px-3 py-2" />}
               </tr>
             </thead>

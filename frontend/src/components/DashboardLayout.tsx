@@ -1,19 +1,23 @@
-import type { IJsonModel, IJsonTabNode, TabNode } from "flexlayout-react";
+import type { BorderNode, IJsonModel, IJsonTabNode, TabNode, TabSetNode } from "flexlayout-react";
 import { Actions, DockLocation, Layout, Model } from "flexlayout-react";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "flexlayout-react/style/dark.css";
-
+import { useSignal } from "@preact/signals-react";
 import { ChannelContext } from "../contexts/ChannelContext.tsx";
 import type { ChannelNumber } from "../store/channelsSlice.ts";
-import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import { setSelectedAsset } from "../store/uiSlice.ts";
+import { useAppSelector } from "../store/hooks.ts";
 import { AdminPanel } from "./AdminPanel.tsx";
 import { AlgoMonitor } from "./AlgoMonitor.tsx";
 import { CandlestickChart } from "./CandlestickChart.tsx";
+import type { ContextMenuEntry } from "./ContextMenu.tsx";
+import { ContextMenu } from "./ContextMenu.tsx";
+import { DecisionLog } from "./DecisionLog.tsx";
+import { ExecutionsPanel } from "./ExecutionsPanel.tsx";
 import { MarketDepth } from "./MarketDepth.tsx";
 import { MarketLadder } from "./MarketLadder.tsx";
+import { MarketMatch } from "./MarketMatch.tsx";
 import { ObservabilityPanel } from "./ObservabilityPanel.tsx";
 import { OrderBlotter } from "./OrderBlotter.tsx";
 import { OrderTicket } from "./OrderTicket.tsx";
@@ -37,6 +41,9 @@ export const PANEL_IDS = [
   "observability",
   "candle-chart",
   "market-depth",
+  "executions",
+  "decision-log",
+  "market-match",
   "admin",
 ] as const;
 
@@ -48,10 +55,22 @@ export const PANEL_TITLES: Record<PanelId, string> = {
   "order-blotter": "Order Blotter",
   "algo-monitor": "Algo Monitor",
   observability: "Observability",
-  "candle-chart": "Chart",
+  "candle-chart": "Price Chart",
   "market-depth": "Market Depth",
+  executions: "Executions",
+  "decision-log": "Decision Log",
+  "market-match": "Market Match",
   admin: "Admin",
 };
+
+// Panels that can only have one instance at a time
+export const SINGLETON_PANELS: ReadonlySet<PanelId> = new Set([
+  "order-ticket",
+  "order-blotter",
+  "observability",
+  "executions",
+  "admin",
+]);
 
 export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> = {
   "market-ladder": { out: true, in: false },
@@ -61,6 +80,9 @@ export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> 
   "order-blotter": { out: true, in: false },
   "algo-monitor": { out: false, in: true },
   observability: { out: false, in: false },
+  executions: { out: false, in: true },
+  "decision-log": { out: false, in: true },
+  "market-match": { out: false, in: true },
   admin: { out: false, in: false },
 };
 
@@ -90,6 +112,7 @@ function makeDefaultModel(): IJsonModel {
       tabEnableRename: false,
       tabSetEnableMaximize: true,
       tabSetEnableDeleteWhenEmpty: true,
+      tabSetEnableSingleTabStretch: false,
       splitterSize: 4,
       splitterExtra: 4,
     },
@@ -99,7 +122,7 @@ function makeDefaultModel(): IJsonModel {
         {
           type: "tabset",
           weight: 16,
-          enableSingleTabStretch: true,
+
           children: [
             {
               type: "tab",
@@ -113,7 +136,7 @@ function makeDefaultModel(): IJsonModel {
         {
           type: "tabset",
           weight: 25,
-          enableSingleTabStretch: true,
+
           children: [
             {
               type: "tab",
@@ -135,7 +158,7 @@ function makeDefaultModel(): IJsonModel {
                 {
                   type: "tabset",
                   weight: 57,
-                  enableSingleTabStretch: true,
+
                   children: [
                     {
                       type: "tab",
@@ -149,7 +172,7 @@ function makeDefaultModel(): IJsonModel {
                 {
                   type: "tabset",
                   weight: 43,
-                  enableSingleTabStretch: true,
+
                   children: [
                     {
                       type: "tab",
@@ -169,7 +192,6 @@ function makeDefaultModel(): IJsonModel {
                 {
                   type: "tabset",
                   weight: 57,
-                  enableSingleTabStretch: true,
                   children: [
                     {
                       type: "tab",
@@ -178,12 +200,19 @@ function makeDefaultModel(): IJsonModel {
                       component: "algo-monitor",
                       config: { panelType: "algo-monitor", incoming: 2 } satisfies TabChannelConfig,
                     },
+                    {
+                      type: "tab",
+                      id: "decision-log",
+                      name: PANEL_TITLES["decision-log"],
+                      component: "decision-log",
+                      config: { panelType: "decision-log" } satisfies TabChannelConfig,
+                    },
                   ],
                 },
                 {
                   type: "tabset",
                   weight: 43,
-                  enableSingleTabStretch: true,
+
                   children: [
                     {
                       type: "tab",
@@ -198,8 +227,8 @@ function makeDefaultModel(): IJsonModel {
             },
             {
               type: "tabset",
-              weight: 22,
-              enableSingleTabStretch: true,
+              weight: 12,
+
               children: [
                 {
                   type: "tab",
@@ -207,6 +236,20 @@ function makeDefaultModel(): IJsonModel {
                   name: PANEL_TITLES["order-blotter"],
                   component: "order-blotter",
                   config: { panelType: "order-blotter", outgoing: 2 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 10,
+
+              children: [
+                {
+                  type: "tab",
+                  id: "executions",
+                  name: PANEL_TITLES.executions,
+                  component: "executions",
+                  config: { panelType: "executions", incoming: 2 } satisfies TabChannelConfig,
                 },
               ],
             },
@@ -220,7 +263,7 @@ function makeDefaultModel(): IJsonModel {
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
-const LAYOUT_VERSION = 4;
+const LAYOUT_VERSION = 9;
 
 function saveFlexModel(storageKey: string, model: Model) {
   localStorage.setItem(storageKey, JSON.stringify({ _v: LAYOUT_VERSION, flex: model.toJson() }));
@@ -373,7 +416,12 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
   const addPanel = useCallback(
     (panelType: PanelId) => {
       setModelState((prev) => {
-        if (modelToLayoutItems(prev).some((l) => l.panelType === panelType)) return prev;
+        // Singletons: only allow one instance
+        if (
+          SINGLETON_PANELS.has(panelType) &&
+          modelToLayoutItems(prev).some((l) => l.panelType === panelType)
+        )
+          return prev;
 
         const newTab: IJsonTabNode = {
           type: "tab",
@@ -457,9 +505,16 @@ interface ChannelPickerProps {
   current: ChannelNumber | null;
   blockedChannels: Set<ChannelNumber>;
   onPick: (ch: ChannelNumber | null) => void;
+  disabled?: boolean;
 }
 
-function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerProps) {
+function ChannelPicker({
+  dir,
+  current,
+  blockedChannels,
+  onPick,
+  disabled = false,
+}: ChannelPickerProps) {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -479,6 +534,7 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
   }, [open]);
 
   function handleOpen() {
+    if (disabled) return;
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       setDropdownPos({ top: rect.bottom + 4, left: rect.left });
@@ -490,9 +546,12 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
   const isOut = dir === "out";
   const arrow = isOut ? "→" : "←";
   const dirLabel = isOut ? "Broadcast channel" : "Listen channel";
-  const buttonTitle = colour
-    ? `${dirLabel}: ${colour.label} — click to change`
-    : `${dirLabel}: not set — click to connect`;
+  const disabledLabel = isOut ? "This panel cannot broadcast" : "This panel cannot listen";
+  const buttonTitle = disabled
+    ? disabledLabel
+    : colour
+      ? `${dirLabel}: ${colour.label} — click to change`
+      : `${dirLabel}: not set — click to connect`;
 
   const dropdown = open
     ? createPortal(
@@ -554,25 +613,23 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
         type="button"
         title={buttonTitle}
         onClick={handleOpen}
+        disabled={disabled}
         className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
-          colour
-            ? "hover:bg-gray-700/60"
-            : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
+          disabled
+            ? "opacity-25 cursor-not-allowed"
+            : colour
+              ? "hover:bg-gray-700/60"
+              : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
         }`}
       >
-        <span className={colour ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
+        <span className={colour && !disabled ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
         <span
           className="w-2.5 h-2.5 rounded-full shrink-0 border"
           style={{
-            backgroundColor: colour ? colour.hex : "transparent",
-            borderColor: colour ? colour.hex : "#4b5563",
+            backgroundColor: disabled ? "transparent" : colour ? colour.hex : "transparent",
+            borderColor: disabled ? "#374151" : colour ? colour.hex : "#4b5563",
           }}
         />
-        {colour && (
-          <span style={{ color: colour.hex }} className="hidden sm:inline">
-            {colour.label}
-          </span>
-        )}
       </button>
       {dropdown}
     </div>
@@ -595,8 +652,6 @@ function tabChannelButtons({
   if (!panelType) return [];
 
   const caps = PANEL_CHANNEL_CAPS[panelType];
-  if (!caps.out && !caps.in) return [];
-
   const outgoing = cfg?.outgoing ?? null;
   const incoming = cfg?.incoming ?? null;
   const instanceId = node.getId();
@@ -616,30 +671,24 @@ function tabChannelButtons({
       : ([1, 2, 3, 4, 5, 6] as ChannelNumber[])
   );
 
-  const buttons: ReactNode[] = [];
-  if (caps.out) {
-    buttons.push(
-      <ChannelPicker
-        key="out"
-        dir="out"
-        current={outgoing}
-        blockedChannels={blockedOut}
-        onPick={(ch) => onChannelChange(instanceId, "out", ch)}
-      />
-    );
-  }
-  if (caps.in) {
-    buttons.push(
-      <ChannelPicker
-        key="in"
-        dir="in"
-        current={incoming}
-        blockedChannels={blockedIn}
-        onPick={(ch) => onChannelChange(instanceId, "in", ch)}
-      />
-    );
-  }
-  return buttons;
+  return [
+    <ChannelPicker
+      key="out"
+      dir="out"
+      current={outgoing}
+      blockedChannels={blockedOut}
+      onPick={(ch) => onChannelChange(instanceId, "out", ch)}
+      disabled={!caps.out}
+    />,
+    <ChannelPicker
+      key="in"
+      dir="in"
+      current={incoming}
+      blockedChannels={blockedIn}
+      onPick={(ch) => onChannelChange(instanceId, "in", ch)}
+      disabled={!caps.in}
+    />,
+  ];
 }
 
 type AnyJsonNode = IJsonTabNode | IJsonModel["layout"] | { children?: AnyJsonNode[] };
@@ -667,11 +716,13 @@ function patchTabConfig(
 }
 
 export function DashboardLayout() {
-  const dispatch = useAppDispatch();
   const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
   const candleHistory = useAppSelector((s) => s.market.candleHistory);
   const channelsData = useAppSelector((s) => s.channels.data);
-  const { model, setModel, layout } = useDashboard();
+  const { model, setModel, layout, removePanel, addPanel } = useDashboard();
+
+  // Tab/tabset right-click context menu
+  const tabCtxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
 
   const handleChannelChange = useCallback(
     (instanceId: string, dir: "out" | "in", ch: ChannelNumber | null) => {
@@ -723,28 +774,13 @@ export function DashboardLayout() {
               ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
               : legacySelectedAsset;
           return wrap(
-            <div className="flex flex-col h-full">
-              {chartSymbol && candleHistory[chartSymbol] ? (
-                <CandlestickChart
-                  symbol={chartSymbol}
-                  candles={candleHistory[chartSymbol]}
-                  onClose={() => dispatch(setSelectedAsset(null))}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-600 text-xs gap-2 bg-gradient-to-br from-gray-900 to-gray-950">
-                  <div className="w-12 h-12 rounded-full border-2 border-gray-700 flex items-center justify-center">
-                    📊
-                  </div>
-                  <div className="text-center max-w-xs">
-                    <div className="font-medium text-gray-400 mb-1">Select an Asset</div>
-                    <div>
-                      Click a stock in the <span className="text-emerald-400">Market Ladder</span>{" "}
-                      to view its candlestick chart
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            chartSymbol && candleHistory[chartSymbol] ? (
+              <CandlestickChart symbol={chartSymbol} candles={candleHistory[chartSymbol]} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-600 text-xs bg-gray-950">
+                Waiting for market data…
+              </div>
+            )
           );
         }
         case "market-depth": {
@@ -764,13 +800,19 @@ export function DashboardLayout() {
             </div>
           );
         }
+        case "executions":
+          return wrap(<ExecutionsPanel />);
+        case "decision-log":
+          return wrap(<DecisionLog />);
+        case "market-match":
+          return wrap(<MarketMatch />);
         case "admin":
           return wrap(<AdminPanel />);
         default:
           return wrap(<div className="text-gray-600 text-xs p-4">Unknown panel: {panelType}</div>);
       }
     },
-    [legacySelectedAsset, candleHistory, channelsData, dispatch]
+    [legacySelectedAsset, candleHistory, channelsData]
   );
 
   const onRenderTab = useCallback(
@@ -782,7 +824,7 @@ export function DashboardLayout() {
           incoming !== null
             ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
             : legacySelectedAsset;
-        if (symbol) renderValues.content = `Chart — ${symbol}`;
+        if (symbol) renderValues.content = symbol;
       }
 
       const btns = tabChannelButtons({
@@ -802,6 +844,74 @@ export function DashboardLayout() {
     [setModel]
   );
 
+  const onContextMenu = useCallback(
+    (node: TabNode | TabSetNode | BorderNode, event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      const items: ContextMenuEntry[] = [];
+
+      if (node.getType() === "tab") {
+        const tab = node as TabNode;
+        const cfg = tab.getConfig() as TabChannelConfig | undefined;
+        const panelType = cfg?.panelType;
+        const tabSetNode = tab.getParent() as TabSetNode | null;
+        const isMaximized = tabSetNode?.isMaximized() ?? false;
+
+        items.push(
+          {
+            label: isMaximized ? "Restore" : "Maximise panel",
+            icon: isMaximized ? "⊡" : "⊞",
+            onClick: () => {
+              if (tabSetNode) model.doAction(Actions.maximizeToggle(tabSetNode.getId()));
+              setModel(Model.fromJson(model.toJson() as IJsonModel));
+            },
+          },
+          { separator: true },
+          {
+            label: "Close panel",
+            icon: "✕",
+            danger: true,
+            onClick: () => {
+              if (panelType) removePanel(panelType);
+              else model.doAction(Actions.deleteTab(tab.getId()));
+            },
+          }
+        );
+      } else if (node.getType() === "tabset") {
+        const tabset = node as TabSetNode;
+        const isMaximized = tabset.isMaximized();
+        items.push(
+          {
+            label: isMaximized ? "Restore" : "Maximise tabset",
+            icon: isMaximized ? "⊡" : "⊞",
+            onClick: () => {
+              model.doAction(Actions.maximizeToggle(tabset.getId()));
+              setModel(Model.fromJson(model.toJson() as IJsonModel));
+            },
+          },
+          { separator: true, label: "Add panel here" }
+        );
+
+        // Show panels that aren't already open (or are non-singletons)
+        const openTypes = new Set(layout.map((l) => l.panelType));
+        for (const id of PANEL_IDS) {
+          if (id === "admin") continue; // skip admin in context menu
+          const alreadyOpen = openTypes.has(id);
+          if (SINGLETON_PANELS.has(id) && alreadyOpen) continue;
+          items.push({
+            label: PANEL_TITLES[id],
+            icon: "+",
+            onClick: () => addPanel(id),
+          });
+        }
+      }
+
+      if (items.length > 0) {
+        tabCtxMenu.value = { x: event.clientX, y: event.clientY, items };
+      }
+    },
+    [model, setModel, layout, addPanel, removePanel, tabCtxMenu]
+  );
+
   return (
     <div className="h-full w-full relative">
       <Layout
@@ -809,7 +919,18 @@ export function DashboardLayout() {
         factory={factory}
         onRenderTab={onRenderTab}
         onModelChange={onModelChange}
+        onContextMenu={onContextMenu}
       />
+      {tabCtxMenu.value && (
+        <ContextMenu
+          items={tabCtxMenu.value.items}
+          x={tabCtxMenu.value.x}
+          y={tabCtxMenu.value.y}
+          onClose={() => {
+            tabCtxMenu.value = null;
+          }}
+        />
+      )}
     </div>
   );
 }

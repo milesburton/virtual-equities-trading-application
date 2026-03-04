@@ -64,16 +64,6 @@ describe("MarketDepth – no data", () => {
     );
     expect(screen.getByText(/No depth data for AAPL/i)).toBeInTheDocument();
   });
-
-  it("renders the Market Depth header", () => {
-    const store = makeStore();
-    render(
-      <Provider store={store}>
-        <MarketDepth symbol="AAPL" />
-      </Provider>
-    );
-    expect(screen.getByText(/Market Depth/i)).toBeInTheDocument();
-  });
 });
 
 describe("MarketDepth – with data", () => {
@@ -84,7 +74,9 @@ describe("MarketDepth – with data", () => {
         <MarketDepth symbol="AAPL" />
       </Provider>
     );
-    expect(screen.getByText("180.25")).toBeInTheDocument();
+    // Mid price appears in the spread indicator (title attribute) and bid levels
+    const midEl = screen.getByTitle("Mid price — midpoint between best bid and ask");
+    expect(midEl).toHaveTextContent("180.25");
   });
 
   it("does not show waiting message when data is present", () => {

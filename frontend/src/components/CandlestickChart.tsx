@@ -15,13 +15,13 @@ type Interval = "1m" | "5m";
 interface Props {
   symbol: string;
   candles: { "1m": OhlcCandle[]; "5m": OhlcCandle[] };
-  onClose: () => void;
 }
 
 const CHART_THEME = {
   layout: {
     background: { type: ColorType.Solid, color: "#030712" },
     textColor: "#9ca3af",
+    attributionLogo: false,
   },
   grid: {
     vertLines: { color: "#111827" },
@@ -29,15 +29,37 @@ const CHART_THEME = {
   },
   crosshair: { mode: CrosshairMode.Normal },
   rightPriceScale: { borderColor: "#1f2937" },
-  timeScale: { borderColor: "#1f2937", timeVisible: true, secondsVisible: true },
+  timeScale: { borderColor: "#1f2937", timeVisible: true, secondsVisible: false },
 };
 
-export function CandlestickChart({ symbol, candles, onClose }: Props) {
+function toBarData(c: OhlcCandle) {
+  return {
+    time: (c.time / 1000) as UTCTimestamp,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+  };
+}
+
+function toVolData(c: OhlcCandle) {
+  return {
+    time: (c.time / 1000) as UTCTimestamp,
+    value: c.volume ?? 0,
+    color: c.close >= c.open ? "#34d39966" : "#f8717166",
+  };
+}
+
+export function CandlestickChart({ symbol, candles }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const interval = useSignal<Interval>("1m");
+  // Track which candle set is loaded so we know when a full reload is needed
+  const loadedKeyRef = useRef<string>("");
+  const loadedCountRef = useRef<number>(0);
+  const lastBarTimeRef = useRef<number>(0);
 
   // Create chart once on mount
   useEffect(() => {
@@ -77,75 +99,71 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
 
   // Update data when interval or candles change
   useEffect(() => {
-    if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+    const cs = candleSeriesRef.current;
+    const vs = volumeSeriesRef.current;
+    if (!cs || !vs) return;
+
     const raw = candles[interval.value];
     if (raw.length < 2) return;
 
-    candleSeriesRef.current.setData(
-      raw.map((c) => ({
-        time: (c.time / 1000) as UTCTimestamp,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      }))
-    );
+    const newKey = `${symbol}:${interval.value}`;
+    const isNewSeries = loadedKeyRef.current !== newKey;
+    // A jump of more than 1 means candles were seeded/replaced, not just a tick append
+    const isSeeded = !isNewSeries && raw.length > loadedCountRef.current + 1;
+    const last = raw[raw.length - 1];
+    const lastTime = last.time;
 
-    volumeSeriesRef.current.setData(
-      raw.map((c) => ({
-        time: (c.time / 1000) as UTCTimestamp,
-        value: c.volume ?? 0,
-        color: c.close >= c.open ? "#34d39966" : "#f8717166",
-      }))
-    );
-
-    chartRef.current?.timeScale().fitContent();
-  }, [candles, interval.value]);
+    if (isNewSeries || isSeeded || lastTime < lastBarTimeRef.current) {
+      // Full reload — new symbol, interval switched, history seeded, or time went backwards
+      cs.setData(raw.map(toBarData));
+      vs.setData(raw.map(toVolData));
+      chartRef.current?.timeScale().fitContent();
+      loadedKeyRef.current = newKey;
+      loadedCountRef.current = raw.length;
+      lastBarTimeRef.current = lastTime;
+    } else {
+      // Incremental update — only update the last candle (tick append or bucket close)
+      cs.update(toBarData(last));
+      vs.update(toVolData(last));
+      loadedCountRef.current = raw.length;
+      lastBarTimeRef.current = lastTime;
+    }
+  }, [candles, interval.value, symbol]);
 
   const raw = candles[interval.value];
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-gray-100">{symbol}</span>
-          <span className="text-xs text-gray-500">Candlestick</span>
-          <div className="flex rounded overflow-hidden border border-gray-700">
-            {(["1m", "5m"] as Interval[]).map((iv) => (
-              <button
-                key={iv}
-                type="button"
-                onClick={() => {
-                  interval.value = iv;
-                }}
-                className={`px-2 py-0.5 text-xs transition-colors ${
-                  interval.value === iv
-                    ? "bg-emerald-700 text-white"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                }`}
-              >
-                {iv}
-              </button>
-            ))}
-          </div>
+    <div className="relative flex flex-col h-full bg-gray-950">
+      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-gray-800 shrink-0">
+        <div className="flex rounded overflow-hidden border border-gray-700">
+          {(["1m", "5m"] as Interval[]).map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              onClick={() => {
+                interval.value = iv;
+              }}
+              className={`px-2 py-0.5 text-xs transition-colors ${
+                interval.value === iv
+                  ? "bg-emerald-700 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {iv}
+            </button>
+          ))}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-200 text-sm px-1 transition-colors"
-          aria-label="Close chart"
-        >
-          ✕
-        </button>
+        {raw.length > 0 && (
+          <span className="ml-auto text-[10px] text-gray-600 tabular-nums">{raw.length} bars</span>
+        )}
       </div>
 
-      {raw.length < 2 ? (
-        <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">
+      {raw.length < 2 && (
+        <div className="absolute inset-0 top-8 flex items-center justify-center text-gray-600 text-xs pointer-events-none z-10">
           Collecting {interval.value} candles…
         </div>
-      ) : (
-        <div ref={containerRef} className="flex-1" />
       )}
+      <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden" />
     </div>
   );
 }

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 8080",
+    "dev": "vite --port 5173",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "deno run -A npm:@biomejs/biome check src/",
