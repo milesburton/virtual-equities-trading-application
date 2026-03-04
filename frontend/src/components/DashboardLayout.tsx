@@ -103,6 +103,7 @@ interface TabChannelConfig {
   panelType: PanelId;
   outgoing?: ChannelNumber;
   incoming?: ChannelNumber;
+  pinned?: boolean;
 }
 
 function makeDefaultModel(): IJsonModel {
@@ -119,46 +120,87 @@ function makeDefaultModel(): IJsonModel {
     layout: {
       type: "row",
       children: [
+        // ── Left column: Order Ticket (top) + Order Blotter (bottom) ──────────
         {
-          type: "tabset",
-          weight: 16,
-
+          type: "row",
+          weight: 18,
           children: [
             {
-              type: "tab",
-              id: "order-ticket",
-              name: PANEL_TITLES["order-ticket"],
-              component: "order-ticket",
-              config: { panelType: "order-ticket", incoming: 1 } satisfies TabChannelConfig,
+              type: "tabset",
+              weight: 55,
+              enableDrag: false,
+              children: [
+                {
+                  type: "tab",
+                  id: "order-ticket",
+                  name: PANEL_TITLES["order-ticket"],
+                  component: "order-ticket",
+                  enableDrag: false,
+                  enableClose: false,
+                  config: {
+                    panelType: "order-ticket",
+                    incoming: 1,
+                    pinned: true,
+                  } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 45,
+              enableDrag: false,
+              children: [
+                {
+                  type: "tab",
+                  id: "order-blotter",
+                  name: PANEL_TITLES["order-blotter"],
+                  component: "order-blotter",
+                  enableDrag: false,
+                  enableClose: false,
+                  config: {
+                    panelType: "order-blotter",
+                    outgoing: 2,
+                    pinned: true,
+                  } satisfies TabChannelConfig,
+                },
+              ],
             },
           ],
         },
+        // ── Market Ladder (full height, pinned) ───────────────────────────────
         {
           type: "tabset",
-          weight: 25,
-
+          weight: 22,
+          enableDrag: false,
           children: [
             {
               type: "tab",
               id: "market-ladder",
               name: PANEL_TITLES["market-ladder"],
               component: "market-ladder",
-              config: { panelType: "market-ladder", outgoing: 1 } satisfies TabChannelConfig,
+              enableDrag: false,
+              enableClose: false,
+              config: {
+                panelType: "market-ladder",
+                outgoing: 1,
+                pinned: true,
+              } satisfies TabChannelConfig,
             },
           ],
         },
+        // ── Right area ────────────────────────────────────────────────────────
         {
           type: "row",
-          weight: 59,
+          weight: 60,
           children: [
+            // Chart + Market Depth (top)
             {
               type: "row",
-              weight: 70,
+              weight: 65,
               children: [
                 {
                   type: "tabset",
-                  weight: 57,
-
+                  weight: 58,
                   children: [
                     {
                       type: "tab",
@@ -171,8 +213,7 @@ function makeDefaultModel(): IJsonModel {
                 },
                 {
                   type: "tabset",
-                  weight: 43,
-
+                  weight: 42,
                   children: [
                     {
                       type: "tab",
@@ -185,13 +226,14 @@ function makeDefaultModel(): IJsonModel {
                 },
               ],
             },
+            // Algo Monitor + Executions + Decision Log (bottom)
             {
               type: "row",
-              weight: 30,
+              weight: 35,
               children: [
                 {
                   type: "tabset",
-                  weight: 35,
+                  weight: 34,
                   children: [
                     {
                       type: "tab",
@@ -204,7 +246,20 @@ function makeDefaultModel(): IJsonModel {
                 },
                 {
                   type: "tabset",
-                  weight: 35,
+                  weight: 34,
+                  children: [
+                    {
+                      type: "tab",
+                      id: "executions",
+                      name: PANEL_TITLES.executions,
+                      component: "executions",
+                      config: { panelType: "executions", incoming: 2 } satisfies TabChannelConfig,
+                    },
+                  ],
+                },
+                {
+                  type: "tabset",
+                  weight: 32,
                   children: [
                     {
                       type: "tab",
@@ -214,48 +269,6 @@ function makeDefaultModel(): IJsonModel {
                       config: { panelType: "decision-log" } satisfies TabChannelConfig,
                     },
                   ],
-                },
-                {
-                  type: "tabset",
-                  weight: 30,
-
-                  children: [
-                    {
-                      type: "tab",
-                      id: "observability",
-                      name: PANEL_TITLES.observability,
-                      component: "observability",
-                      config: { panelType: "observability" } satisfies TabChannelConfig,
-                    },
-                  ],
-                },
-              ],
-            },
-            {
-              type: "tabset",
-              weight: 12,
-
-              children: [
-                {
-                  type: "tab",
-                  id: "order-blotter",
-                  name: PANEL_TITLES["order-blotter"],
-                  component: "order-blotter",
-                  config: { panelType: "order-blotter", outgoing: 2 } satisfies TabChannelConfig,
-                },
-              ],
-            },
-            {
-              type: "tabset",
-              weight: 10,
-
-              children: [
-                {
-                  type: "tab",
-                  id: "executions",
-                  name: PANEL_TITLES.executions,
-                  component: "executions",
-                  config: { panelType: "executions", incoming: 2 } satisfies TabChannelConfig,
                 },
               ],
             },
@@ -269,7 +282,7 @@ function makeDefaultModel(): IJsonModel {
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
-const LAYOUT_VERSION = 10;
+const LAYOUT_VERSION = 11;
 
 function makeExecutionModel(): IJsonModel {
   return {
@@ -1060,6 +1073,42 @@ export function DashboardLayout() {
       const cfg = node.getConfig() as TabChannelConfig | undefined;
       const panelType = cfg?.panelType;
 
+      // ── Pin button ──────────────────────────────────────────────────────────
+      const isPinned = cfg?.pinned ?? !(node.isEnableDrag() && node.isEnableClose());
+      renderValues.buttons.push(
+        <button
+          key="pin"
+          type="button"
+          title={
+            isPinned
+              ? "Unpin panel — allow moving and closing"
+              : "Pin panel — prevent moving or closing"
+          }
+          onClick={() => {
+            const next = !isPinned;
+            model.doAction(
+              Actions.updateNodeAttributes(node.getId(), {
+                enableDrag: !next,
+                enableClose: !next,
+              })
+            );
+            // Persist pinned state in the tab config
+            model.doAction(
+              Actions.updateNodeAttributes(node.getId(), {
+                config: { ...cfg, pinned: next },
+              })
+            );
+            setModel(Model.fromJson(model.toJson() as IJsonModel));
+          }}
+          className={`flex items-center justify-center w-4 h-4 rounded transition-colors ${
+            isPinned ? "text-amber-400 hover:text-amber-300" : "text-gray-600 hover:text-gray-400"
+          }`}
+          style={{ fontSize: "10px", lineHeight: 1 }}
+        >
+          {isPinned ? "📌" : "📍"}
+        </button>
+      );
+
       // Panels that receive a selected asset and should show the symbol in their tab title
       const ASSET_RECEIVER_PANELS: ReadonlySet<PanelId> = new Set([
         "candle-chart",
@@ -1100,7 +1149,7 @@ export function DashboardLayout() {
       });
       for (const b of btns) renderValues.buttons.push(b);
     },
-    [layout, handleChannelChange, channelsData, legacySelectedAsset]
+    [layout, handleChannelChange, channelsData, legacySelectedAsset, model, setModel]
   );
 
   const onModelChange = useCallback(
@@ -1122,12 +1171,30 @@ export function DashboardLayout() {
         const tabSetNode = tab.getParent() as TabSetNode | null;
         const isMaximized = tabSetNode?.isMaximized() ?? false;
 
+        const tabCfg = tab.getConfig() as TabChannelConfig | undefined;
+        const isTabPinned = tabCfg?.pinned ?? !(tab.isEnableDrag() && tab.isEnableClose());
         items.push(
           {
             label: isMaximized ? "Restore" : "Maximise panel",
             icon: isMaximized ? "⊡" : "⊞",
             onClick: () => {
               if (tabSetNode) model.doAction(Actions.maximizeToggle(tabSetNode.getId()));
+              setModel(Model.fromJson(model.toJson() as IJsonModel));
+            },
+          },
+          {
+            label: isTabPinned ? "Unpin panel" : "Pin panel",
+            icon: isTabPinned ? "📍" : "📌",
+            title: isTabPinned ? "Allow moving and closing" : "Prevent moving or closing",
+            onClick: () => {
+              const next = !isTabPinned;
+              model.doAction(
+                Actions.updateNodeAttributes(tab.getId(), {
+                  enableDrag: !next,
+                  enableClose: !next,
+                  config: { ...tabCfg, pinned: next },
+                })
+              );
               setModel(Model.fromJson(model.toJson() as IJsonModel));
             },
           },
