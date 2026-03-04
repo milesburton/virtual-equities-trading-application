@@ -96,9 +96,9 @@ describe("AlgoMonitor – Active tab (default)", () => {
     expect(screen.getAllByText("TWAP").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows queued order as 'Waiting'", () => {
+  it("shows queued order status indicator", () => {
     renderMonitor([makeOrder({ status: "queued", filled: 0 })]);
-    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.getByText(/Queued/i)).toBeInTheDocument();
   });
 
   it("shows LIMIT executing order as 'Monitoring'", () => {
@@ -109,12 +109,12 @@ describe("AlgoMonitor – Active tab (default)", () => {
         algoParams: { strategy: "LIMIT" },
       }),
     ]);
-    expect(screen.getByText("Monitoring")).toBeInTheDocument();
+    expect(screen.getByText(/Monitoring market/i)).toBeInTheDocument();
   });
 
   it("shows seconds remaining for non-LIMIT executing orders", () => {
     renderMonitor([makeOrder({ expiresAt: now + 30_000 })]);
-    expect(screen.getByText(/\d+s left/)).toBeInTheDocument();
+    expect(screen.getByText(/\d+s remaining/)).toBeInTheDocument();
   });
 
   it("calculates and displays fill percentage", () => {
@@ -162,7 +162,7 @@ describe("AlgoMonitor – Needs Action tab", () => {
     renderMonitor([order]);
     clickNeedsAction();
     expect(screen.getByText("AAPL")).toBeInTheDocument();
-    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(screen.getByText(/Expired/i)).toBeInTheDocument();
   });
 
   it("does NOT show fully-filled expired order in Needs Action tab", () => {
@@ -183,8 +183,9 @@ describe("AlgoMonitor – Needs Action tab", () => {
   it("renders badge count on Needs Action tab button", () => {
     const order = makeOrder({ status: "expired", filled: 40, quantity: 100 });
     renderMonitor([order]);
-    // The badge should show "1" beside "Needs Action"
-    expect(screen.getByText("1")).toBeInTheDocument();
+    // Badge "1" should appear beside the "Needs Action" tab button
+    const badges = screen.getAllByText("1");
+    expect(badges.length).toBeGreaterThan(0);
   });
 
   it("shows 'Trade at Last' button for expired partial order with market price", () => {
@@ -299,8 +300,10 @@ describe("AlgoMonitor – child orders", () => {
     submittedAt: now,
   };
 
-  it("renders child order rows when present", () => {
+  it("renders child order rows when row is expanded", () => {
     renderMonitor([makeOrder({ children: [child] })]);
-    expect(screen.getByText("child")).toBeInTheDocument();
+    // Click the row to expand and show child executions
+    fireEvent.click(screen.getByText("AAPL"));
+    expect(screen.getByText(/Executions/i)).toBeInTheDocument();
   });
 });

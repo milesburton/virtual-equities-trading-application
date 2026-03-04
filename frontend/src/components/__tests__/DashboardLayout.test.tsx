@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import type { IJsonModel } from "flexlayout-react";
+import { Model } from "flexlayout-react";
 import { useContext } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PanelId } from "../DashboardLayout";
@@ -6,6 +8,7 @@ import {
   DashboardContext,
   DashboardProvider,
   DEFAULT_LAYOUT,
+  modelToLayoutItems,
   PANEL_IDS,
   PANEL_TITLES,
   STORAGE_KEY,
@@ -20,6 +23,36 @@ beforeEach(() => {
 afterEach(() => {
   localStorage.clear();
 });
+
+const LAYOUT_VERSION = 4;
+
+/** Serialize a flexlayout Model into the format used by saveFlexModel */
+function storeModel(model: Model, key = STORAGE_KEY) {
+  localStorage.setItem(key, JSON.stringify({ _v: LAYOUT_VERSION, flex: model.toJson() }));
+}
+
+/** Build a minimal flexlayout JSON model with the given panel types */
+function makeMinimalModel(panelTypes: PanelId[]): IJsonModel {
+  return {
+    global: {},
+    layout: {
+      type: "row",
+      children: panelTypes.map((pt) => ({
+        type: "tabset",
+        weight: Math.floor(100 / panelTypes.length),
+        children: [
+          {
+            type: "tab",
+            id: pt,
+            name: PANEL_TITLES[pt] ?? pt,
+            component: pt,
+            config: { panelType: pt },
+          },
+        ],
+      })),
+    },
+  };
+}
 
 // ─── Consumer component for testing context values ────────────────────────────
 
@@ -51,19 +84,16 @@ function renderProvider(children = <ContextInspector />) {
 describe("DashboardProvider – initial state", () => {
   it("provides activePanelIds from DEFAULT_LAYOUT when localStorage is empty", () => {
     renderProvider();
-    const defaultIds = DEFAULT_LAYOUT.map((l) => l.i)
+    const defaultIds = DEFAULT_LAYOUT.map((l) => l.panelType)
       .sort()
       .join(",");
     const activeIds = screen.getByTestId("active-ids").textContent?.split(",").sort().join(",");
     expect(activeIds).toBe(defaultIds);
   });
 
-  it("loads layout from localStorage if present and versioned", () => {
-    const custom = [
-      { i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 6, h: 6 },
-      { i: "market-depth", panelType: "market-depth", x: 6, y: 0, w: 6, h: 6 },
-    ];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 3, items: custom }));
+  it("loads layout from localStorage if present and versioned (v4)", () => {
+    const model = Model.fromJson(makeMinimalModel(["candle-chart", "market-depth"]));
+    storeModel(model);
     renderProvider();
     const activeIds = screen.getByTestId("active-ids").textContent;
     expect(activeIds).toContain("candle-chart");
@@ -84,14 +114,27 @@ describe("DashboardProvider – initial state", () => {
     const count = Number(screen.getByTestId("active-count").textContent);
     expect(count).toBe(DEFAULT_LAYOUT.length);
   });
+
+  it("falls back to DEFAULT_LAYOUT when stored version does not match", () => {
+    // v3 format (old react-grid-layout)
+    const oldV3 = {
+      _v: 3,
+      items: [{ i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 6, h: 6 }],
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(oldV3));
+    renderProvider();
+    const count = Number(screen.getByTestId("active-count").textContent);
+    expect(count).toBe(DEFAULT_LAYOUT.length);
+  });
 });
 
 // ─── DashboardProvider – addPanel ─────────────────────────────────────────────
 
 describe("DashboardProvider – addPanel", () => {
   it("adds a panel that was not in the active set", () => {
-    const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 3, items: withoutChart }));
+    // Start without candle-chart
+    const model = Model.fromJson(makeMinimalModel(["market-ladder", "order-ticket"]));
+    storeModel(model);
     renderProvider();
     const before = Number(screen.getByTestId("active-count").textContent);
     act(() => {
@@ -103,7 +146,6 @@ describe("DashboardProvider – addPanel", () => {
   });
 
   it("does not duplicate a panel already in the layout", () => {
-    // candle-chart is already in DEFAULT_LAYOUT; clicking Add Chart should be a no-op
     renderProvider();
     const before = Number(screen.getByTestId("active-count").textContent);
     act(() => {
@@ -113,18 +155,17 @@ describe("DashboardProvider – addPanel", () => {
   });
 
   it("persists the updated layout to localStorage", () => {
-    const withoutChart = DEFAULT_LAYOUT.filter((l) => l.i !== "candle-chart");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 3, items: withoutChart }));
+    const model = Model.fromJson(makeMinimalModel(["market-ladder", "order-ticket"]));
+    storeModel(model);
     renderProvider();
     act(() => {
       fireEvent.click(screen.getByText("Add Chart"));
     });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-    expect(
-      stored.items.some(
-        (l: { panelType?: string; i: string }) => (l.panelType ?? l.i) === "candle-chart"
-      )
-    ).toBe(true);
+    expect(stored._v).toBe(LAYOUT_VERSION);
+    const savedModel = Model.fromJson(stored.flex as IJsonModel);
+    const items = modelToLayoutItems(savedModel);
+    expect(items.some((l) => l.panelType === "candle-chart")).toBe(true);
   });
 });
 
@@ -148,7 +189,10 @@ describe("DashboardProvider – removePanel", () => {
       fireEvent.click(screen.getByText("Remove Blotter"));
     });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-    expect(stored.items.every((l: { i: string }) => l.i !== "order-blotter")).toBe(true);
+    expect(stored._v).toBe(LAYOUT_VERSION);
+    const savedModel = Model.fromJson(stored.flex as IJsonModel);
+    const items = modelToLayoutItems(savedModel);
+    expect(items.every((l) => l.panelType !== "order-blotter")).toBe(true);
   });
 });
 
@@ -156,29 +200,22 @@ describe("DashboardProvider – removePanel", () => {
 
 describe("DashboardProvider – resetLayout", () => {
   it("restores the DEFAULT_LAYOUT panel set", () => {
-    const custom = [{ i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 6, h: 6 }];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 3, items: custom }));
+    const model = Model.fromJson(makeMinimalModel(["candle-chart"]));
+    storeModel(model);
     renderProvider();
 
     act(() => {
       fireEvent.click(screen.getByText("Reset"));
     });
 
-    const defaultIds = DEFAULT_LAYOUT.map((l) => l.i)
+    const defaultIds = DEFAULT_LAYOUT.map((l) => l.panelType)
       .sort()
       .join(",");
     const activeIds = screen.getByTestId("active-ids").textContent?.split(",").sort().join(",");
     expect(activeIds).toBe(defaultIds);
   });
 
-  it("writes DEFAULT_LAYOUT to localStorage in versioned format", () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        _v: 3,
-        items: [{ i: "candle-chart", panelType: "candle-chart", x: 0, y: 0, w: 4, h: 4 }],
-      })
-    );
+  it("writes layout to localStorage in v4 flexlayout format", () => {
     renderProvider();
 
     act(() => {
@@ -186,8 +223,9 @@ describe("DashboardProvider – resetLayout", () => {
     });
 
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    expect(stored._v).toBe(3);
-    expect(stored.items).toEqual(DEFAULT_LAYOUT);
+    expect(stored._v).toBe(LAYOUT_VERSION);
+    expect(stored.flex).toBeDefined();
+    expect(stored.flex.layout).toBeDefined();
   });
 });
 

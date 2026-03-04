@@ -1,7 +1,7 @@
 import { useSignal } from "@preact/signals-react";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
-import type { ChildOrder, OrderStatus } from "../types.ts";
+import type { ChildOrder, LiquidityFlag, OrderStatus } from "../types.ts";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
@@ -9,6 +9,12 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   executing: "bg-sky-900/50 text-sky-300 border border-sky-700/50",
   filled: "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50",
   expired: "bg-gray-800/50 text-gray-500 border border-gray-700/50",
+};
+
+const LIQ_STYLES: Record<LiquidityFlag, string> = {
+  MAKER: "text-emerald-500",
+  TAKER: "text-amber-500",
+  CROSS: "text-sky-500",
 };
 
 function formatTime(ms: number) {
@@ -26,9 +32,16 @@ function formatPrice(asset: string, price: number) {
 function avgFillPrice(children: ChildOrder[]): string {
   const filled = children.filter((c) => c.status === "filled" && c.filled > 0);
   if (filled.length === 0) return "—";
+  // Use avgFillPrice if available, else fall back to limitPrice
   const totalQty = filled.reduce((s, c) => s + c.filled, 0);
-  const totalValue = filled.reduce((s, c) => s + c.limitPrice * c.filled, 0);
+  const totalValue = filled.reduce((s, c) => s + (c.avgFillPrice ?? c.limitPrice) * c.filled, 0);
   return totalQty > 0 ? (totalValue / totalQty).toFixed(4) : "—";
+}
+
+function totalCommission(children: ChildOrder[]): string {
+  const total = children.reduce((s, c) => s + (c.commissionUSD ?? 0), 0);
+  if (total === 0) return "—";
+  return `$${total.toFixed(2)}`;
 }
 
 function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
@@ -50,9 +63,17 @@ function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
             {child.quantity.toFixed(1)}
           </td>
           <td className="px-3 py-1 text-right tabular-nums text-gray-500">
-            {formatPrice(asset, child.limitPrice)}
+            {formatPrice(asset, child.avgFillPrice ?? child.limitPrice)}
           </td>
-          <td className="px-3 py-1 text-gray-600">child</td>
+          <td className="px-3 py-1 text-gray-600">
+            {child.venue ? (
+              <span className="text-[9px] font-mono text-gray-500 bg-gray-800 rounded px-1">
+                {child.venue}
+              </span>
+            ) : (
+              "child"
+            )}
+          </td>
           <td className="px-3 py-1">
             <span
               className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${STATUS_STYLES[child.status]}`}
@@ -60,7 +81,21 @@ function ChildRows({ rows, asset }: { rows: ChildOrder[]; asset: string }) {
               {child.status}
             </span>
           </td>
-          <td className="px-3 py-1 text-gray-600" />
+          {/* Enriched columns */}
+          <td className="px-3 py-1 text-gray-600 font-mono text-[9px]">
+            {child.counterparty ?? "—"}
+          </td>
+          <td
+            className={`px-3 py-1 text-[9px] font-semibold ${child.liquidityFlag ? LIQ_STYLES[child.liquidityFlag] : "text-gray-600"}`}
+          >
+            {child.liquidityFlag ?? "—"}
+          </td>
+          <td className="px-3 py-1 text-right tabular-nums text-gray-500 text-[9px]">
+            {child.commissionUSD !== undefined ? `$${child.commissionUSD.toFixed(2)}` : "—"}
+          </td>
+          <td className="px-3 py-1 text-gray-600 font-mono text-[9px]">
+            {child.settlementDate ?? "—"}
+          </td>
         </tr>
       ))}
     </>
@@ -113,10 +148,13 @@ export function OrderBlotter() {
                 <th className="text-left px-3 py-2">Asset</th>
                 <th className="text-left px-3 py-2">Side</th>
                 <th className="text-right px-3 py-2">Qty</th>
-                <th className="text-right px-3 py-2">Limit</th>
-                <th className="text-left px-3 py-2">Strategy</th>
+                <th className="text-right px-3 py-2">Limit/Fill</th>
+                <th className="text-left px-3 py-2">Strat/Venue</th>
                 <th className="text-left px-3 py-2">Status</th>
-                <th className="text-right px-3 py-2">Avg Fill</th>
+                <th className="text-left px-3 py-2">Cpty</th>
+                <th className="text-left px-3 py-2">Liq</th>
+                <th className="text-right px-3 py-2">Comm</th>
+                <th className="text-left px-3 py-2">Settle</th>
               </tr>
             </thead>
             <tbody>
@@ -138,7 +176,10 @@ export function OrderBlotter() {
                       {order.children.length > 0 ? (
                         <button
                           type="button"
-                          onClick={() => toggleExpand(order.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(order.id);
+                          }}
                           className="flex items-center gap-1 hover:text-gray-300 transition-colors"
                         >
                           <span>{expanded.value.has(order.id) ? "▾" : "▸"}</span>
@@ -159,7 +200,9 @@ export function OrderBlotter() {
                       {order.quantity.toLocaleString()}
                     </td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-gray-300">
-                      {formatPrice(order.asset, order.limitPrice)}
+                      {order.children.length > 0
+                        ? avgFillPrice(order.children)
+                        : formatPrice(order.asset, order.limitPrice)}
                     </td>
                     <td className="px-3 py-1.5 text-gray-400">{order.strategy}</td>
                     <td className="px-3 py-1.5">
@@ -169,8 +212,14 @@ export function OrderBlotter() {
                         {order.status}
                       </span>
                     </td>
+                    {/* Parent row: show aggregated commission */}
+                    <td className="px-3 py-1.5 text-gray-600">—</td>
+                    <td className="px-3 py-1.5 text-gray-600">—</td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">
-                      {order.children.length > 0 ? avgFillPrice(order.children) : "—"}
+                      {totalCommission(order.children)}
+                    </td>
+                    <td className="px-3 py-1.5 text-gray-600 font-mono text-[9px]">
+                      {order.settlementDate ?? "—"}
                     </td>
                   </tr>
                   {expanded.value.has(order.id) && order.children.length > 0 && (

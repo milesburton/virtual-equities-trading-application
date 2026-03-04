@@ -2823,6 +2823,7 @@
         "npm:@vitejs/plugin-react@^4.3.1",
         "npm:@vitest/coverage-v8@^4.0.18",
         "npm:autoprefixer@^10.4.19",
+        "npm:flexlayout-react@~0.8.18",
         "npm:husky@^9.1.7",
         "npm:jsdom@^22.1.0",
         "npm:lightweight-charts@^5.1.0",

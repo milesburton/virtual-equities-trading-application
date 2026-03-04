@@ -54,15 +54,17 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     apt-get update && apt-get install -y gh && rm -rf /var/lib/apt/lists/* || true
 
 # Copy Redpanda runtime assets and place real executables on PATH.
-# This avoids relying on wrapper scripts that hard-code /opt/redpanda paths.
+# The redpanda binary was compiled with PT_INTERP=/opt/redpanda/lib/ld.so so we
+# create that symlink to point at the actual lib directory.
 COPY --from=redpanda-src /opt/redpanda/lib /usr/local/lib/redpanda
 COPY --from=redpanda-src /opt/redpanda/libexec/redpanda /usr/local/bin/redpanda
 COPY --from=redpanda-src /opt/redpanda/libexec/rpk /usr/local/bin/rpk
 RUN chmod +x /usr/local/bin/redpanda /usr/local/bin/rpk && \
-    mkdir -p /var/lib/redpanda/data /etc/redpanda
+    mkdir -p /var/lib/redpanda/data /etc/redpanda /opt/redpanda && \
+    ln -s /usr/local/lib/redpanda /opt/redpanda/lib
 # Do NOT set LD_LIBRARY_PATH globally — Redpanda ships its own libc.so.6 which
-# breaks any shell that loads it at startup. Set it only for the redpanda
-# process at runtime (see supervisord.conf [program:redpanda] environment=).
+# breaks any shell that loads it at startup. The /opt/redpanda/lib symlink
+# satisfies the binary's PT_INTERP without needing LD_LIBRARY_PATH at all.
 
 # Create the 'deno' user with Fish as default shell
 RUN useradd -m -s /usr/bin/fish deno && \

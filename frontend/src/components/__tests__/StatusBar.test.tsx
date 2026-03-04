@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Model } from "flexlayout-react";
 import { Provider } from "react-redux";
 import { vi } from "vitest";
 import { authSlice } from "../../store/authSlice";
@@ -58,6 +59,8 @@ function renderBar(connected: boolean, resetLayout = vi.fn()) {
           removePanel: vi.fn(),
           resetLayout,
           storageKey: "dashboard-layout",
+          model: Model.fromJson({ global: {}, layout: { type: "row", children: [] } }),
+          setModel: vi.fn(),
         }}
       >
         <StatusBar />
