@@ -67,6 +67,12 @@ export function ComponentPicker() {
                     <button
                       type="button"
                       disabled={disabled}
+                      draggable={!disabled}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/panel-id", id);
+                        e.dataTransfer.effectAllowed = "copy";
+                        open.value = false;
+                      }}
                       onClick={() => {
                         addPanel(id);
                         open.value = false;
@@ -93,7 +99,11 @@ export function ComponentPicker() {
                           {PANEL_DESCRIPTIONS[id]}
                         </span>
                       </div>
-                      {!disabled && <span className="text-gray-600 shrink-0">+</span>}
+                      {!disabled && (
+                        <span className="text-gray-500 shrink-0 text-[10px]" title="Drag to place">
+                          ⠿
+                        </span>
+                      )}
                     </button>
                   </li>
                 );

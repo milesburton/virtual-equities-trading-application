@@ -949,7 +949,7 @@ export function DashboardLayout() {
   const candleHistory = useAppSelector((s) => s.market.candleHistory);
   const candlesReady = useAppSelector((s) => s.market.candlesReady);
   const channelsData = useAppSelector((s) => s.channels.data);
-  const { model, setModel, layout, removePanel, addPanel } = useDashboard();
+  const { model, setModel, layout, removePanel, addPanel, activePanelIds } = useDashboard();
 
   // Tab/tabset right-click context menu
   const tabCtxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
@@ -1347,6 +1347,20 @@ export function DashboardLayout() {
         onRenderTab={onRenderTab}
         onModelChange={onModelChange}
         onContextMenu={onContextMenu}
+        onExternalDrag={(event) => {
+          const panelType = event.dataTransfer.getData("text/panel-id") as PanelId | "";
+          if (!panelType || !PANEL_IDS.includes(panelType as PanelId)) return undefined;
+          if (SINGLETON_PANELS.has(panelType) && activePanelIds.has(panelType)) return undefined;
+          return {
+            json: {
+              type: "tab",
+              id: `${panelType}-${Date.now()}`,
+              name: PANEL_TITLES[panelType],
+              component: panelType,
+              config: { panelType } satisfies TabChannelConfig,
+            },
+          };
+        }}
       />
       {tabCtxMenu.value && (
         <ContextMenu
