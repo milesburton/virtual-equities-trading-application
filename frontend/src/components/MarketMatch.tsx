@@ -377,7 +377,7 @@ export function MarketMatch() {
                   const isBuy = f.side === "BUY";
                   return (
                     <tr
-                      key={`${f.ts}-${f.parentOrderId ?? f.asset}-${f.side}`}
+                      key={`${f.ts}-${f.asset}-${f.parentOrderId ?? ""}-${f.side}`}
                       className="border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors cursor-context-menu"
                       onContextMenu={(e) => openFillCtxMenu(e, f)}
                       title="Right-click for options"

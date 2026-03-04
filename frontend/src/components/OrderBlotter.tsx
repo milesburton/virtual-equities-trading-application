@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals-react";
+import { Fragment } from "react";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { orderPatched } from "../store/ordersSlice.ts";
@@ -246,9 +247,8 @@ export function OrderBlotter() {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <>
+                <Fragment key={order.id}>
                   <tr
-                    key={order.id}
                     onClick={() => selectOrder(order.id)}
                     onContextMenu={(e) => openOrderCtxMenu(e, order.id)}
                     aria-selected={selectedOrderId.value === order.id}
@@ -315,13 +315,9 @@ export function OrderBlotter() {
                     </td>
                   </tr>
                   {expanded.value.has(order.id) && order.children.length > 0 && (
-                    <ChildRows
-                      key={`${order.id}-children`}
-                      rows={order.children}
-                      asset={order.asset}
-                    />
+                    <ChildRows rows={order.children} asset={order.asset} />
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
