@@ -270,6 +270,7 @@ export function MarketLadder() {
   }
 
   // Auto-select the first asset once data arrives
+  // biome-ignore lint/correctness/useExhaustiveDependencies: localSelected and broadcast are stable signal/callback refs
   useEffect(() => {
     if (localSelected.value !== null) return;
     const first = assets[0];
@@ -277,7 +278,6 @@ export function MarketLadder() {
       localSelected.value = first.symbol;
       broadcast({ selectedAsset: first.symbol });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets, prices]);
 
   const rowData: RowData = {
