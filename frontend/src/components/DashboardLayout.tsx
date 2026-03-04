@@ -966,7 +966,9 @@ function CandleChartPanel({ incoming }: { incoming: ChannelNumber | null }) {
   const ready = useAppSelector((s) => (symbol ? s.market.candlesReady[symbol] : false));
 
   if (symbol && ready && candles) {
-    return <CandlestickChart symbol={symbol} candles={candles} />;
+    // key={symbol} forces a clean remount on symbol change so the chart refs,
+    // loadedKeyRef and fitContent logic all reset rather than patching in-place.
+    return <CandlestickChart key={symbol} symbol={symbol} candles={candles} />;
   }
   return (
     <div className="flex flex-col items-center justify-center gap-3 h-full bg-gray-950">
