@@ -24,7 +24,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-const LAYOUT_VERSION = 9;
+const LAYOUT_VERSION = 10;
 
 /** Serialize a flexlayout Model into the format used by saveFlexModel */
 function storeModel(model: Model, key = STORAGE_KEY) {
