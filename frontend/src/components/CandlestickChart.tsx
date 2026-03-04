@@ -59,8 +59,6 @@ export function CandlestickChart({ symbol, candles }: Props) {
   // Track which candle set is loaded so we know when a full reload is needed
   const loadedKeyRef = useRef<string>("");
   const lastBarTimeRef = useRef<number>(0);
-  // lastLoadedFirstTimeRef lets us detect a full-replace: if the oldest candle's time changes
-  const lastLoadedFirstTimeRef = useRef<number>(0);
   // Coordinate fitContent between resize and data effects:
   // fitContent should only fire once both the container has width AND data is loaded.
   const hasWidthRef = useRef(false);
@@ -136,27 +134,23 @@ export function CandlestickChart({ symbol, candles }: Props) {
 
     const newKey = `${symbol}:${interval.value}`;
     const isNewSeries = loadedKeyRef.current !== newKey;
-    const firstTime = raw[0].time;
     const last = raw[raw.length - 1];
     const lastTime = last.time;
-    // Detect a full replace: series key changed, time went backwards, or the oldest bar changed
-    const isFullReplace =
-      isNewSeries ||
-      lastTime < lastBarTimeRef.current ||
-      firstTime !== lastLoadedFirstTimeRef.current;
+    // Full reload only when the symbol/interval changes or time goes backwards
+    const isFullReplace = isNewSeries || lastTime < lastBarTimeRef.current;
 
     if (isFullReplace) {
-      // Full reload — new symbol, interval switched, history seeded, or time went backwards
+      // Full reload — new symbol or interval switched
       cs.setData(raw.map(toBarData));
       vs.setData(raw.map(toVolData));
       loadedKeyRef.current = newKey;
       lastBarTimeRef.current = lastTime;
-      lastLoadedFirstTimeRef.current = firstTime;
-      // Mark data as loaded and try to fit (no-op if width not yet known)
+      // fitContent on every full series load (symbol/interval change)
       hasDataRef.current = true;
       requestAnimationFrame(() => tryFitContentRef.current());
     } else {
-      // Incremental update — only update the last candle (tick append or bucket close)
+      // Incremental update — append or update the last candle.
+      // Works for both tick updates within a bucket and new bucket openings.
       cs.update(toBarData(last));
       vs.update(toVolData(last));
       lastBarTimeRef.current = lastTime;
