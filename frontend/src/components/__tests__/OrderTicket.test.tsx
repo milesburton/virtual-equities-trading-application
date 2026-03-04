@@ -72,9 +72,9 @@ describe("OrderTicket – rendering", () => {
     renderTicket();
     expect(screen.getByLabelText(/Strategy/i)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Limit Order" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "TWAP" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "POV" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "VWAP" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /TWAP/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /POV/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /VWAP/i })).toBeInTheDocument();
   });
 
   it("renders quantity input", () => {
@@ -89,7 +89,7 @@ describe("OrderTicket – rendering", () => {
 
   it("renders expiry input", () => {
     renderTicket();
-    expect(screen.getByLabelText(/Expiry/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Duration/i)).toBeInTheDocument();
   });
 
   it("renders BUY and SELL side buttons", () => {
@@ -105,9 +105,9 @@ describe("OrderTicket – rendering", () => {
     expect(priceInput.value).toBe("155.00");
   });
 
-  it("renders 'Use market' button when a price is available", () => {
+  it("renders 'Mid' button when a price is available", () => {
     renderTicket();
-    expect(screen.getByRole("button", { name: /Use market/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Mid/i })).toBeInTheDocument();
   });
 });
 
@@ -216,14 +216,14 @@ describe("OrderTicket – form validation", () => {
   });
 });
 
-describe("OrderTicket – Use market button", () => {
+describe("OrderTicket – Mid button", () => {
   it("sets limit price to current market price when clicked", () => {
     renderTicket();
     const priceInput = screen.getByLabelText(/Limit Price/i) as HTMLInputElement;
     // Change price to something else first
     fireEvent.change(priceInput, { target: { value: "100.00" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /Use market/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Mid/i }));
     expect(priceInput.value).toBe("155.00");
   });
 });
