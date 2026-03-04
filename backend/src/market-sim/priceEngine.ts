@@ -5,16 +5,22 @@ import { ASSET_MAP, SP500_ASSETS } from "./sp500Assets.ts";
 /**
  * Trading seconds per day: 390 minutes × 60 seconds.
  * Used to scale annual/daily volatility to a per-tick figure.
+ *
+ * NOTE: We use a compressed time scale so 1 simulated second = 1 real second
+ * but represents a much shorter slice of the trading day. Without compression
+ * the per-tick σ would be ~0.012% (invisible wicks). The compression factor
+ * makes 1 tick behave like ~1 trading minute, producing realistic candlestick
+ * bodies and wicks.
  */
-const TICKS_PER_DAY = 23_400;
+const TICKS_PER_DAY = 390; // 390 trading minutes per day (1 tick ≈ 1 minute)
 
 /**
  * Mean-reversion strength (Ornstein–Uhlenbeck κ).
- * A value of 0.0001 per tick means prices drift back to their anchor over
- * roughly 1/κ ≈ 10,000 ticks (≈ 7 trading hours). Keeps the simulation
+ * At 390 ticks/day, a value of 0.006 means prices drift back to their anchor
+ * over roughly 1/κ ≈ 167 ticks (≈ 7 trading hours). Keeps the simulation
  * anchored without making movements look rubbery.
  */
-const MEAN_REVERSION_SPEED = 0.0001;
+const MEAN_REVERSION_SPEED = 0.006;
 
 /**
  * Hard floor as a fraction of the initial price.
@@ -60,13 +66,13 @@ function refreshRegime() {
   if (r < 0.40) {
     marketDrift = 0; // neutral (most common)
   } else if (r < 0.65) {
-    marketDrift = 0.00003; // mild bull
+    marketDrift = 0.0002; // mild bull
   } else if (r < 0.85) {
-    marketDrift = -0.00003; // mild bear
+    marketDrift = -0.0002; // mild bear
   } else if (r < 0.93) {
-    marketDrift = 0.00010; // strong bull
+    marketDrift = 0.0006; // strong bull
   } else {
-    marketDrift = -0.00010; // strong bear
+    marketDrift = -0.0006; // strong bear
   }
 }
 
