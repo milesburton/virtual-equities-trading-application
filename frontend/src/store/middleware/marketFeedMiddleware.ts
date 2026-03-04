@@ -8,6 +8,7 @@ import type {
 } from "../../types.ts";
 import { candlesSeeded, marketSlice, orderBookUpdated } from "../marketSlice.ts";
 import { orderAdded } from "../ordersSlice.ts";
+import { setSelectedAsset } from "../uiSlice.ts";
 
 // Derive base URLs from the current origin so the app works behind Traefik
 // without any environment variables. VITE_* overrides remain available for
@@ -82,14 +83,12 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
         fetch(`${CANDLE_STORE_URL}/candles?instrument=${symbol}&interval=1m&limit=120`),
         fetch(`${CANDLE_STORE_URL}/candles?instrument=${symbol}&interval=5m&limit=120`),
       ]);
-      if (!res1m.ok || !res5m.ok) return;
-      const [candles1m, candles5m]: [OhlcCandle[], OhlcCandle[]] = await Promise.all([
-        res1m.json(),
-        res5m.json(),
-      ]);
+      const candles1m: OhlcCandle[] = res1m.ok ? await res1m.json() : [];
+      const candles5m: OhlcCandle[] = res5m.ok ? await res5m.json() : [];
       storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": candles1m, "5m": candles5m } }));
     } catch {
-      // candle-store unavailable — chart will populate from live ticks
+      // candle-store unavailable — mark ready so chart renders from live ticks
+      storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": [], "5m": [] } }));
     }
   }
 
@@ -100,6 +99,10 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
       storeAPI.dispatch(marketSlice.actions.setAssets(data));
 
       if (data.length === 0) return;
+
+      // Auto-select the first asset so the chart and depth panels
+      // pre-populate without requiring the user to click in Market Ladder.
+      storeAPI.dispatch(setSelectedAsset(data[0].symbol));
 
       // Seed the first asset immediately so the chart populates right away,
       // then trickle-fetch the rest with a small delay between each to avoid
