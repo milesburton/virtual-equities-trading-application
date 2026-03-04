@@ -6,19 +6,18 @@
   },
   "forwardPorts": [8080, 5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 9879, 9881],
   "portsAttributes": {
-    "8080": { "label": "Frontend UI", "onAutoForward": "notify" },
-    "5000": { "label": "Market Sim" },
-    "5001": { "label": "EMS" },
-    "5002": { "label": "OMS" },
-    "5003": { "label": "Limit Algo" },
-    
-    "5004": { "label": "TWAP Algo" },
-    "5005": { "label": "POV Algo" },
-    "5006": { "label": "VWAP Algo" },
-    "5007": { "label": "Observability" },
-    "5008": { "label": "User Service" },
-    "9879": { "label": "FIX Exchange (health)" },
-    "9881": { "label": "FIX Gateway (WS)" }
+    "8080": { "label": "Frontend UI", "onAutoForward": "openBrowserOnce", "protocol": "http", "elevateIfNeeded": false },
+    "5000": { "label": "Market Sim", "onAutoForward": "ignore" },
+    "5001": { "label": "EMS", "onAutoForward": "ignore" },
+    "5002": { "label": "OMS", "onAutoForward": "ignore" },
+    "5003": { "label": "Limit Algo", "onAutoForward": "ignore" },
+    "5004": { "label": "TWAP Algo", "onAutoForward": "ignore" },
+    "5005": { "label": "POV Algo", "onAutoForward": "ignore" },
+    "5006": { "label": "VWAP Algo", "onAutoForward": "ignore" },
+    "5007": { "label": "Observability", "onAutoForward": "ignore" },
+    "5008": { "label": "User Service", "onAutoForward": "ignore" },
+    "9879": { "label": "FIX Exchange (health)", "onAutoForward": "ignore" },
+    "9881": { "label": "FIX Gateway (WS)", "onAutoForward": "ignore" }
   },
   "customizations": {
     "vscode": {
