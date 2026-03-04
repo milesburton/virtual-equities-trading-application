@@ -14,6 +14,136 @@ function formatPrice(symbol: string, price: number) {
   return symbol.includes("/") ? price.toFixed(4) : price.toFixed(2);
 }
 
+function fmt2(n: number) {
+  return n.toFixed(2);
+}
+
+function AssetInfoBar({ symbol }: { symbol: string }) {
+  const assets = useAppSelector((s) => s.market.assets);
+  const orderBook = useAppSelector((s) => s.market.orderBook);
+  const asset = assets.find((a) => a.symbol === symbol);
+  if (!asset) return null;
+
+  const book = orderBook[symbol];
+  const bid = book?.bids[0]?.price;
+  const ask = book?.asks[0]?.price;
+  const spreadBps = bid && ask ? (((ask - bid) / ((bid + ask) / 2)) * 10_000).toFixed(1) : null;
+
+  return (
+    <div className="rounded bg-gray-800/60 border border-gray-700/50 px-2.5 py-2 text-[10px] grid grid-cols-2 gap-x-4 gap-y-1">
+      <div className="flex justify-between">
+        <span className="text-gray-500">Bid</span>
+        <span className="tabular-nums text-sky-400">{bid ? formatPrice(symbol, bid) : "—"}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Ask</span>
+        <span className="tabular-nums text-red-400">{ask ? formatPrice(symbol, ask) : "—"}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Spread</span>
+        <span className="tabular-nums text-gray-400">{spreadBps ? `${spreadBps}bp` : "—"}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Beta</span>
+        <span className="tabular-nums text-gray-400">
+          {asset.beta !== undefined ? asset.beta.toFixed(2) : "—"}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Mkt Cap</span>
+        <span className="tabular-nums text-gray-400">
+          {asset.marketCapB !== undefined
+            ? asset.marketCapB >= 1000
+              ? `$${(asset.marketCapB / 1000).toFixed(1)}T`
+              : `$${asset.marketCapB.toFixed(0)}B`
+            : "—"}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Div Yld</span>
+        <span className="tabular-nums text-gray-400">
+          {asset.dividendYield !== undefined && asset.dividendYield > 0
+            ? `${(asset.dividendYield * 100).toFixed(2)}%`
+            : "—"}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">P/E</span>
+        <span className="tabular-nums text-gray-400">
+          {asset.peRatio !== undefined && asset.peRatio > 0 ? asset.peRatio.toFixed(1) : "—"}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-gray-500">Exchange</span>
+        <span className="tabular-nums text-gray-400">{asset.exchange ?? "—"}</span>
+      </div>
+    </div>
+  );
+}
+
+function OrderPreview({
+  symbol,
+  qty,
+  limitPx,
+  side,
+}: {
+  symbol: string;
+  qty: number;
+  limitPx: number;
+  side: "BUY" | "SELL";
+}) {
+  const orderBook = useAppSelector((s) => s.market.orderBook);
+  if (qty <= 0 || limitPx <= 0) return null;
+
+  const notional = qty * limitPx;
+  const book = orderBook[symbol];
+  const mid = book?.mid;
+  const arrivalSlippageBps =
+    mid && mid > 0 ? ((limitPx - mid) / mid) * 10_000 * (side === "BUY" ? 1 : -1) : null;
+
+  return (
+    <div className="rounded bg-gray-800/40 border border-gray-700/40 px-2.5 py-1.5 text-[10px] flex items-center justify-between gap-3">
+      <div className="flex gap-3">
+        <span className="text-gray-500">Notional</span>
+        <span className="tabular-nums text-gray-200 font-semibold">
+          $
+          {notional >= 1_000_000
+            ? `${(notional / 1_000_000).toFixed(2)}M`
+            : notional >= 1_000
+              ? `${(notional / 1_000).toFixed(1)}K`
+              : fmt2(notional)}
+        </span>
+      </div>
+      {arrivalSlippageBps !== null && (
+        <div className="flex gap-1.5 items-center">
+          <span className="text-gray-500">vs Mid</span>
+          <span
+            className={`tabular-nums font-semibold ${
+              arrivalSlippageBps > 5
+                ? "text-red-400"
+                : arrivalSlippageBps < -5
+                  ? "text-emerald-400"
+                  : "text-gray-400"
+            }`}
+          >
+            {arrivalSlippageBps > 0 ? "+" : ""}
+            {arrivalSlippageBps.toFixed(1)}bp
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TIF_OPTIONS = [
+  { value: "DAY", label: "DAY", title: "Day order — expires at market close" },
+  { value: "GTC", label: "GTC", title: "Good Till Cancelled" },
+  { value: "IOC", label: "IOC", title: "Immediate Or Cancel — fill what you can instantly" },
+  { value: "FOK", label: "FOK", title: "Fill Or Kill — all or nothing immediately" },
+] as const;
+
+type TifValue = (typeof TIF_OPTIONS)[number]["value"];
+
 export function OrderTicket() {
   const dispatch = useAppDispatch();
   const { registerTicketRef } = useTradingContext();
@@ -28,6 +158,7 @@ export function OrderTicket() {
   const quantity = useSignal("100");
   const limitPrice = useSignal("");
   const expiresAt = useSignal("300");
+  const tif = useSignal<TifValue>("DAY");
   const twapSlices = useSignal("10");
   const twapCap = useSignal("25");
   const povRate = useSignal("10");
@@ -49,8 +180,6 @@ export function OrderTicket() {
   const selectedAsset = assets.find((a) => a.symbol === assetSearch.value) ?? assets[0];
   const currentPrice = selectedAsset ? prices[selectedAsset.symbol] : undefined;
 
-  // Populate limit price once on first render (signals transform tracks assetSearch.value
-  // reactively, so selectAsset() handles subsequent asset changes imperatively).
   const _priceInitialised = useRef(false);
   if (!_priceInitialised.current && currentPrice) {
     _priceInitialised.current = true;
@@ -63,20 +192,18 @@ export function OrderTicket() {
     limitPrice.value = price ? formatPrice(symbol, price) : "";
   }
 
-  // Pre-fill asset from incoming channel when the field hasn't been manually set
   const channelAsset = channelIn.selectedAsset;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: assetSearch.value is a signal (read access does not need to be in deps); selectAsset is stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: signal read is reactive, selectAsset is stable
   useEffect(() => {
     if (channelAsset && channelAsset !== assetSearch.value) {
       selectAsset(channelAsset);
     }
   }, [channelAsset]);
 
-  const isValid =
-    Number(quantity.value) > 0 &&
-    Number(limitPrice.value) > 0 &&
-    Number(expiresAt.value) > 0 &&
-    selectedAsset !== undefined;
+  const qty = Number(quantity.value);
+  const lx = Number(limitPrice.value);
+
+  const isValid = qty > 0 && lx > 0 && Number(expiresAt.value) > 0 && selectedAsset !== undefined;
 
   function buildAlgoParams(): AlgoParams {
     if (activeStrategy === "TWAP") {
@@ -119,8 +246,8 @@ export function OrderTicket() {
     const trade = {
       asset: selectedAsset.symbol,
       side: activeSide,
-      quantity: Number(quantity.value),
-      limitPrice: Number(limitPrice.value),
+      quantity: qty,
+      limitPrice: lx,
       expiresAt: Number(expiresAt.value),
       algoParams: buildAlgoParams(),
     };
@@ -147,7 +274,6 @@ export function OrderTicket() {
     },
     { preventDefault: true }
   );
-
   useHotkeys(
     "escape",
     () => {
@@ -158,13 +284,15 @@ export function OrderTicket() {
     { preventDefault: false }
   );
 
+  const symbol = selectedAsset?.symbol ?? "";
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
           Order Ticket
         </span>
-        <span className="text-[10px] text-gray-600">? for shortcuts</span>
+        <span className="text-[10px] text-gray-600">Ctrl+↵ submit · Esc reset</span>
       </div>
 
       <form
@@ -183,9 +311,9 @@ export function OrderTicket() {
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
           >
             <option value="LIMIT">Limit Order</option>
-            <option value="TWAP">TWAP</option>
-            <option value="POV">POV</option>
-            <option value="VWAP">VWAP</option>
+            <option value="TWAP">TWAP — Time Weighted Avg Price</option>
+            <option value="POV">POV — Percentage of Volume</option>
+            <option value="VWAP">VWAP — Volume Weighted Avg Price</option>
           </select>
         </div>
 
@@ -200,6 +328,8 @@ export function OrderTicket() {
           prices={prices}
         />
 
+        {symbol && <AssetInfoBar symbol={symbol} />}
+
         <fieldset>
           <legend className="block text-xs text-gray-500 mb-1">
             Side <span className="text-gray-700">(B / S)</span>
@@ -208,7 +338,7 @@ export function OrderTicket() {
             <button
               type="button"
               onClick={() => dispatch(setActiveSide("BUY"))}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${
+              className={`flex-1 py-2 text-xs font-semibold rounded border transition-colors ${
                 activeSide === "BUY"
                   ? "bg-emerald-700 border-emerald-500 text-emerald-100"
                   : "bg-gray-800 border-gray-700 text-gray-400 hover:border-emerald-700"
@@ -219,7 +349,7 @@ export function OrderTicket() {
             <button
               type="button"
               onClick={() => dispatch(setActiveSide("SELL"))}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded border transition-colors ${
+              className={`flex-1 py-2 text-xs font-semibold rounded border transition-colors ${
                 activeSide === "SELL"
                   ? "bg-red-800 border-red-600 text-red-100"
                   : "bg-gray-800 border-gray-700 text-gray-400 hover:border-red-700"
@@ -232,7 +362,7 @@ export function OrderTicket() {
 
         <div>
           <label htmlFor="quantity" className="block text-xs text-gray-500 mb-1">
-            Quantity
+            Quantity <span className="text-gray-600">(shares)</span>
           </label>
           <input
             id="quantity"
@@ -252,17 +382,20 @@ export function OrderTicket() {
             <label htmlFor="limitPrice" className="text-xs text-gray-500">
               Limit Price
             </label>
-            {currentPrice && (
-              <button
-                type="button"
-                onClick={() => {
-                  limitPrice.value = formatPrice(selectedAsset?.symbol ?? "", currentPrice);
-                }}
-                className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
-              >
-                Use market
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {currentPrice && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    limitPrice.value = formatPrice(symbol, currentPrice);
+                  }}
+                  className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
+                  title="Set limit at current mid price"
+                >
+                  Mid
+                </button>
+              )}
+            </div>
           </div>
           <input
             id="limitPrice"
@@ -278,9 +411,36 @@ export function OrderTicket() {
           />
         </div>
 
+        {qty > 0 && lx > 0 && (
+          <OrderPreview symbol={symbol} qty={qty} limitPx={lx} side={activeSide} />
+        )}
+
+        <div>
+          <span className="block text-xs text-gray-500 mb-1">Time In Force</span>
+          <div className="flex gap-1">
+            {TIF_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                title={opt.title}
+                onClick={() => {
+                  tif.value = opt.value;
+                }}
+                className={`flex-1 py-1 text-[10px] font-mono rounded border transition-colors ${
+                  tif.value === opt.value
+                    ? "bg-gray-600 border-gray-500 text-gray-100"
+                    : "bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label htmlFor="expiresAt" className="block text-xs text-gray-500 mb-1">
-            Expiry (seconds)
+            Duration <span className="text-gray-600">(seconds)</span>
           </label>
           <input
             id="expiresAt"
@@ -333,7 +493,7 @@ export function OrderTicket() {
         <button
           type="submit"
           disabled={!isValid || submitting.value}
-          className={`w-full py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
+          className={`w-full py-2.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
             activeSide === "BUY"
               ? "bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 text-white"
               : "bg-red-700 hover:bg-red-600 disabled:bg-red-900/50 text-white"
@@ -341,7 +501,7 @@ export function OrderTicket() {
         >
           {submitting.value
             ? "Submitting…"
-            : `${activeSide} ${selectedAsset?.symbol ?? ""}  ·  Ctrl+↵`}
+            : `${activeSide} ${symbol}${qty > 0 && lx > 0 ? ` · $${(qty * lx).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : ""}`}
         </button>
 
         <p

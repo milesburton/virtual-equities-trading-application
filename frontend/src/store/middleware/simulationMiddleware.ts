@@ -1,9 +1,91 @@
 import type { Dispatch, ListenerEffectAPI, UnknownAction } from "@reduxjs/toolkit";
 import { createListenerMiddleware } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
-import type { ChildOrder, MarketPrices, ObsEvent, OrderRecord } from "../../types.ts";
+import type {
+  ChildOrder,
+  LiquidityFlag,
+  MarketPrices,
+  ObsEvent,
+  OrderRecord,
+  VenueMIC,
+} from "../../types.ts";
 import { marketSlice } from "../marketSlice.ts";
 import { ordersSlice } from "../ordersSlice.ts";
+
+const VENUES: { mic: VenueMIC; weight: number }[] = [
+  { mic: "XNAS", weight: 30 },
+  { mic: "XNYS", weight: 25 },
+  { mic: "ARCX", weight: 15 },
+  { mic: "BATS", weight: 12 },
+  { mic: "EDGX", weight: 8 },
+  { mic: "IEX", weight: 6 },
+  { mic: "MEMX", weight: 4 },
+];
+
+const COUNTERPARTIES = [
+  "GSCO",
+  "MSCO",
+  "JPMS",
+  "BAML",
+  "CITI",
+  "VIRX",
+  "CITD",
+  "SUSG",
+  "JNST",
+  "TWOC",
+];
+
+function pickVenue(): VenueMIC {
+  const total = VENUES.reduce((s, v) => s + v.weight, 0);
+  let r = Math.random() * total;
+  for (const v of VENUES) {
+    r -= v.weight;
+    if (r <= 0) return v.mic;
+  }
+  return "XNAS";
+}
+
+function pickCounterparty(): string {
+  return COUNTERPARTIES[Math.floor(Math.random() * COUNTERPARTIES.length)];
+}
+
+function pickLiquidityFlag(): LiquidityFlag {
+  const r = Math.random();
+  return r < 0.4 ? "MAKER" : r < 0.95 ? "TAKER" : "CROSS";
+}
+
+function t2Settlement(fromMs = Date.now()): string {
+  const d = new Date(fromMs);
+  let daysAdded = 0;
+  while (daysAdded < 2) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) daysAdded++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function simulatedCommission(qty: number, liquidityFlag: LiquidityFlag): number {
+  const perShare = liquidityFlag === "MAKER" ? -0.002 : 0.005;
+  return parseFloat((qty * perShare).toFixed(2));
+}
+
+function enrichChildOrder(
+  base: Omit<
+    ChildOrder,
+    "venue" | "counterparty" | "liquidityFlag" | "commissionUSD" | "settlementDate"
+  >
+): ChildOrder {
+  const liq = pickLiquidityFlag();
+  return {
+    ...base,
+    venue: pickVenue(),
+    counterparty: pickCounterparty(),
+    liquidityFlag: liq,
+    commissionUSD: simulatedCommission(base.filled, liq),
+    settlementDate: t2Settlement(),
+  };
+}
 
 // Use structural types to avoid circular import with store/index.ts
 interface SimState {
@@ -36,7 +118,7 @@ function startTwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
   let sliceIndex = 0;
 
   const handle = setInterval(() => {
-    const child: ChildOrder = {
+    const child = enrichChildOrder({
       id: uuidv4(),
       parentId: order.id,
       asset: order.asset,
@@ -46,7 +128,7 @@ function startTwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
       status: "filled",
       filled: sliceSize,
       submittedAt: Date.now(),
-    };
+    });
     api.dispatch(ordersSlice.actions.childAdded({ parentId: order.id, child }));
     filled = Math.min(filled + sliceSize, order.quantity);
     sliceIndex++;
@@ -84,7 +166,7 @@ function startPovSimulation(order: OrderRecord, api: SimListenerAPI): void {
     const rawSlice = (participationRate / 100) * marketVolume;
     const slice = Math.min(Math.max(rawSlice, minSlice), maxSlice, order.quantity - filled);
     if (slice > 0) {
-      const child: ChildOrder = {
+      const child = enrichChildOrder({
         id: uuidv4(),
         parentId: order.id,
         asset: order.asset,
@@ -94,7 +176,7 @@ function startPovSimulation(order: OrderRecord, api: SimListenerAPI): void {
         status: "filled",
         filled: slice,
         submittedAt: Date.now(),
-      };
+      });
       api.dispatch(ordersSlice.actions.childAdded({ parentId: order.id, child }));
     }
     filled += slice;
@@ -130,12 +212,11 @@ function startVwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
   let sliceIndex = 0;
 
   const handle = setInterval(() => {
-    // Read live price from store at tick time — no stale closure
     const currentPrice = api.getState().market.prices[order.asset] ?? order.limitPrice;
     const deviation = Math.abs(currentPrice - order.limitPrice) / order.limitPrice;
     if (deviation > maxDev) return;
 
-    const child: ChildOrder = {
+    const child = enrichChildOrder({
       id: uuidv4(),
       parentId: order.id,
       asset: order.asset,
@@ -145,7 +226,7 @@ function startVwapSimulation(order: OrderRecord, api: SimListenerAPI): void {
       status: "filled",
       filled: sliceSize,
       submittedAt: Date.now(),
-    };
+    });
     api.dispatch(ordersSlice.actions.childAdded({ parentId: order.id, child }));
     filled = Math.min(filled + sliceSize, order.quantity);
     sliceIndex++;
@@ -177,7 +258,6 @@ const startAppListening = simulationMiddleware.startListening.withTypes<
   Dispatch<UnknownAction>
 >();
 
-// LIMIT: check fill/expire on every market tick
 startAppListening({
   actionCreator: marketSlice.actions.tickReceived,
   effect: (_action, api) => {
@@ -185,7 +265,6 @@ startAppListening({
   },
 });
 
-// TWAP/POV/VWAP: start simulations when order is added
 startAppListening({
   actionCreator: ordersSlice.actions.orderAdded,
   effect: (action, api) => {
@@ -196,7 +275,6 @@ startAppListening({
   },
 });
 
-// Observability side-effects
 startAppListening({
   actionCreator: ordersSlice.actions.orderAdded,
   effect: (action) => {

@@ -4,11 +4,10 @@ import { List } from "react-window";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
-import type { AssetDef, MarketPrices, PriceHistory } from "../types.ts";
+import type { AssetDef, MarketPrices, OrderBookSnapshot, PriceHistory } from "../types.ts";
 import { PopOutButton } from "./PopOutButton.tsx";
 
-const SPREAD = 0.0001;
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 48; // taller to show second info line
 
 function formatPrice(symbol: string, price: number) {
   return symbol.includes("/") ? price.toFixed(4) : price.toFixed(2);
@@ -71,6 +70,7 @@ interface RowData {
   filtered: AssetDef[];
   prices: MarketPrices;
   priceHistory: PriceHistory;
+  orderBook: Record<string, OrderBookSnapshot>;
   selectedAsset: string | null;
   onSelectAsset: (symbol: string | null) => void;
 }
@@ -87,6 +87,7 @@ function Row({
   filtered,
   prices,
   priceHistory,
+  orderBook,
   selectedAsset,
   onSelectAsset,
   ariaAttributes,
@@ -98,8 +99,11 @@ function Row({
   const history = priceHistory[asset.symbol] ?? [];
   const open = history[0] ?? price;
   const changePct = open > 0 ? ((price - open) / open) * 100 : 0;
-  const bid = price * (1 - SPREAD);
-  const ask = price * (1 + SPREAD);
+
+  const book = orderBook[asset.symbol];
+  const bid = book?.bids[0]?.price ?? price * (1 - 0.0005);
+  const ask = book?.asks[0]?.price ?? price * (1 + 0.0005);
+  const spreadBps = price > 0 ? ((ask - bid) / price) * 10_000 : 0;
   const changePos = changePct >= 0;
   const isSelected = selectedAsset === asset.symbol;
 
@@ -125,10 +129,27 @@ function Row({
     >
       <div className="w-[90px] px-3 flex-shrink-0">
         <div className="font-semibold text-gray-200 leading-tight">{asset.symbol}</div>
-        <div className="text-gray-600 text-[10px] leading-tight truncate">{asset.sector}</div>
+        <div className="text-gray-600 text-[9px] leading-tight truncate">{asset.sector}</div>
+        {asset.beta !== undefined && (
+          <div className="text-gray-700 text-[9px] leading-tight">
+            β{asset.beta.toFixed(2)}
+            {asset.marketCapB !== undefined && (
+              <span className="ml-1">
+                {asset.marketCapB >= 1000
+                  ? `${(asset.marketCapB / 1000).toFixed(1)}T`
+                  : `${asset.marketCapB.toFixed(0)}B`}
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      <div className="w-[64px] text-right px-2 text-sky-400 tabular-nums flex-shrink-0">
-        {price > 0 ? formatPrice(asset.symbol, bid) : "—"}
+      <div className="w-[64px] text-right px-2 flex-shrink-0">
+        <div className="text-sky-400 tabular-nums text-[10px]">
+          {price > 0 ? formatPrice(asset.symbol, bid) : "—"}
+        </div>
+        {price > 0 && (
+          <div className="text-gray-700 text-[9px] tabular-nums">{spreadBps.toFixed(1)}bp</div>
+        )}
       </div>
       <div className="w-[64px] text-right px-2 text-red-400 tabular-nums flex-shrink-0">
         {price > 0 ? formatPrice(asset.symbol, ask) : "—"}
@@ -157,10 +178,11 @@ export function MarketLadder() {
   const assets = useAppSelector((s) => s.market.assets);
   const prices = useAppSelector((s) => s.market.prices);
   const priceHistory = useAppSelector((s) => s.market.priceHistory);
-  const selectedAsset = useAppSelector((s) => s.ui.selectedAsset);
+  const orderBook = useAppSelector((s) => s.market.orderBook);
 
   const search = useSignal("");
   const sectorFilter = useSignal("All");
+  const localSelected = useSignal<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listHeight = useSignal(400);
 
@@ -192,10 +214,18 @@ export function MarketLadder() {
   }, [listHeight]);
 
   function onSelectAsset(symbol: string | null) {
+    localSelected.value = symbol;
     broadcast({ selectedAsset: symbol });
   }
 
-  const rowData: RowData = { filtered, prices, priceHistory, selectedAsset, onSelectAsset };
+  const rowData: RowData = {
+    filtered,
+    prices,
+    priceHistory,
+    orderBook,
+    selectedAsset: localSelected.value,
+    onSelectAsset,
+  };
 
   return (
     <div className="flex flex-col h-full">
