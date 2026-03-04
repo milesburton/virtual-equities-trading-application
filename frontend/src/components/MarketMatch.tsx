@@ -372,12 +372,12 @@ export function MarketMatch() {
                 </tr>
               </thead>
               <tbody>
-                {fills.map((f, i) => {
+                {fills.map((f) => {
                   const liq = f.liquidityFlag ? LIQ_STYLES[f.liquidityFlag] : null;
                   const isBuy = f.side === "BUY";
                   return (
                     <tr
-                      key={`${f.ts}-${i}`}
+                      key={`${f.ts}-${f.parentOrderId ?? f.asset}-${f.side}`}
                       className="border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors cursor-context-menu"
                       onContextMenu={(e) => openFillCtxMenu(e, f)}
                       title="Right-click for options"
