@@ -151,7 +151,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                     editValue.value = ws.name;
                   }
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => onSelect(ws.id)}
               >
                 {ws.name}
               </button>
