@@ -1204,6 +1204,9 @@ export function DashboardLayout() {
         if (symbol) {
           const inCh = incoming !== null ? CHANNEL_COLOURS[incoming] : null;
           const desc = panelType ? PANEL_DESCRIPTIONS[panelType] : undefined;
+          // Extract the bracket suffix from PANEL_TITLES e.g. "(place trades)"
+          const bracketMatch = panelType ? PANEL_TITLES[panelType].match(/(\(.*\))$/) : null;
+          const bracket = bracketMatch?.[1];
           renderValues.content = (
             <span title={desc} className="flex items-center gap-1">
               {inCh && (
@@ -1213,6 +1216,7 @@ export function DashboardLayout() {
                 />
               )}
               <span>{symbol}</span>
+              {bracket && <span className="text-gray-500 font-normal">{bracket}</span>}
             </span>
           );
         }

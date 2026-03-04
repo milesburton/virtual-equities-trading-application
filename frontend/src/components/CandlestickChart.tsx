@@ -65,12 +65,12 @@ export function CandlestickChart({ symbol, candles }: Props) {
   // fitContent should only fire once both the container has width AND data is loaded.
   const hasWidthRef = useRef(false);
   const hasDataRef = useRef(false);
-
-  function tryFitContent() {
+  // Stable ref so the helper can be called from effects without appearing in dep arrays.
+  const tryFitContentRef = useRef(() => {
     if (hasWidthRef.current && hasDataRef.current) {
       chartRef.current?.timeScale().fitContent();
     }
-  }
+  });
 
   // Create chart once on mount
   useEffect(() => {
@@ -112,7 +112,7 @@ export function CandlestickChart({ symbol, candles }: Props) {
       if (width > 0) {
         hasWidthRef.current = true;
         ro.disconnect();
-        tryFitContent();
+        tryFitContentRef.current();
       }
     });
     ro.observe(containerRef.current);
@@ -154,7 +154,7 @@ export function CandlestickChart({ symbol, candles }: Props) {
       lastLoadedFirstTimeRef.current = firstTime;
       // Mark data as loaded and try to fit (no-op if width not yet known)
       hasDataRef.current = true;
-      requestAnimationFrame(() => tryFitContent());
+      requestAnimationFrame(() => tryFitContentRef.current());
     } else {
       // Incremental update — only update the last candle (tick append or bucket close)
       cs.update(toBarData(last));
