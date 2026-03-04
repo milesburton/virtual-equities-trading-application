@@ -2,11 +2,13 @@ import { useSignal } from "@preact/signals-react";
 import { useEffect, useMemo, useRef } from "react";
 import { List } from "react-window";
 import { Line, LineChart, Tooltip, YAxis } from "recharts";
+import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { AssetDef, MarketPrices, OrderBookSnapshot, PriceHistory } from "../types.ts";
 import type { ContextMenuEntry } from "./ContextMenu.tsx";
 import { ContextMenu } from "./ContextMenu.tsx";
+import { CHANNEL_COLOURS } from "./DashboardLayout.tsx";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const ROW_HEIGHT = 48; // taller to show second info line
@@ -73,6 +75,7 @@ interface RowData {
   priceHistory: PriceHistory;
   orderBook: Record<string, OrderBookSnapshot>;
   selectedAsset: string | null;
+  channelHex: string | null; // colour of the outgoing channel, null if unlinked
   onSelectAsset: (symbol: string | null) => void;
   onContextMenu: (e: React.MouseEvent, symbol: string) => void;
 }
@@ -92,6 +95,7 @@ function Row({
   priceHistory,
   orderBook,
   selectedAsset,
+  channelHex,
   onSelectAsset,
   onContextMenu,
   ariaAttributes,
@@ -115,15 +119,18 @@ function Row({
     onSelectAsset(isSelected ? null : asset.symbol);
   }
 
+  const accentColour = isSelected ? (channelHex ?? "#34d399") : undefined;
+
   return (
     <button
       type="button"
-      style={style}
+      style={{
+        ...style,
+        borderLeft: isSelected ? `3px solid ${accentColour}` : "3px solid transparent",
+      }}
       {...ariaAttributes}
       className={`w-full flex items-center border-b border-gray-800/40 cursor-pointer transition-colors text-xs bg-transparent text-left ${
-        isSelected
-          ? "bg-emerald-900/40 border-b-2 border-emerald-500 shadow-[inset_0_0_8px_rgba(52,211,153,0.2)]"
-          : "hover:bg-gray-800/30"
+        isSelected ? "bg-gray-800/60" : "hover:bg-gray-800/30"
       }`}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -139,7 +146,12 @@ function Row({
       }
     >
       <div className="w-[90px] px-3 flex-shrink-0">
-        <div className="font-semibold text-gray-200 leading-tight">{asset.symbol}</div>
+        <div
+          className="font-semibold leading-tight"
+          style={{ color: isSelected ? (accentColour ?? "#34d399") : "#e5e7eb" }}
+        >
+          {asset.symbol}
+        </div>
         <div className="text-gray-600 text-[9px] leading-tight truncate">{asset.sector}</div>
         {asset.beta !== undefined && (
           <div className="text-gray-700 text-[9px] leading-tight">
@@ -177,7 +189,19 @@ function Row({
       >
         {price > 0 ? `${changePos ? "+" : ""}${changePct.toFixed(2)}%` : "—"}
       </div>
-      <div className="flex-1 flex justify-end pr-2">
+      <div className="flex-1 flex items-center justify-end pr-2 gap-1.5">
+        {isSelected && accentColour && (
+          <span
+            className="text-[8px] font-mono font-bold px-1 py-0.5 rounded leading-none"
+            style={{
+              color: accentColour,
+              backgroundColor: `${accentColour}22`,
+              border: `1px solid ${accentColour}55`,
+            }}
+          >
+            → {channelHex ? "linked" : "ch"}
+          </span>
+        )}
         {history.length > 1 ? <Sparkline data={history.slice(-30)} /> : null}
       </div>
     </button>
@@ -186,6 +210,8 @@ function Row({
 
 export function MarketLadder() {
   const broadcast = useChannelOut();
+  const { outgoing } = useChannelContext();
+  const channelHex = outgoing !== null ? (CHANNEL_COLOURS[outgoing]?.hex ?? null) : null;
   const assets = useAppSelector((s) => s.market.assets);
   const prices = useAppSelector((s) => s.market.prices);
   const priceHistory = useAppSelector((s) => s.market.priceHistory);
@@ -286,6 +312,7 @@ export function MarketLadder() {
     priceHistory,
     orderBook,
     selectedAsset: localSelected.value,
+    channelHex,
     onSelectAsset,
     onContextMenu: handleRowContextMenu,
   };
