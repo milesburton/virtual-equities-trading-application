@@ -1,4 +1,4 @@
-# Equities Market Emulator
+# Equities Trading Simulator
 
 **Live demo:** https://virtual-equities-trading.fly.dev/
 

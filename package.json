@@ -1,5 +1,5 @@
 {
-  "name": "virtual-equities-trading-application",
+  "name": "equities-trading-simulator",
   "version": "1.0.0",
   "private": true,
   "description": "A virtualized trading application with real-time market simulation and algorithmic trading strategies.",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Equities Market Emulator is composed of nine independent services. Each backend service runs as a separate Deno process and communicates over HTTP or WebSocket. A React + Vite frontend provides the trading UI.
+The Equities Trading Simulator is composed of nine independent services. Each backend service runs as a separate Deno process and communicates over HTTP or WebSocket. A React + Vite frontend provides the trading UI.
 
 ## Service Map
 

@@ -5,7 +5,7 @@
     "npm:@playwright/test@^1.58.2": "1.58.2",
     "npm:@preact/signals-react-transform@~0.8.1": "0.8.1_@babel+core@7.29.0_react@18.3.1",
     "npm:@preact/signals-react@^3.9.0": "3.9.0_react@18.3.1",
-    "npm:@reduxjs/toolkit@^2.11.2": "2.11.2_react@18.3.1_react-redux@9.2.0__@types+react@18.3.28__react@18.3.1_@types+react@18.3.28_redux@5.0.1",
+    "npm:@reduxjs/toolkit@^2.11.2": "2.11.2_react@18.3.1_react-redux@9.2.0__@types+react@18.3.28__react@18.3.1__redux@5.0.1_@types+react@18.3.28_redux@5.0.1",
     "npm:@testing-library/jest-dom@6": "6.9.1",
     "npm:@testing-library/react@14": "14.3.1_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@18.3.28",
     "npm:@testing-library/user-event@14": "14.6.1_@testing-library+dom@9.3.4",
@@ -17,6 +17,7 @@
     "npm:@vitejs/plugin-react@^4.3.1": "4.7.0_vite@7.3.1__picomatch@4.0.3_@babel+core@7.29.0",
     "npm:@vitest/coverage-v8@^4.0.18": "4.0.18_vitest@4.0.18__jsdom@22.1.0__vite@7.3.1___picomatch@4.0.3_jsdom@22.1.0",
     "npm:autoprefixer@^10.4.19": "10.4.27_postcss@8.5.6",
+    "npm:flexlayout-react@~0.8.18": "0.8.18_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:husky@^9.1.7": "9.1.7",
     "npm:jsdom@^22.1.0": "22.1.0",
     "npm:lightweight-charts@^5.1.0": "5.1.0",
@@ -26,7 +27,7 @@
     "npm:react-dom@^18.3.1": "18.3.1_react@18.3.1",
     "npm:react-grid-layout@^2.2.2": "2.2.2_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:react-hotkeys-hook@^5.2.4": "5.2.4_react@18.3.1_react-dom@18.3.1__react@18.3.1",
-    "npm:react-redux@^9.2.0": "9.2.0_@types+react@18.3.28_react@18.3.1",
+    "npm:react-redux@^9.2.0": "9.2.0_@types+react@18.3.28_react@18.3.1_redux@5.0.1",
     "npm:react-resizable-panels@^4.7.0": "4.7.0_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:react-window@^2.2.7": "2.2.7_react@18.3.1_react-dom@18.3.1__react@18.3.1",
     "npm:react@^18.3.1": "18.3.1",
@@ -445,21 +446,21 @@
         "use-sync-external-store"
       ]
     },
-    "@reduxjs/toolkit@2.11.2_react@18.3.1_react-redux@9.2.0__@types+react@18.3.28__react@18.3.1_@types+react@18.3.28_redux@5.0.1": {
+    "@reduxjs/toolkit@2.11.2_react@18.3.1_react-redux@9.2.0__@types+react@18.3.28__react@18.3.1__redux@5.0.1_@types+react@18.3.28_redux@5.0.1": {
       "integrity": "sha512-Kd6kAHTA6/nUpp8mySPqj3en3dm0tdMIgbttnQ1xFMVpufoj+ADi8pXLBsd4xzTRHQa7t/Jv8W5UnCuW4kuWMQ==",
       "dependencies": [
         "@standard-schema/spec",
         "@standard-schema/utils",
         "immer",
         "react",
-        "react-redux@9.2.0_@types+react@18.3.28_react@18.3.1_redux@5.0.1",
+        "react-redux",
         "redux",
         "redux-thunk",
         "reselect"
       ],
       "optionalPeers": [
         "react",
-        "react-redux@9.2.0_@types+react@18.3.28_react@18.3.1_redux@5.0.1"
+        "react-redux"
       ]
     },
     "@rolldown/pluginutils@1.0.0-beta.27": {
@@ -1383,6 +1384,13 @@
         "to-regex-range"
       ]
     },
+    "flexlayout-react@0.8.18_react@18.3.1_react-dom@18.3.1__react@18.3.1": {
+      "integrity": "sha512-xxifwxfS0NigaPHkunKZ39CafGzm7L+UDEcfuNatiOKhDQaIujmMwQrE1/B7uxbHNN3P19yoX/DJmtMo/sIiZA==",
+      "dependencies": [
+        "react",
+        "react-dom"
+      ]
+    },
     "for-each@0.3.5": {
       "integrity": "sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==",
       "dependencies": [
@@ -2126,18 +2134,6 @@
     },
     "react-is@18.3.1": {
       "integrity": "sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg=="
-    },
-    "react-redux@9.2.0_@types+react@18.3.28_react@18.3.1": {
-      "integrity": "sha512-ROY9fvHhwOD9ySfrF0wmvu//bKCQ6AeZZq1nJNtbDC+kk5DuSuNX/n6YWYF/SYy7bSba4D4FSz8DJeKY/S/r+g==",
-      "dependencies": [
-        "@types/react",
-        "@types/use-sync-external-store",
-        "react",
-        "use-sync-external-store"
-      ],
-      "optionalPeers": [
-        "@types/react"
-      ]
     },
     "react-redux@9.2.0_@types+react@18.3.28_react@18.3.1_redux@5.0.1": {
       "integrity": "sha512-ROY9fvHhwOD9ySfrF0wmvu//bKCQ6AeZZq1nJNtbDC+kk5DuSuNX/n6YWYF/SYy7bSba4D4FSz8DJeKY/S/r+g==",

@@ -72,7 +72,7 @@ function renderBar(connected: boolean, resetLayout = vi.fn()) {
 test("shows Live when connected and shows time", () => {
   renderBar(true);
   expect(screen.getByText(/Live/)).toBeInTheDocument();
-  expect(screen.getByText(/Equities Market Simulator/)).toBeInTheDocument();
+  expect(screen.getByText(/Equities Trading Simulator/)).toBeInTheDocument();
   // time element should exist
   expect(screen.getByText(/:/)).toBeInTheDocument();
 });
