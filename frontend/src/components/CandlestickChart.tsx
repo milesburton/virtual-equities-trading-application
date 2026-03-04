@@ -61,6 +61,16 @@ export function CandlestickChart({ symbol, candles }: Props) {
   const lastBarTimeRef = useRef<number>(0);
   // lastLoadedFirstTimeRef lets us detect a full-replace: if the oldest candle's time changes
   const lastLoadedFirstTimeRef = useRef<number>(0);
+  // Coordinate fitContent between resize and data effects:
+  // fitContent should only fire once both the container has width AND data is loaded.
+  const hasWidthRef = useRef(false);
+  const hasDataRef = useRef(false);
+
+  function tryFitContent() {
+    if (hasWidthRef.current && hasDataRef.current) {
+      chartRef.current?.timeScale().fitContent();
+    }
+  }
 
   // Create chart once on mount
   useEffect(() => {
@@ -95,19 +105,22 @@ export function CandlestickChart({ symbol, candles }: Props) {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // Call fitContent once the container has a stable non-zero width.
-    // After that, disconnect so live ticks / layout tweaks don't reset the user's zoom.
+    // Observe container width. Once non-zero, record it and try to fit.
+    // Disconnect immediately — subsequent resizes should not re-fit (preserve user zoom).
     const ro = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
       if (width > 0) {
-        chartRef.current?.timeScale().fitContent();
+        hasWidthRef.current = true;
         ro.disconnect();
+        tryFitContent();
       }
     });
     ro.observe(containerRef.current);
 
     return () => {
       ro.disconnect();
+      hasWidthRef.current = false;
+      hasDataRef.current = false;
       chart.remove();
     };
   }, []);
@@ -139,8 +152,9 @@ export function CandlestickChart({ symbol, candles }: Props) {
       loadedKeyRef.current = newKey;
       lastBarTimeRef.current = lastTime;
       lastLoadedFirstTimeRef.current = firstTime;
-      // rAF lets the chart finish its internal layout pass before fitting
-      requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
+      // Mark data as loaded and try to fit (no-op if width not yet known)
+      hasDataRef.current = true;
+      requestAnimationFrame(() => tryFitContent());
     } else {
       // Incremental update — only update the last candle (tick append or bucket close)
       cs.update(toBarData(last));
