@@ -37,7 +37,7 @@ export function TemplatePicker() {
               key={tpl.id}
               type="button"
               onClick={() => {
-                resetLayout(tpl.layout);
+                resetLayout(tpl.model);
                 setOpen(false);
               }}
               className="flex flex-col items-start gap-0.5 px-2 py-1.5 rounded text-left hover:bg-gray-800 transition-colors"

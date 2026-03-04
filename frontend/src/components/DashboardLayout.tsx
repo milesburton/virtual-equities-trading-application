@@ -265,6 +265,187 @@ export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
 const LAYOUT_VERSION = 9;
 
+function makeExecutionModel(): IJsonModel {
+  return {
+    global: makeDefaultModel().global,
+    layout: {
+      type: "row",
+      children: [
+        {
+          type: "tabset",
+          weight: 22,
+          children: [
+            {
+              type: "tab",
+              id: "order-ticket",
+              name: PANEL_TITLES["order-ticket"],
+              component: "order-ticket",
+              config: { panelType: "order-ticket", incoming: 1 } satisfies TabChannelConfig,
+            },
+          ],
+        },
+        {
+          type: "tabset",
+          weight: 36,
+          children: [
+            {
+              type: "tab",
+              id: "market-ladder",
+              name: PANEL_TITLES["market-ladder"],
+              component: "market-ladder",
+              config: { panelType: "market-ladder", outgoing: 1 } satisfies TabChannelConfig,
+            },
+          ],
+        },
+        {
+          type: "tabset",
+          weight: 42,
+          children: [
+            {
+              type: "tab",
+              id: "order-blotter",
+              name: PANEL_TITLES["order-blotter"],
+              component: "order-blotter",
+              config: { panelType: "order-blotter" } satisfies TabChannelConfig,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function makeAlgoModel(): IJsonModel {
+  return {
+    global: makeDefaultModel().global,
+    layout: {
+      type: "row",
+      children: [
+        {
+          type: "row",
+          weight: 65,
+          children: [
+            {
+              type: "tabset",
+              weight: 60,
+              children: [
+                {
+                  type: "tab",
+                  id: "candle-chart",
+                  name: PANEL_TITLES["candle-chart"],
+                  component: "candle-chart",
+                  config: { panelType: "candle-chart", incoming: 1 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 40,
+              children: [
+                {
+                  type: "tab",
+                  id: "market-depth",
+                  name: PANEL_TITLES["market-depth"],
+                  component: "market-depth",
+                  config: { panelType: "market-depth", incoming: 1 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "row",
+          weight: 35,
+          children: [
+            {
+              type: "tabset",
+              weight: 50,
+              children: [
+                {
+                  type: "tab",
+                  id: "algo-monitor",
+                  name: PANEL_TITLES["algo-monitor"],
+                  component: "algo-monitor",
+                  config: { panelType: "algo-monitor", incoming: 2 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 50,
+              children: [
+                {
+                  type: "tab",
+                  id: "order-blotter",
+                  name: PANEL_TITLES["order-blotter"],
+                  component: "order-blotter",
+                  config: { panelType: "order-blotter", outgoing: 2 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function makeAnalysisModel(): IJsonModel {
+  return {
+    global: makeDefaultModel().global,
+    layout: {
+      type: "row",
+      children: [
+        {
+          type: "tabset",
+          weight: 28,
+          children: [
+            {
+              type: "tab",
+              id: "market-ladder",
+              name: PANEL_TITLES["market-ladder"],
+              component: "market-ladder",
+              config: { panelType: "market-ladder", outgoing: 1 } satisfies TabChannelConfig,
+            },
+          ],
+        },
+        {
+          type: "row",
+          weight: 72,
+          children: [
+            {
+              type: "tabset",
+              weight: 60,
+              children: [
+                {
+                  type: "tab",
+                  id: "candle-chart",
+                  name: PANEL_TITLES["candle-chart"],
+                  component: "candle-chart",
+                  config: { panelType: "candle-chart", incoming: 1 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 40,
+              children: [
+                {
+                  type: "tab",
+                  id: "market-depth",
+                  name: PANEL_TITLES["market-depth"],
+                  component: "market-depth",
+                  config: { panelType: "market-depth", incoming: 1 } satisfies TabChannelConfig,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 function saveFlexModel(storageKey: string, model: Model) {
   localStorage.setItem(storageKey, JSON.stringify({ _v: LAYOUT_VERSION, flex: model.toJson() }));
 }
@@ -365,7 +546,7 @@ export interface DashboardContextValue {
   activePanelIds: Set<PanelId>;
   addPanel: (id: PanelId) => void;
   removePanel: (id: PanelId) => void;
-  resetLayout: (templateLayout?: LayoutItem[]) => void;
+  resetLayout: (templateModel?: IJsonModel) => void;
   storageKey: string;
   model: Model;
   setModel: (m: Model) => void;
@@ -472,8 +653,8 @@ export function DashboardProvider({ children, storageKey = STORAGE_KEY }: Dashbo
   );
 
   const resetLayout = useCallback(
-    (_templateLayout?: LayoutItem[]) => {
-      const next = Model.fromJson(makeDefaultModel());
+    (templateModel?: IJsonModel) => {
+      const next = Model.fromJson(templateModel ?? makeDefaultModel());
       saveFlexModel(storageKey, next);
       setModelState(next);
       setLayoutState(modelToLayoutItems(next));
@@ -939,36 +1120,30 @@ export const LAYOUT_TEMPLATES: {
   id: string;
   label: string;
   description: string;
-  layout: LayoutItem[];
+  model: IJsonModel;
 }[] = [
   {
     id: "full",
     label: "Full Dashboard",
     description: "All panels — complete trading view",
-    layout: DEFAULT_LAYOUT,
+    model: makeDefaultModel(),
   },
   {
     id: "execution",
     label: "Execution",
     description: "Order entry, ladder, and blotter",
-    layout: DEFAULT_LAYOUT.filter((l) =>
-      ["order-ticket", "market-ladder", "order-blotter"].includes(l.panelType)
-    ),
+    model: makeExecutionModel(),
   },
   {
     id: "algo",
     label: "Algo Trading",
     description: "Algorithm monitor, chart, and blotter",
-    layout: DEFAULT_LAYOUT.filter((l) =>
-      ["candle-chart", "market-depth", "algo-monitor", "order-blotter"].includes(l.panelType)
-    ),
+    model: makeAlgoModel(),
   },
   {
     id: "analysis",
     label: "Market Analysis",
     description: "Chart, depth, and ladder — no order entry",
-    layout: DEFAULT_LAYOUT.filter((l) =>
-      ["market-ladder", "candle-chart", "market-depth"].includes(l.panelType)
-    ),
+    model: makeAnalysisModel(),
   },
 ];
