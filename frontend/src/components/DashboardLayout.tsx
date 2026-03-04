@@ -295,13 +295,6 @@ export function makeDefaultModel(): IJsonModel {
                       component: "decision-log",
                       config: { panelType: "decision-log" } satisfies TabChannelConfig,
                     },
-                    {
-                      type: "tab",
-                      id: "news",
-                      name: PANEL_TITLES.news,
-                      component: "news",
-                      config: { panelType: "news" } satisfies TabChannelConfig,
-                    },
                   ],
                 },
               ],
