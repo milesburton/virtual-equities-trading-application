@@ -28,6 +28,7 @@ function makeStore(events: ObsEvent[] = [], selectedAsset?: string) {
         prices: {},
         priceHistory: {},
         candleHistory: {},
+        candlesReady: {},
         orderBook: {},
         connected: true,
       },

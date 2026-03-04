@@ -58,6 +58,7 @@ export interface MarketState {
   prices: MarketPrices;
   priceHistory: PriceHistory;
   candleHistory: CandleHistory;
+  candlesReady: Record<string, boolean>;
   orderBook: Record<string, OrderBookSnapshot>;
   connected: boolean;
 }
@@ -67,6 +68,7 @@ const initialState: MarketState = {
   prices: {},
   priceHistory: {},
   candleHistory: {},
+  candlesReady: {},
   orderBook: {},
   connected: false,
 };
@@ -110,6 +112,7 @@ export const marketSlice = createSlice({
     ) {
       const { symbol, candles } = action.payload;
       state.candleHistory[symbol] = candles;
+      state.candlesReady[symbol] = true;
     },
     orderBookUpdated(state, action: PayloadAction<Record<string, OrderBookSnapshot>>) {
       state.orderBook = action.payload;

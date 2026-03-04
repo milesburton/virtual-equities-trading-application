@@ -87,9 +87,7 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
         res1m.json(),
         res5m.json(),
       ]);
-      if (candles1m.length > 0 || candles5m.length > 0) {
-        storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": candles1m, "5m": candles5m } }));
-      }
+      storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": candles1m, "5m": candles5m } }));
     } catch {
       // candle-store unavailable — chart will populate from live ticks
     }
