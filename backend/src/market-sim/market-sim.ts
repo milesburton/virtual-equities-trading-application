@@ -39,26 +39,42 @@ interface OrderBookSnapshot { bids: OrderBookLevel[]; asks: OrderBookLevel[]; mi
 
 function computeOrderBook(
   prices: Record<string, number>,
-  volumes: Record<string, number>,
+  _volumes: Record<string, number>,
 ): Record<string, OrderBookSnapshot> {
   const book: Record<string, OrderBookSnapshot> = {};
   const now = Date.now();
   for (const [symbol, mid] of Object.entries(prices)) {
-    const tickVol = volumes[symbol] ?? 1_000;
-    const baseSize = Math.max(1, Math.round(tickVol / 390));
-    // Spread scales with daily volatility: more volatile assets have wider spreads.
-    // Anchor at ~5 bps half-spread for a low-vol stock (vol=0.01), up to ~20 bps for high-vol.
-    const dailyVol = ASSET_MAP.get(symbol)?.volatility ?? 0.02;
-    const spreadBps = Math.max(3, Math.min(20, dailyVol * 600)); // 3–20 bps
-    const spread = mid * (spreadBps / 10_000); // half-spread per level
+    const asset = ASSET_MAP.get(symbol);
+    const dailyVol = asset?.volatility ?? 0.02;
+    const dailyVolume = asset?.dailyVolume ?? 1_000_000;
+
+    // Spread: 3–25 bps half-spread, scaled by volatility with per-tick noise
+    const spreadBps = Math.max(3, Math.min(25, dailyVol * 700 * (0.85 + Math.random() * 0.3)));
+    const halfSpread = mid * (spreadBps / 10_000);
+
+    // Typical lot size based on daily volume (100–2000 shares per level near the mid)
+    const avgLotSize = Math.max(100, Math.round(dailyVolume / 5_000));
+
+    const LEVELS = 10;
     const bids: OrderBookLevel[] = [];
     const asks: OrderBookLevel[] = [];
-    for (let i = 0; i < 10; i++) {
-      const offset = (i + 0.5) * spread;
-      const sizeDecay = Math.max(1, Math.round(baseSize * (1 - i * 0.08)));
-      bids.push({ price: parseFloat((mid - offset).toFixed(4)), size: sizeDecay });
-      asks.push({ price: parseFloat((mid + offset).toFixed(4)), size: sizeDecay });
+
+    for (let i = 0; i < LEVELS; i++) {
+      // Price levels: tightest near mid, wider gaps further out (exponential-ish spacing)
+      const priceStep = halfSpread * (1 + i * 0.6);
+      const bidPrice = parseFloat((mid - priceStep).toFixed(4));
+      const askPrice = parseFloat((mid + priceStep).toFixed(4));
+
+      // Size: larger near mid, decaying with noise — bids and asks are independent
+      const bidDecay = Math.max(0.05, 1 - i * 0.09);
+      const askDecay = Math.max(0.05, 1 - i * 0.09);
+      const bidSize = Math.max(100, Math.round(avgLotSize * bidDecay * (0.5 + Math.random())));
+      const askSize = Math.max(100, Math.round(avgLotSize * askDecay * (0.5 + Math.random())));
+
+      bids.push({ price: bidPrice, size: bidSize });
+      asks.push({ price: askPrice, size: askSize });
     }
+
     book[symbol] = { bids, asks, mid, ts: now };
   }
   return book;
