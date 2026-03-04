@@ -1,0 +1,21 @@
+{
+  "name": "opensearch-sink-sessions",
+  "config": {
+    "connector.class": "org.opensearch.kafka.connect.opensearch.OpensearchSinkConnector",
+    "tasks.max": "1",
+    "topics": "user.session",
+    "connection.url": "http://opensearch:9200",
+    "type.name": "_doc",
+    "key.ignore": "true",
+    "schema.ignore": "true",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "index": "trading-sessions",
+    "behavior.on.malformed.documents": "warn",
+    "behavior.on.null.values": "ignore",
+    "max.retries": "10",
+    "retry.backoff.ms": "3000",
+    "batch.size": "50",
+    "linger.ms": "200"
+  }
+}

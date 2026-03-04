@@ -95,9 +95,14 @@ export function CandlestickChart({ symbol, candles }: Props) {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // Use ResizeObserver to call fitContent once the panel has its real dimensions
-    const ro = new ResizeObserver(() => {
-      chartRef.current?.timeScale().fitContent();
+    // Call fitContent once the container has a stable non-zero width.
+    // After that, disconnect so live ticks / layout tweaks don't reset the user's zoom.
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width > 0) {
+        chartRef.current?.timeScale().fitContent();
+        ro.disconnect();
+      }
     });
     ro.observe(containerRef.current);
 
@@ -134,7 +139,8 @@ export function CandlestickChart({ symbol, candles }: Props) {
       loadedKeyRef.current = newKey;
       lastBarTimeRef.current = lastTime;
       lastLoadedFirstTimeRef.current = firstTime;
-      chartRef.current?.timeScale().fitContent();
+      // rAF lets the chart finish its internal layout pass before fitting
+      requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
     } else {
       // Incremental update — only update the last candle (tick append or bucket close)
       cs.update(toBarData(last));
