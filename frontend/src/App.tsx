@@ -41,7 +41,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function TradingApp() {
-  const { workspaces, activeId, handleSelect, handleChange } = useWorkspaces();
+  const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
+  const { workspaces, activeId, handleSelect, handleChange } = useWorkspaces(userId);
 
   return (
     <TradingProvider>
@@ -57,8 +58,11 @@ function TradingApp() {
           onWorkspacesChange={handleChange}
         />
 
-        {/* Key forces DashboardProvider to remount (fresh localStorage read) on workspace switch */}
-        <DashboardProvider key={activeId} storageKey={workspaceStorageKey(activeId)}>
+        {/* Key scoped to userId+workspaceId — ensures each user's workspaces are isolated */}
+        <DashboardProvider
+          key={`${userId}:${activeId}`}
+          storageKey={workspaceStorageKey(userId, activeId)}
+        >
           {/* Layout controls scoped to the active workspace/provider */}
           <WorkspaceToolbar />
           {/* flexlayout needs a positioned container with explicit height */}

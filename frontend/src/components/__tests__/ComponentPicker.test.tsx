@@ -52,6 +52,11 @@ function openDropdown() {
   fireEvent.click(screen.getByRole("button", { name: /add panel/i }));
 }
 
+// Helper: find a picker button whose label starts with the given prefix
+function getPickerBtn(prefix: string) {
+  return screen.getByText(new RegExp(`^${prefix}`)).closest("button");
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ComponentPicker – toggle open/closed", () => {
@@ -62,34 +67,34 @@ describe("ComponentPicker – toggle open/closed", () => {
 
   it("does not show the dropdown before clicking", () => {
     renderPicker();
-    expect(screen.queryByText("Market Ladder")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Market Ladder/)).not.toBeInTheDocument();
   });
 
   it("shows the panel list after clicking the Panels button", () => {
     renderPicker();
     openDropdown();
-    expect(screen.getByText("Market Ladder")).toBeInTheDocument();
+    expect(screen.getByText(/^Market Ladder/)).toBeInTheDocument();
   });
 
   it("shows all available panel names", () => {
     renderPicker();
     openDropdown();
-    expect(screen.getByText("Market Ladder")).toBeInTheDocument();
-    expect(screen.getByText("Order Ticket")).toBeInTheDocument();
-    expect(screen.getByText("Order Blotter")).toBeInTheDocument();
-    expect(screen.getByText("Algo Monitor")).toBeInTheDocument();
-    expect(screen.getByText("Observability")).toBeInTheDocument();
-    expect(screen.getByText("Price Chart")).toBeInTheDocument();
-    expect(screen.getByText("Market Depth")).toBeInTheDocument();
+    expect(screen.getByText(/^Market Ladder/)).toBeInTheDocument();
+    expect(screen.getByText(/^Order Ticket/)).toBeInTheDocument();
+    expect(screen.getByText(/^Order Blotter/)).toBeInTheDocument();
+    expect(screen.getByText(/^Algo Monitor/)).toBeInTheDocument();
+    expect(screen.getByText(/^Observability/)).toBeInTheDocument();
+    expect(screen.getByText(/^Price Chart/)).toBeInTheDocument();
+    expect(screen.getByText(/^Market Depth/)).toBeInTheDocument();
   });
 
   it("closes dropdown when clicking the backdrop", () => {
     renderPicker();
     openDropdown();
-    expect(screen.getByText("Market Ladder")).toBeInTheDocument();
+    expect(screen.getByText(/^Market Ladder/)).toBeInTheDocument();
     // The backdrop button has aria-label "Close panel picker"
     fireEvent.click(screen.getByLabelText("Close panel picker"));
-    expect(screen.queryByText("Market Ladder")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Market Ladder/)).not.toBeInTheDocument();
   });
 
   it("does not show a reset layout button inside the dropdown", () => {
@@ -104,14 +109,14 @@ describe("ComponentPicker – active/hidden state", () => {
     // order-ticket is a singleton; if it is already open the button should be disabled
     renderPicker({ activePanelIds: new Set(["order-ticket"]) });
     openDropdown();
-    const btn = screen.getByText("Order Ticket").closest("button");
+    const btn = getPickerBtn("Order Ticket");
     expect(btn).toBeDisabled();
   });
 
   it("enables singleton panels that are not yet open", () => {
     renderPicker({ activePanelIds: new Set([]) });
     openDropdown();
-    const btn = screen.getByText("Order Ticket").closest("button");
+    const btn = getPickerBtn("Order Ticket");
     expect(btn).not.toBeDisabled();
   });
 
@@ -119,7 +124,7 @@ describe("ComponentPicker – active/hidden state", () => {
     // market-ladder is not a singleton — can have multiple instances
     renderPicker({ activePanelIds: new Set(["market-ladder"]) });
     openDropdown();
-    const btn = screen.getByText("Market Ladder").closest("button");
+    const btn = getPickerBtn("Market Ladder");
     expect(btn).not.toBeDisabled();
   });
 });
@@ -129,7 +134,7 @@ describe("ComponentPicker – add panels", () => {
     const addPanel = vi.fn();
     renderPicker({ activePanelIds: new Set([]), addPanel });
     openDropdown();
-    const btn = screen.getByText("Market Ladder").closest("button");
+    const btn = getPickerBtn("Market Ladder");
     if (btn) fireEvent.click(btn);
     expect(addPanel).toHaveBeenCalledWith("market-ladder");
   });
@@ -137,17 +142,17 @@ describe("ComponentPicker – add panels", () => {
   it("closes the dropdown after adding a panel", () => {
     renderPicker({ activePanelIds: new Set([]) });
     openDropdown();
-    expect(screen.getByText("Market Ladder")).toBeInTheDocument();
-    const btn = screen.getByText("Market Ladder").closest("button");
+    expect(screen.getByText(/^Market Ladder/)).toBeInTheDocument();
+    const btn = getPickerBtn("Market Ladder");
     if (btn) fireEvent.click(btn);
-    expect(screen.queryByText("Market Ladder")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Market Ladder/)).not.toBeInTheDocument();
   });
 
   it("does not call addPanel when clicking a disabled singleton button", () => {
     const addPanel = vi.fn();
     renderPicker({ activePanelIds: new Set(["order-ticket"]), addPanel });
     openDropdown();
-    const btn = screen.getByText("Order Ticket").closest("button");
+    const btn = getPickerBtn("Order Ticket");
     if (btn) fireEvent.click(btn);
     expect(addPanel).not.toHaveBeenCalled();
   });
