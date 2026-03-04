@@ -22,6 +22,7 @@ import { MarketMatch } from "./MarketMatch.tsx";
 import { ObservabilityPanel } from "./ObservabilityPanel.tsx";
 import { OrderBlotter } from "./OrderBlotter.tsx";
 import { OrderTicket } from "./OrderTicket.tsx";
+import { clearDraggedPanelId, draggedPanelId } from "./panelDragState.ts";
 
 export type { ChannelNumber };
 
@@ -1347,8 +1348,10 @@ export function DashboardLayout() {
         onRenderTab={onRenderTab}
         onModelChange={onModelChange}
         onContextMenu={onContextMenu}
-        onExternalDrag={(event) => {
-          const panelType = event.dataTransfer.getData("text/panel-id") as PanelId | "";
+        onExternalDrag={(_event) => {
+          // dataTransfer.getData() is unavailable during dragenter (browser security).
+          // Read the panel ID from the module-level draggedPanelId set on dragstart.
+          const panelType = draggedPanelId as PanelId | "";
           if (!panelType || !PANEL_IDS.includes(panelType as PanelId)) return undefined;
           if (SINGLETON_PANELS.has(panelType) && activePanelIds.has(panelType)) return undefined;
           return {
@@ -1359,6 +1362,7 @@ export function DashboardLayout() {
               component: panelType,
               config: { panelType } satisfies TabChannelConfig,
             },
+            onDrop: () => clearDraggedPanelId(),
           };
         }}
       />
