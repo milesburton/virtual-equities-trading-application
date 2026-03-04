@@ -129,7 +129,7 @@ interface TabChannelConfig {
   pinned?: boolean;
 }
 
-function makeDefaultModel(): IJsonModel {
+export function makeDefaultModel(): IJsonModel {
   return {
     global: {
       tabEnableClose: true,
@@ -316,7 +316,7 @@ function makeDefaultModel(): IJsonModel {
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
-function makeExecutionModel(): IJsonModel {
+export function makeExecutionModel(): IJsonModel {
   return {
     global: makeDefaultModel().global,
     layout: {
@@ -366,7 +366,7 @@ function makeExecutionModel(): IJsonModel {
   };
 }
 
-function makeAlgoModel(): IJsonModel {
+export function makeAlgoModel(): IJsonModel {
   return {
     global: makeDefaultModel().global,
     layout: {
@@ -441,7 +441,7 @@ function makeAlgoModel(): IJsonModel {
   };
 }
 
-function makeAnalysisModel(): IJsonModel {
+export function makeAnalysisModel(): IJsonModel {
   return {
     global: makeDefaultModel().global,
     layout: {
