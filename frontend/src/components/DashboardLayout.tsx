@@ -958,8 +958,29 @@ export function DashboardLayout() {
             chartSymbol && candleHistory[chartSymbol] ? (
               <CandlestickChart symbol={chartSymbol} candles={candleHistory[chartSymbol]} />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-600 text-xs bg-gray-950">
-                Waiting for market data…
+              <div className="flex flex-col items-center justify-center gap-3 h-full bg-gray-950">
+                <svg
+                  aria-label="Loading"
+                  className="animate-spin w-6 h-6 text-emerald-500/60"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                <span className="text-[11px] text-gray-600">Connecting to market…</span>
               </div>
             )
           );
