@@ -58,8 +58,9 @@ export function CandlestickChart({ symbol, candles }: Props) {
   const interval = useSignal<Interval>("1m");
   // Track which candle set is loaded so we know when a full reload is needed
   const loadedKeyRef = useRef<string>("");
-  const loadedCountRef = useRef<number>(0);
   const lastBarTimeRef = useRef<number>(0);
+  // lastLoadedFirstTimeRef lets us detect a full-replace: if the oldest candle's time changes
+  const lastLoadedFirstTimeRef = useRef<number>(0);
 
   // Create chart once on mount
   useEffect(() => {
@@ -84,15 +85,24 @@ export function CandlestickChart({ symbol, candles }: Props) {
       priceFormat: { type: "volume" },
       priceScaleId: "volume",
     });
-    chart.priceScale("volume").applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
+    // In lightweight-charts v5, overlay scale margins are set chart-wide.
+    // `visible` is not applicable to overlay scales and is ignored.
+    chart.applyOptions({
+      overlayPriceScales: { scaleMargins: { top: 0.8, bottom: 0 } },
     });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    // Use ResizeObserver to call fitContent once the panel has its real dimensions
+    const ro = new ResizeObserver(() => {
+      chartRef.current?.timeScale().fitContent();
+    });
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       chart.remove();
     };
   }, []);
@@ -108,25 +118,27 @@ export function CandlestickChart({ symbol, candles }: Props) {
 
     const newKey = `${symbol}:${interval.value}`;
     const isNewSeries = loadedKeyRef.current !== newKey;
-    // A jump of more than 1 means candles were seeded/replaced, not just a tick append
-    const isSeeded = !isNewSeries && raw.length > loadedCountRef.current + 1;
+    const firstTime = raw[0].time;
     const last = raw[raw.length - 1];
     const lastTime = last.time;
+    // Detect a full replace: series key changed, time went backwards, or the oldest bar changed
+    const isFullReplace =
+      isNewSeries ||
+      lastTime < lastBarTimeRef.current ||
+      firstTime !== lastLoadedFirstTimeRef.current;
 
-    if (isNewSeries || isSeeded || lastTime < lastBarTimeRef.current) {
+    if (isFullReplace) {
       // Full reload — new symbol, interval switched, history seeded, or time went backwards
       cs.setData(raw.map(toBarData));
       vs.setData(raw.map(toVolData));
       loadedKeyRef.current = newKey;
-      loadedCountRef.current = raw.length;
       lastBarTimeRef.current = lastTime;
-      // fitContent after paint so the chart has correct dimensions
-      requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
+      lastLoadedFirstTimeRef.current = firstTime;
+      chartRef.current?.timeScale().fitContent();
     } else {
       // Incremental update — only update the last candle (tick append or bucket close)
       cs.update(toBarData(last));
       vs.update(toVolData(last));
-      loadedCountRef.current = raw.length;
       lastBarTimeRef.current = lastTime;
     }
   }, [candles, interval.value, symbol]);

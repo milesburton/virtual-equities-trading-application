@@ -111,7 +111,22 @@ export const marketSlice = createSlice({
       action: PayloadAction<{ symbol: string; candles: { "1m": OhlcCandle[]; "5m": OhlcCandle[] } }>
     ) {
       const { symbol, candles } = action.payload;
-      state.candleHistory[symbol] = candles;
+      // Merge: start from server history, then re-apply any live ticks newer than the last server bar
+      const live = state.candleHistory[symbol] ?? { "1m": [], "5m": [] };
+      const merged: { "1m": OhlcCandle[]; "5m": OhlcCandle[] } = { "1m": [], "5m": [] };
+      for (const key of ["1m", "5m"] as const) {
+        const serverBars = candles[key];
+        const liveBars = live[key];
+        if (serverBars.length === 0) {
+          merged[key] = liveBars;
+        } else {
+          const lastServerTime = serverBars[serverBars.length - 1].time;
+          // Keep live bars strictly newer than the last server bar (avoids duplicates)
+          const newerLive = liveBars.filter((c) => c.time > lastServerTime);
+          merged[key] = [...serverBars, ...newerLive].slice(-MAX_CANDLES);
+        }
+      }
+      state.candleHistory[symbol] = merged;
       state.candlesReady[symbol] = true;
     },
     orderBookUpdated(state, action: PayloadAction<Record<string, OrderBookSnapshot>>) {

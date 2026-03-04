@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAppSelector } from "../store/hooks.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,14 +9,23 @@ export interface Workspace {
   name: string;
 }
 
-const WORKSPACES_KEY = "workspaces";
 const DEFAULT_WORKSPACES: Workspace[] = [{ id: "default", name: "Main" }];
 
-// ─── Persistence helpers ──────────────────────────────────────────────────────
+// ─── Per-user storage helpers ─────────────────────────────────────────────────
 
-function loadWorkspaces(): Workspace[] {
+/** Storage key for the workspace list, scoped per user to prevent cross-user contamination. */
+function workspacesKey(userId: string) {
+  return `workspaces:${userId}`;
+}
+
+/** Storage key for a workspace's panel layout, scoped per user. */
+export function workspaceStorageKey(userId: string, workspaceId: string) {
+  return `dashboard-layout:${userId}:${workspaceId}`;
+}
+
+function loadWorkspaces(userId: string): Workspace[] {
   try {
-    const raw = localStorage.getItem(WORKSPACES_KEY);
+    const raw = localStorage.getItem(workspacesKey(userId));
     if (raw) {
       const parsed = JSON.parse(raw) as Workspace[];
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -26,13 +36,22 @@ function loadWorkspaces(): Workspace[] {
   return DEFAULT_WORKSPACES;
 }
 
-function saveWorkspaces(ws: Workspace[]) {
-  localStorage.setItem(WORKSPACES_KEY, JSON.stringify(ws));
+function saveWorkspaces(userId: string, ws: Workspace[]) {
+  localStorage.setItem(workspacesKey(userId), JSON.stringify(ws));
 }
 
-/** Storage key for a workspace's panel layout. */
-export function workspaceStorageKey(id: string) {
-  return `dashboard-layout:${id}`;
+// ─── History helpers ──────────────────────────────────────────────────────────
+
+const WORKSPACE_PARAM = "ws";
+
+function getWorkspaceFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get(WORKSPACE_PARAM);
+}
+
+function pushWorkspaceHistory(workspaceId: string, workspaceName: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(WORKSPACE_PARAM, workspaceId);
+  history.pushState({ workspaceId }, workspaceName, url.toString());
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -56,42 +75,45 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
     }
   }, [editingId.value]);
 
-  const addWorkspace = useCallback(() => {
-    const id = `ws-${Date.now()}`;
-    const name = `Workspace ${workspaces.length + 1}`;
-    const next = [...workspaces, { id, name }];
-    saveWorkspaces(next);
-    onWorkspacesChange(next);
-    onSelect(id);
-  }, [workspaces, onSelect, onWorkspacesChange]);
+  const addWorkspace = useCallback(
+    (userId: string) => {
+      const id = `ws-${Date.now()}`;
+      const name = `Workspace ${workspaces.length + 1}`;
+      const next = [...workspaces, { id, name }];
+      saveWorkspaces(userId, next);
+      onWorkspacesChange(next);
+      onSelect(id);
+    },
+    [workspaces, onSelect, onWorkspacesChange]
+  );
 
   const renameWorkspace = useCallback(
-    (id: string, name: string) => {
+    (userId: string, id: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       const next = workspaces.map((w) => (w.id === id ? { ...w, name: trimmed } : w));
-      saveWorkspaces(next);
+      saveWorkspaces(userId, next);
       onWorkspacesChange(next);
     },
     [workspaces, onWorkspacesChange]
   );
 
   const removeWorkspace = useCallback(
-    (id: string) => {
-      if (workspaces.length <= 1) return; // always keep at least one
+    (userId: string, id: string) => {
+      if (workspaces.length <= 1) return;
       const next = workspaces.filter((w) => w.id !== id);
-      saveWorkspaces(next);
-      // remove persisted layout for this workspace
-      localStorage.removeItem(workspaceStorageKey(id));
+      saveWorkspaces(userId, next);
       onWorkspacesChange(next);
       if (activeId === id) onSelect(next[0].id);
     },
     [workspaces, activeId, onSelect, onWorkspacesChange]
   );
 
+  const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
+
   function commitRename() {
     if (editingId.value !== null) {
-      renameWorkspace(editingId.value, editValue.value);
+      renameWorkspace(userId, editingId.value, editValue.value);
       editingId.value = null;
     }
   }
@@ -163,7 +185,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
                 aria-label={`Close ${ws.name}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeWorkspace(ws.id);
+                  removeWorkspace(userId, ws.id);
                 }}
                 className="ml-1.5 text-gray-600 hover:text-gray-300 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
               >
@@ -177,7 +199,7 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
       <button
         type="button"
         aria-label="New workspace"
-        onClick={addWorkspace}
+        onClick={() => addWorkspace(userId)}
         className="flex items-center justify-center w-7 h-full text-gray-600 hover:text-gray-300 transition-colors text-base leading-none"
         title="New workspace"
       >
@@ -187,15 +209,52 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
   );
 }
 
-// ─── Hook: manages workspace list state and provides initial load ─────────────
+// ─── Hook: manages workspace list state, history, and user-scoped storage ─────
 
-export function useWorkspaces() {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(loadWorkspaces);
-  const [activeId, setActiveId] = useState<string>(() => loadWorkspaces()[0].id);
+export function useWorkspaces(userId: string) {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => loadWorkspaces(userId));
 
-  const handleSelect = useCallback((id: string) => {
-    setActiveId(id);
+  // Determine initial active workspace: prefer URL param, then first workspace
+  const [activeId, setActiveId] = useState<string>(() => {
+    const fromUrl = getWorkspaceFromUrl();
+    const ws = loadWorkspaces(userId);
+    const valid = ws.find((w) => w.id === fromUrl);
+    return valid?.id ?? ws[0].id;
+  });
+
+  // Push initial history entry if none exists (so back button works from the start).
+  // Use a ref so we can read the initial values without Biome exhaustive-deps warnings.
+  const initRef = useRef({ activeId, workspaces });
+  useEffect(() => {
+    const { activeId: id, workspaces: ws } = initRef.current;
+    if (!getWorkspaceFromUrl()) {
+      const match = ws.find((w) => w.id === id);
+      pushWorkspaceHistory(id, match?.name ?? "Main");
+    }
   }, []);
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      const wsId = (e.state as { workspaceId?: string } | null)?.workspaceId;
+      if (wsId) {
+        const ws = loadWorkspaces(userId);
+        const valid = ws.find((w) => w.id === wsId);
+        if (valid) setActiveId(wsId);
+      }
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [userId]);
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      const ws = workspaces.find((w) => w.id === id);
+      pushWorkspaceHistory(id, ws?.name ?? id);
+    },
+    [workspaces]
+  );
 
   const handleChange = useCallback((next: Workspace[]) => {
     setWorkspaces(next);

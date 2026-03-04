@@ -50,17 +50,34 @@ export const PANEL_IDS = [
 export type PanelId = (typeof PANEL_IDS)[number];
 
 export const PANEL_TITLES: Record<PanelId, string> = {
-  "market-ladder": "Market Ladder",
-  "order-ticket": "Order Ticket",
-  "order-blotter": "Order Blotter",
-  "algo-monitor": "Algo Monitor",
-  observability: "Observability",
-  "candle-chart": "Price Chart",
-  "market-depth": "Market Depth",
-  executions: "Executions",
-  "decision-log": "Decision Log",
-  "market-match": "Market Match",
-  admin: "Admin",
+  "market-ladder": "Market Ladder (live quotes)",
+  "order-ticket": "Order Ticket (place trades)",
+  "order-blotter": "Order Blotter (order history)",
+  "algo-monitor": "Algo Monitor (strategy status)",
+  observability: "Observability (system health)",
+  "candle-chart": "Price Chart (OHLC history)",
+  "market-depth": "Market Depth (bid/ask book)",
+  executions: "Executions (trade fills)",
+  "decision-log": "Decision Log (algo audit trail)",
+  "market-match": "Market Match (trade tape)",
+  admin: "Admin (system config)",
+};
+
+export const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
+  "market-ladder":
+    "Live asset quotes — click a row to select and broadcast the symbol to linked panels",
+  "order-ticket":
+    "Submit buy/sell orders — receives the selected symbol from a linked Market Ladder",
+  "order-blotter": "History of submitted orders with status, fill price, and P&L",
+  "algo-monitor": "Monitor running algorithmic strategies and their real-time state",
+  observability: "System health metrics — latency, throughput, and service status",
+  "candle-chart":
+    "OHLC candlestick chart with volume — receives the selected symbol from a linked panel",
+  "market-depth": "Level 2 order book — bid/ask depth ladder for the selected symbol",
+  executions: "Real-time trade execution feed — fills, partial fills, and rejections",
+  "decision-log": "Audit trail of algo decision events — signals, triggers, and reasoning",
+  "market-match": "Live matched trade tape — recent prints for the selected symbol",
+  admin: "Administrative panel — system configuration and user management",
 };
 
 // Panels that can only have one instance at a time
@@ -120,50 +137,24 @@ function makeDefaultModel(): IJsonModel {
     layout: {
       type: "row",
       children: [
-        // ── Left column: Order Ticket (top) + Order Blotter (bottom) ──────────
+        // ── Left column: Order Ticket (full height, pinned) ───────────────────
         {
-          type: "row",
+          type: "tabset",
           weight: 18,
+          enableDrag: false,
           children: [
             {
-              type: "tabset",
-              weight: 55,
+              type: "tab",
+              id: "order-ticket",
+              name: PANEL_TITLES["order-ticket"],
+              component: "order-ticket",
               enableDrag: false,
-              children: [
-                {
-                  type: "tab",
-                  id: "order-ticket",
-                  name: PANEL_TITLES["order-ticket"],
-                  component: "order-ticket",
-                  enableDrag: false,
-                  enableClose: false,
-                  config: {
-                    panelType: "order-ticket",
-                    incoming: 1,
-                    pinned: true,
-                  } satisfies TabChannelConfig,
-                },
-              ],
-            },
-            {
-              type: "tabset",
-              weight: 45,
-              enableDrag: false,
-              children: [
-                {
-                  type: "tab",
-                  id: "order-blotter",
-                  name: PANEL_TITLES["order-blotter"],
-                  component: "order-blotter",
-                  enableDrag: false,
-                  enableClose: false,
-                  config: {
-                    panelType: "order-blotter",
-                    outgoing: 2,
-                    pinned: true,
-                  } satisfies TabChannelConfig,
-                },
-              ],
+              enableClose: false,
+              config: {
+                panelType: "order-ticket",
+                incoming: 1,
+                pinned: true,
+              } satisfies TabChannelConfig,
             },
           ],
         },
@@ -193,34 +184,64 @@ function makeDefaultModel(): IJsonModel {
           type: "row",
           weight: 60,
           children: [
-            // Chart + Market Depth (top)
+            // Order Blotter (top strip) + Chart + Market Depth
             {
               type: "row",
-              weight: 65,
+              weight: 60,
               children: [
+                // Order Blotter — top strip
                 {
                   type: "tabset",
-                  weight: 58,
+                  weight: 35,
                   children: [
                     {
                       type: "tab",
-                      id: "candle-chart",
-                      name: PANEL_TITLES["candle-chart"],
-                      component: "candle-chart",
-                      config: { panelType: "candle-chart", incoming: 1 } satisfies TabChannelConfig,
+                      id: "order-blotter",
+                      name: PANEL_TITLES["order-blotter"],
+                      component: "order-blotter",
+                      config: {
+                        panelType: "order-blotter",
+                        outgoing: 2,
+                      } satisfies TabChannelConfig,
                     },
                   ],
                 },
+                // Chart + Market Depth (below blotter)
                 {
-                  type: "tabset",
-                  weight: 42,
+                  type: "row",
+                  weight: 65,
                   children: [
                     {
-                      type: "tab",
-                      id: "market-depth",
-                      name: PANEL_TITLES["market-depth"],
-                      component: "market-depth",
-                      config: { panelType: "market-depth", incoming: 1 } satisfies TabChannelConfig,
+                      type: "tabset",
+                      weight: 58,
+                      children: [
+                        {
+                          type: "tab",
+                          id: "candle-chart",
+                          name: PANEL_TITLES["candle-chart"],
+                          component: "candle-chart",
+                          config: {
+                            panelType: "candle-chart",
+                            incoming: 1,
+                          } satisfies TabChannelConfig,
+                        },
+                      ],
+                    },
+                    {
+                      type: "tabset",
+                      weight: 42,
+                      children: [
+                        {
+                          type: "tab",
+                          id: "market-depth",
+                          name: PANEL_TITLES["market-depth"],
+                          component: "market-depth",
+                          config: {
+                            panelType: "market-depth",
+                            incoming: 1,
+                          } satisfies TabChannelConfig,
+                        },
+                      ],
                     },
                   ],
                 },
@@ -229,7 +250,7 @@ function makeDefaultModel(): IJsonModel {
             // Algo Monitor + Executions + Decision Log (bottom)
             {
               type: "row",
-              weight: 35,
+              weight: 40,
               children: [
                 {
                   type: "tabset",
@@ -281,8 +302,6 @@ function makeDefaultModel(): IJsonModel {
 
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
-
-const LAYOUT_VERSION = 11;
 
 function makeExecutionModel(): IJsonModel {
   return {
@@ -465,24 +484,8 @@ function makeAnalysisModel(): IJsonModel {
   };
 }
 
-function saveFlexModel(storageKey: string, model: Model) {
-  localStorage.setItem(storageKey, JSON.stringify({ _v: LAYOUT_VERSION, flex: model.toJson() }));
-}
-
-function loadFlexModel(storageKey: string): Model {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed._v === LAYOUT_VERSION && parsed.flex) {
-        return Model.fromJson(parsed.flex as IJsonModel);
-      }
-    }
-  } catch {
-    // fall through
-  }
-  return Model.fromJson(makeDefaultModel());
-}
+// Layout is no longer persisted to localStorage — always start from the default model.
+// Channel assignments (which panels are linked) are session-only state.
 
 export function modelToLayoutItems(model: Model): LayoutItem[] {
   const items: LayoutItem[] = [];
@@ -593,93 +596,76 @@ interface DashboardProviderProps {
 }
 
 export function DashboardProvider({ children, storageKey = STORAGE_KEY }: DashboardProviderProps) {
-  const [model, setModelState] = useState<Model>(() => loadFlexModel(storageKey));
+  const [model, setModelState] = useState<Model>(() => Model.fromJson(makeDefaultModel()));
   const [layout, setLayoutState] = useState<LayoutItem[]>(() => modelToLayoutItems(model));
 
   const activePanelIds = new Set(layout.map((l) => l.panelType));
 
-  const setModel = useCallback(
-    (m: Model) => {
-      setModelState(m);
-      const items = modelToLayoutItems(m);
-      setLayoutState(items);
-      saveFlexModel(storageKey, m);
-    },
-    [storageKey]
-  );
+  const setModel = useCallback((m: Model) => {
+    setModelState(m);
+    setLayoutState(modelToLayoutItems(m));
+  }, []);
 
   const setLayout = useCallback(
     (_next: LayoutItem[] | ((prev: LayoutItem[]) => LayoutItem[])) => {},
     []
   );
 
-  const addPanel = useCallback(
-    (panelType: PanelId) => {
-      setModelState((prev) => {
-        // Singletons: only allow one instance
-        if (
-          SINGLETON_PANELS.has(panelType) &&
-          modelToLayoutItems(prev).some((l) => l.panelType === panelType)
-        )
-          return prev;
+  const addPanel = useCallback((panelType: PanelId) => {
+    setModelState((prev) => {
+      // Singletons: only allow one instance
+      if (
+        SINGLETON_PANELS.has(panelType) &&
+        modelToLayoutItems(prev).some((l) => l.panelType === panelType)
+      )
+        return prev;
 
-        const newTab: IJsonTabNode = {
-          type: "tab",
-          id: `${panelType}-${Date.now()}`,
-          name: PANEL_TITLES[panelType],
-          component: panelType,
-          config: { panelType } satisfies TabChannelConfig,
-        };
+      const newTab: IJsonTabNode = {
+        type: "tab",
+        id: `${panelType}-${Date.now()}`,
+        name: PANEL_TITLES[panelType],
+        component: panelType,
+        config: { panelType } satisfies TabChannelConfig,
+      };
 
-        let targetId: string | undefined;
-        prev.visitNodes((node) => {
-          if (!targetId && node.getType() === "tabset") {
-            targetId = node.getId();
-          }
-        });
-        if (!targetId) return prev;
-
-        const next = Model.fromJson(prev.toJson() as IJsonModel);
-        next.doAction(Actions.addNode(newTab, targetId, DockLocation.CENTER, -1));
-        saveFlexModel(storageKey, next);
-        setLayoutState(modelToLayoutItems(next));
-        return next;
+      let targetId: string | undefined;
+      prev.visitNodes((node) => {
+        if (!targetId && node.getType() === "tabset") {
+          targetId = node.getId();
+        }
       });
-    },
-    [storageKey]
-  );
+      if (!targetId) return prev;
 
-  const removePanel = useCallback(
-    (panelType: PanelId) => {
-      setModelState((prev) => {
-        let tabId: string | undefined;
-        prev.visitNodes((node) => {
-          if (!tabId && node.getType() === "tab") {
-            const cfg = (node as TabNode).getConfig() as TabChannelConfig | undefined;
-            if (cfg?.panelType === panelType) tabId = node.getId();
-          }
-        });
-        if (!tabId) return prev;
-
-        const next = Model.fromJson(prev.toJson() as IJsonModel);
-        next.doAction(Actions.deleteTab(tabId));
-        saveFlexModel(storageKey, next);
-        setLayoutState(modelToLayoutItems(next));
-        return next;
-      });
-    },
-    [storageKey]
-  );
-
-  const resetLayout = useCallback(
-    (templateModel?: IJsonModel) => {
-      const next = Model.fromJson(templateModel ?? makeDefaultModel());
-      saveFlexModel(storageKey, next);
-      setModelState(next);
+      const next = Model.fromJson(prev.toJson() as IJsonModel);
+      next.doAction(Actions.addNode(newTab, targetId, DockLocation.CENTER, -1));
       setLayoutState(modelToLayoutItems(next));
-    },
-    [storageKey]
-  );
+      return next;
+    });
+  }, []);
+
+  const removePanel = useCallback((panelType: PanelId) => {
+    setModelState((prev) => {
+      let tabId: string | undefined;
+      prev.visitNodes((node) => {
+        if (!tabId && node.getType() === "tab") {
+          const cfg = (node as TabNode).getConfig() as TabChannelConfig | undefined;
+          if (cfg?.panelType === panelType) tabId = node.getId();
+        }
+      });
+      if (!tabId) return prev;
+
+      const next = Model.fromJson(prev.toJson() as IJsonModel);
+      next.doAction(Actions.deleteTab(tabId));
+      setLayoutState(modelToLayoutItems(next));
+      return next;
+    });
+  }, []);
+
+  const resetLayout = useCallback((templateModel?: IJsonModel) => {
+    const next = Model.fromJson(templateModel ?? makeDefaultModel());
+    setModelState(next);
+    setLayoutState(modelToLayoutItems(next));
+  }, []);
 
   return (
     <DashboardContext.Provider
@@ -956,6 +942,85 @@ export function DashboardLayout() {
   // Tab/tabset right-click context menu
   const tabCtxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
 
+  // ── Drag-to-new-window ─────────────────────────────────────────────────────
+  // Track the last tab button that received mousedown, so when the mouse leaves
+  // the viewport during a flexlayout drag we know which tab to pop out.
+  const draggedTabIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Watch for mousedown on tab buttons to capture the dragged tab id
+    function onMouseDown(e: MouseEvent) {
+      const btn = (e.target as Element).closest(".flexlayout__tab_button");
+      if (!btn) {
+        draggedTabIdRef.current = null;
+        return;
+      }
+      // flexlayout sets data-layout-path on tab buttons — walk up to find tab id
+      // Alternative: read from the DOM node's data attribute set by flexlayout
+      const path = btn.getAttribute("data-layout-path");
+      if (path) {
+        // path is like "#1/ts0/t0" — not directly the tab id we need
+        // Instead use the aria-label or find by traversing the model
+        // Find the tab node by matching the button's text content to tab names
+        const label = btn.querySelector(".flexlayout__tab_button_content")?.textContent?.trim();
+        if (label) {
+          let found: string | null = null;
+          model.visitNodes((node) => {
+            if (!found && node.getType() === "tab") {
+              const t = node as TabNode;
+              // Match by the rendered tab name text (may include symbol for receiver panels)
+              if (t.getName() === label || label.startsWith(t.getName())) {
+                found = t.getId();
+              }
+            }
+          });
+          draggedTabIdRef.current = found;
+        }
+      }
+    }
+
+    // When mouse leaves the browser viewport during a drag, pop out the tab
+    function onMouseLeave(e: MouseEvent) {
+      // Only trigger if it's a true window leave (not just leaving a child element)
+      if (e.relatedTarget !== null) return;
+      // Check if a flexlayout drag is in progress
+      const isDragging = !!document.querySelector(".flexlayout__drag_rect");
+      if (!isDragging || !draggedTabIdRef.current) return;
+
+      const tabId = draggedTabIdRef.current;
+      draggedTabIdRef.current = null;
+
+      // Find the tab node to verify it's still in the model and get its config
+      let tabNode: TabNode | null = null;
+      model.visitNodes((node) => {
+        if (!tabNode && node.getType() === "tab" && node.getId() === tabId) {
+          tabNode = node as TabNode;
+        }
+      });
+      if (!tabNode) return;
+
+      // Open a new window with this panel using our existing pop-out mechanism
+      const cfg = (tabNode as TabNode).getConfig() as TabChannelConfig | undefined;
+      const panelType = cfg?.panelType ?? ((tabNode as TabNode).getComponent() as PanelId);
+      const instanceId = (tabNode as TabNode).getId();
+      const params = new URLSearchParams({
+        panel: instanceId,
+        type: panelType,
+        layout: "dashboard-layout",
+      });
+      const url = `${window.location.origin}${window.location.pathname}?${params}`;
+      window.open(url, `panel-${instanceId}`, "width=1200,height=700,resizable=yes");
+    }
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mouseleave", onMouseLeave);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mouseleave", onMouseLeave);
+    };
+  }, [model]);
+  // ── End drag-to-new-window ─────────────────────────────────────────────────
+
   const handleChannelChange = useCallback(
     (instanceId: string, dir: "out" | "in", ch: ChannelNumber | null) => {
       const json = model.toJson() as IJsonModel & {
@@ -1109,6 +1174,16 @@ export function DashboardLayout() {
         </button>
       );
 
+      // ── Tooltip on tab title ────────────────────────────────────────────────
+      if (panelType) {
+        const desc = PANEL_DESCRIPTIONS[panelType];
+        renderValues.content = (
+          <span title={desc} className="flex items-center gap-1">
+            {renderValues.content}
+          </span>
+        );
+      }
+
       // Panels that receive a selected asset and should show the symbol in their tab title
       const ASSET_RECEIVER_PANELS: ReadonlySet<PanelId> = new Set([
         "candle-chart",
@@ -1128,8 +1203,9 @@ export function DashboardLayout() {
             : legacySelectedAsset;
         if (symbol) {
           const inCh = incoming !== null ? CHANNEL_COLOURS[incoming] : null;
+          const desc = panelType ? PANEL_DESCRIPTIONS[panelType] : undefined;
           renderValues.content = (
-            <span className="flex items-center gap-1">
+            <span title={desc} className="flex items-center gap-1">
               {inCh && (
                 <span
                   className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
