@@ -735,7 +735,6 @@ function ChannelPicker({
 
   const colour = current !== null ? CHANNEL_COLOURS[current] : null;
   const isOut = dir === "out";
-  const arrow = isOut ? "→" : "←";
   const dirLabel = isOut ? "Broadcast" : "Listen";
   const disabledLabel = isOut ? "This panel cannot broadcast" : "This panel cannot listen";
 
@@ -819,23 +818,31 @@ function ChannelPicker({
         title={buttonTitle}
         onClick={handleOpen}
         disabled={disabled}
-        className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 transition-colors text-[9px] font-mono font-medium leading-none ${
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
           disabled
-            ? "opacity-20 cursor-not-allowed"
+            ? "opacity-30 cursor-not-allowed text-gray-600"
             : colour
               ? "hover:bg-gray-700/60"
-              : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
+              : "text-gray-500 hover:bg-gray-700/40 border border-dashed border-gray-700/60 hover:border-gray-500 hover:text-gray-400"
         }`}
       >
+        <span className={disabled ? "text-gray-700" : colour ? "text-gray-500" : "text-gray-600"}>
+          {isOut ? "Out:" : "In:"}
+        </span>
         {colour && !disabled ? (
           <>
-            <span style={{ color: colour.hex }}>{arrow}</span>
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: colour.hex }}
+            />
             <span className="font-mono tabular-nums" style={{ color: colour.hex }}>
-              {current}
+              Ch {current}
             </span>
           </>
         ) : (
-          <span className="text-gray-600">{arrow}</span>
+          <span className={disabled ? "text-gray-700 font-mono" : "font-mono text-gray-600"}>
+            —
+          </span>
         )}
       </button>
       {dropdown}
