@@ -17,6 +17,10 @@ const INTERVALS: { key: "1m" | "5m"; ms: number }[] = [
   { key: "5m", ms: 300_000 },
 ];
 
+// Market-sim broadcasts per-minute volume on every tick (~240 ticks/min).
+// Divide by this to accumulate per-tick volume matching the frontend's applyTick.
+const TICKS_PER_MINUTE = 240;
+
 const MAX_CANDLES = 120;
 
 // ── Database setup ─────────────────────────────────────────────────────────────
@@ -94,10 +98,10 @@ createConsumer("candle-store-group", ["market.ticks"]).then((consumer) => {
     const volumes = msg.volumes ?? {};
 
     for (const [instrument, price] of Object.entries(msg.prices)) {
-      const volume = volumes[instrument] ?? 0;
+      const tickVolume = (volumes[instrument] ?? 0) / TICKS_PER_MINUTE;
       for (const { key, ms } of INTERVALS) {
         const bucket = bucketStart(ts, ms);
-        upsertCandle(instrument, key, bucket, price, volume);
+        upsertCandle(instrument, key, bucket, price, tickVolume);
       }
     }
   });
