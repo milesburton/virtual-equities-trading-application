@@ -1,0 +1,21 @@
+{
+  "name": "opensearch-sink-algo",
+  "config": {
+    "connector.class": "org.opensearch.kafka.connect.opensearch.OpensearchSinkConnector",
+    "tasks.max": "1",
+    "topics": "algo.heartbeat",
+    "connection.url": "http://opensearch:9200",
+    "type.name": "_doc",
+    "key.ignore": "true",
+    "schema.ignore": "true",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "index": "trading-algo",
+    "behavior.on.malformed.documents": "warn",
+    "behavior.on.null.values": "ignore",
+    "max.retries": "10",
+    "retry.backoff.ms": "3000",
+    "batch.size": "200",
+    "linger.ms": "100"
+  }
+}

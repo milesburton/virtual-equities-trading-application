@@ -49,6 +49,130 @@ services:
       - "traefik.http.services.redpanda-console.loadbalancer.server.port=8080"
       - "traefik.http.routers.redpanda-console.priority=15"
 
+  # ── OpenSearch (single-node, security disabled for dev) ──────────────────────
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    container_name: opensearch
+    restart: unless-stopped
+    networks:
+      - trading-net
+    environment:
+      - cluster.name=trading-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms256m -Xmx256m
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    labels:
+      - "traefik.enable=false"
+
+  # ── OpenSearch Dashboards ─────────────────────────────────────────────────────
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.13.0
+    container_name: opensearch-dashboards
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      - SERVER_BASEPATH=/admin/opensearch
+      - SERVER_REWRITEBASEPATH=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -qE '\"state\":\"(green|yellow)\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opensearch-dashboards.rule=PathPrefix(`/admin/opensearch`)"
+      - "traefik.http.routers.opensearch-dashboards.entrypoints=web"
+      - "traefik.http.routers.opensearch-dashboards.priority=15"
+      - "traefik.http.services.opensearch-dashboards.loadbalancer.server.port=5601"
+
+  # ── Kafka Connect (Confluent Community + OpenSearch Sink plugin) ───────────────
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.6.1
+    container_name: kafka-connect
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: redpanda:9092
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: trading-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.converters.ByteArrayConverter
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_ROOT_LOGLEVEL: WARN
+      CONNECT_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+    command:
+      - bash
+      - -c
+      - |
+        confluent-hub install --no-prompt opensearch-project/kafka-connect-opensearch:2.0.2
+        /etc/confluent/docker/run
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+    labels:
+      - "traefik.enable=false"
+
+  # ── OpenSearch Init (one-shot: index templates + connector registration) ───────
+  opensearch-init:
+    image: python:3.12-alpine
+    container_name: opensearch-init
+    networks:
+      - trading-net
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      kafka-connect:
+        condition: service_healthy
+      opensearch-dashboards:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["sh", "/scripts/opensearch-init.sh"]
+    restart: "no"
+    labels:
+      - "traefik.enable=false"
+
   # ── Ingress ──────────────────────────────────────────────────────────────────
   traefik:
     image: traefik:v3.1
@@ -443,6 +567,39 @@ services:
       - "traefik.http.middlewares.journal-strip.stripprefix.prefixes=/api/journal"
       - "traefik.http.services.journal.loadbalancer.server.port=5009"
 
+  # ── Candle Store ──────────────────────────────────────────────────────────────
+  candle-store:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/candle-store/candle-store.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      CANDLE_STORE_PORT: 5010
+      CANDLE_STORE_DB_PATH: /app/backend/data/candle-store.db
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    volumes:
+      - observability-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.candle-store.rule=PathPrefix(`/api/candle-store`)"
+      - "traefik.http.routers.candle-store.entrypoints=web"
+      - "traefik.http.routers.candle-store.middlewares=candle-store-strip"
+      - "traefik.http.middlewares.candle-store-strip.stripprefix.prefixes=/api/candle-store"
+      - "traefik.http.services.candle-store.loadbalancer.server.port=5010"
+
   # ── FIX Exchange (internal TCP, not browser-facing) ──────────────────────────
   fix-exchange:
     build:
@@ -543,3 +700,4 @@ services:
 
 volumes:
   observability-data:
+  opensearch-data:
