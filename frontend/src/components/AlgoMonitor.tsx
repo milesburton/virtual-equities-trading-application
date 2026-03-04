@@ -1,4 +1,5 @@
 import { useSignal } from "@preact/signals-react";
+import { Fragment } from "react";
 import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { submitOrderThunk } from "../store/ordersSlice.ts";
@@ -433,9 +434,8 @@ export function AlgoMonitor() {
                 const perf = computePerf(order);
 
                 return (
-                  <>
+                  <Fragment key={order.id}>
                     <tr
-                      key={order.id}
                       onClick={() => togglePerf(order.id)}
                       className={`border-b border-gray-800/40 cursor-pointer transition-colors ${
                         isLinked
@@ -585,7 +585,7 @@ export function AlgoMonitor() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
