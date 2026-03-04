@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,22 +190,16 @@ export function WorkspaceBar({ activeId, onSelect, onWorkspacesChange, workspace
 // ─── Hook: manages workspace list state and provides initial load ─────────────
 
 export function useWorkspaces() {
-  const workspaces = useSignal<Workspace[]>(loadWorkspaces());
-  const activeId = useSignal<string>(workspaces.value[0].id);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(loadWorkspaces);
+  const [activeId, setActiveId] = useState<string>(() => loadWorkspaces()[0].id);
 
-  const handleSelect = useCallback(
-    (id: string) => {
-      activeId.value = id;
-    },
-    [activeId]
-  );
+  const handleSelect = useCallback((id: string) => {
+    setActiveId(id);
+  }, []);
 
-  const handleChange = useCallback(
-    (next: Workspace[]) => {
-      workspaces.value = next;
-    },
-    [workspaces]
-  );
+  const handleChange = useCallback((next: Workspace[]) => {
+    setWorkspaces(next);
+  }, []);
 
   return { workspaces, activeId, handleSelect, handleChange };
 }

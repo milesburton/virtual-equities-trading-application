@@ -51,14 +51,14 @@ function TradingApp() {
 
         {/* Workspace tabs row */}
         <WorkspaceBar
-          workspaces={workspaces.value}
-          activeId={activeId.value}
+          workspaces={workspaces}
+          activeId={activeId}
           onSelect={handleSelect}
           onWorkspacesChange={handleChange}
         />
 
         {/* Key forces DashboardProvider to remount (fresh localStorage read) on workspace switch */}
-        <DashboardProvider key={activeId.value} storageKey={workspaceStorageKey(activeId.value)}>
+        <DashboardProvider key={activeId} storageKey={workspaceStorageKey(activeId)}>
           {/* Layout controls scoped to the active workspace/provider */}
           <WorkspaceToolbar />
           {/* flexlayout needs a positioned container with explicit height */}
