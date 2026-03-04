@@ -1,10 +1,12 @@
 import { useSignal } from "@preact/signals-react";
 import { useEffect, useMemo, useRef } from "react";
 import { List } from "react-window";
-import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Line, LineChart, Tooltip, YAxis } from "recharts";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { AssetDef, MarketPrices, OrderBookSnapshot, PriceHistory } from "../types.ts";
+import type { ContextMenuEntry } from "./ContextMenu.tsx";
+import { ContextMenu } from "./ContextMenu.tsx";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const ROW_HEIGHT = 48; // taller to show second info line
@@ -51,18 +53,17 @@ function Sparkline({ data }: { data: number[] }) {
   const chartData = data.map((v) => ({ v }));
   const isUp = data.length >= 2 && data[data.length - 1] >= data[0];
   return (
-    <ResponsiveContainer width={60} height={28}>
-      <LineChart data={chartData}>
-        <Line
-          type="monotone"
-          dataKey="v"
-          dot={false}
-          strokeWidth={1.5}
-          stroke={isUp ? "#34d399" : "#f87171"}
-        />
-        <Tooltip contentStyle={{ display: "none" }} cursor={false} />
-      </LineChart>
-    </ResponsiveContainer>
+    <LineChart width={60} height={28} data={chartData}>
+      <YAxis domain={["auto", "auto"]} hide />
+      <Line
+        type="monotone"
+        dataKey="v"
+        dot={false}
+        strokeWidth={1.5}
+        stroke={isUp ? "#34d399" : "#f87171"}
+      />
+      <Tooltip contentStyle={{ display: "none" }} cursor={false} />
+    </LineChart>
   );
 }
 
@@ -73,12 +74,14 @@ interface RowData {
   orderBook: Record<string, OrderBookSnapshot>;
   selectedAsset: string | null;
   onSelectAsset: (symbol: string | null) => void;
+  onContextMenu: (e: React.MouseEvent, symbol: string) => void;
 }
 
 interface RowComponentProps extends RowData {
   ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
   index: number;
   style: React.CSSProperties;
+  onContextMenu: (e: React.MouseEvent, symbol: string) => void;
 }
 
 function Row({
@@ -90,6 +93,7 @@ function Row({
   orderBook,
   selectedAsset,
   onSelectAsset,
+  onContextMenu,
   ariaAttributes,
 }: RowComponentProps) {
   const asset = filtered[index];
@@ -125,7 +129,14 @@ function Row({
         e.preventDefault();
       }}
       onClick={handleSelect}
-      title={isSelected ? "Click again to deselect" : "Click to view in chart"}
+      onContextMenu={(e) => onContextMenu(e, asset.symbol)}
+      aria-pressed={isSelected}
+      aria-label={`${asset.symbol} — ${asset.sector}. Bid ${price > 0 ? formatPrice(asset.symbol, bid) : "unavailable"}, Ask ${price > 0 ? formatPrice(asset.symbol, ask) : "unavailable"}, Last ${price > 0 ? formatPrice(asset.symbol, price) : "unavailable"}, change ${price > 0 ? `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%` : "unavailable"}. ${isSelected ? "Selected — click to deselect" : "Click to select and view in chart"}`}
+      title={
+        isSelected
+          ? "Click again to deselect"
+          : "Click to select and view in chart, order ticket, and market depth"
+      }
     >
       <div className="w-[90px] px-3 flex-shrink-0">
         <div className="font-semibold text-gray-200 leading-tight">{asset.symbol}</div>
@@ -185,6 +196,7 @@ export function MarketLadder() {
   const localSelected = useSignal<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listHeight = useSignal(400);
+  const ctxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
 
   const sectors = useMemo(
     () => ["All", ...Array.from(new Set(assets.map((a) => a.sector))).sort()],
@@ -218,6 +230,56 @@ export function MarketLadder() {
     broadcast({ selectedAsset: symbol });
   }
 
+  function handleRowContextMenu(e: React.MouseEvent, symbol: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const price = prices[symbol] ?? 0;
+    const book = orderBook[symbol];
+    const ask = book?.asks[0]?.price ?? price * 1.0005;
+    const items: ContextMenuEntry[] = [
+      {
+        label: localSelected.value === symbol ? "Deselect" : "Select asset",
+        icon: "↗",
+        onClick: () => onSelectAsset(localSelected.value === symbol ? null : symbol),
+      },
+      { separator: true, label: symbol },
+      {
+        label: `View in order ticket (ask ${price > 0 ? ask.toFixed(2) : "—"})`,
+        icon: "▲",
+        title: "Select this asset so it loads in the linked Order Ticket",
+        onClick: () => {
+          onSelectAsset(symbol);
+        },
+      },
+      {
+        label: "View chart & depth",
+        icon: "📊",
+        title: "Select this asset to load it in linked Chart and Market Depth panels",
+        onClick: () => {
+          onSelectAsset(symbol);
+        },
+      },
+      { separator: true },
+      {
+        label: "Copy symbol",
+        icon: "⎘",
+        onClick: () => navigator.clipboard.writeText(symbol),
+      },
+    ];
+    ctxMenu.value = { x: e.clientX, y: e.clientY, items };
+  }
+
+  // Auto-select the first asset once data arrives
+  useEffect(() => {
+    if (localSelected.value !== null) return;
+    const first = assets[0];
+    if (first && prices[first.symbol]) {
+      localSelected.value = first.symbol;
+      broadcast({ selectedAsset: first.symbol });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets, prices]);
+
   const rowData: RowData = {
     filtered,
     prices,
@@ -225,10 +287,21 @@ export function MarketLadder() {
     orderBook,
     selectedAsset: localSelected.value,
     onSelectAsset,
+    onContextMenu: handleRowContextMenu,
   };
 
   return (
     <div className="flex flex-col h-full">
+      {ctxMenu.value && (
+        <ContextMenu
+          items={ctxMenu.value.items}
+          x={ctxMenu.value.x}
+          y={ctxMenu.value.y}
+          onClose={() => {
+            ctxMenu.value = null;
+          }}
+        />
+      )}
       <div className="px-2 py-1.5 border-b border-gray-800 flex gap-1.5 items-center">
         <PopOutButton panelId="market-ladder" />
         <span className="text-gray-600 text-[10px] tabular-nums ml-auto">
@@ -239,6 +312,7 @@ export function MarketLadder() {
       <div className="px-2 py-1.5 border-b border-gray-800 flex gap-1.5">
         <input
           type="search"
+          aria-label="Search by symbol or sector"
           placeholder="Search symbol or sector…"
           value={search.value}
           onChange={(e) => {
@@ -247,6 +321,8 @@ export function MarketLadder() {
           className="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1 focus:outline-none focus:border-emerald-500 min-w-0"
         />
         <select
+          aria-label="Filter by sector"
+          title="Filter assets by sector"
           value={sectorFilter.value}
           onChange={(e) => {
             sectorFilter.value = e.target.value;
@@ -262,12 +338,33 @@ export function MarketLadder() {
       </div>
 
       <div className="flex text-xs text-gray-500 border-b border-gray-800 bg-gray-950">
-        <div className="w-[90px] px-3 py-1.5 flex-shrink-0">Symbol</div>
-        <div className="w-[64px] text-right px-2 py-1.5 flex-shrink-0">Bid</div>
-        <div className="w-[64px] text-right px-2 py-1.5 flex-shrink-0">Ask</div>
-        <div className="w-[64px] text-right px-2 py-1.5 flex-shrink-0">Last</div>
-        <div className="w-[56px] text-right px-2 py-1.5 flex-shrink-0">Δ%</div>
-        <div className="flex-1 text-right pr-2 py-1.5">Chart</div>
+        <div className="w-[90px] px-3 py-1.5 flex-shrink-0" title="Ticker symbol and sector">
+          Symbol
+        </div>
+        <div
+          className="w-[64px] text-right px-2 py-1.5 flex-shrink-0"
+          title="Best bid price — highest price a buyer will pay"
+        >
+          Bid
+        </div>
+        <div
+          className="w-[64px] text-right px-2 py-1.5 flex-shrink-0"
+          title="Best ask price — lowest price a seller will accept"
+        >
+          Ask
+        </div>
+        <div className="w-[64px] text-right px-2 py-1.5 flex-shrink-0" title="Last traded price">
+          Last
+        </div>
+        <div
+          className="w-[56px] text-right px-2 py-1.5 flex-shrink-0"
+          title="Percentage change since session open"
+        >
+          Δ%
+        </div>
+        <div className="flex-1 text-right pr-2 py-1.5" title="Price trend over last 30 ticks">
+          Trend
+        </div>
       </div>
 
       <div ref={containerRef} className="flex-1 overflow-hidden">

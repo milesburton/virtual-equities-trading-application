@@ -63,11 +63,6 @@ function renderTicket() {
 }
 
 describe("OrderTicket – rendering", () => {
-  it("renders the Order Ticket header", () => {
-    renderTicket();
-    expect(screen.getByText(/Order Ticket/i)).toBeInTheDocument();
-  });
-
   it("renders strategy selector with all options", () => {
     renderTicket();
     expect(screen.getByLabelText(/Strategy/i)).toBeInTheDocument();
@@ -105,9 +100,9 @@ describe("OrderTicket – rendering", () => {
     expect(priceInput.value).toBe("155.00");
   });
 
-  it("renders 'Mid' button when a price is available", () => {
+  it("renders 'snap to mid' button when a price is available", () => {
     renderTicket();
-    expect(screen.getByRole("button", { name: /Mid/i })).toBeInTheDocument();
+    expect(screen.getByTitle(/Snap limit price to current mid/i)).toBeInTheDocument();
   });
 });
 
@@ -115,8 +110,8 @@ describe("OrderTicket – side toggle", () => {
   it("activates SELL side when SELL button clicked", () => {
     renderTicket();
     fireEvent.click(screen.getByRole("button", { name: "SELL" }));
-    // submit button label changes to include SELL
-    const submitBtn = screen.getByRole("button", { name: /SELL AAPL/i });
+    // submit button aria-label changes to reflect SELL side
+    const submitBtn = screen.getByRole("button", { name: /Submit SELL order/i });
     expect(submitBtn).toBeInTheDocument();
   });
 
@@ -124,7 +119,7 @@ describe("OrderTicket – side toggle", () => {
     renderTicket();
     fireEvent.click(screen.getByRole("button", { name: "SELL" }));
     fireEvent.click(screen.getByRole("button", { name: "BUY" }));
-    const submitBtn = screen.getByRole("button", { name: /BUY AAPL/i });
+    const submitBtn = screen.getByRole("button", { name: /Submit BUY order/i });
     expect(submitBtn).toBeInTheDocument();
   });
 });
@@ -165,7 +160,7 @@ describe("OrderTicket – form submission", () => {
   it("shows success feedback after successful submission", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     renderTicket();
-    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit BUY order/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Order submitted/i)).toBeInTheDocument();
@@ -176,7 +171,7 @@ describe("OrderTicket – form submission", () => {
   it("adds order to store even when backend fetch fails (fire-and-forget)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
     const testStore = renderTicket();
-    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit BUY order/i }));
 
     // The thunk always succeeds (fetch is fire-and-forget), so the order is still added
     await waitFor(() => {
@@ -188,7 +183,7 @@ describe("OrderTicket – form submission", () => {
   it("adds order to store after submission", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
     const testStore = renderTicket();
-    fireEvent.click(screen.getByRole("button", { name: /BUY AAPL/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Submit BUY order/i }));
 
     await waitFor(() => {
       expect(testStore.getState().orders.orders.length).toBeGreaterThan(0);
@@ -202,8 +197,8 @@ describe("OrderTicket – form validation", () => {
     renderTicket();
     const qtyInput = screen.getByLabelText(/Quantity/i);
     fireEvent.change(qtyInput, { target: { value: "" } });
-    // The submit button should be disabled
-    const submit = screen.getByRole("button", { name: /BUY AAPL/i });
+    // When invalid, aria-label becomes "Submit order (form incomplete)"
+    const submit = screen.getByRole("button", { name: /Submit order/i });
     expect(submit).toBeDisabled();
   });
 
@@ -211,7 +206,7 @@ describe("OrderTicket – form validation", () => {
     renderTicket();
     const priceInput = screen.getByLabelText(/Limit Price/i);
     fireEvent.change(priceInput, { target: { value: "0" } });
-    const submit = screen.getByRole("button", { name: /BUY AAPL/i });
+    const submit = screen.getByRole("button", { name: /Submit order/i });
     expect(submit).toBeDisabled();
   });
 });
@@ -223,7 +218,7 @@ describe("OrderTicket – Mid button", () => {
     // Change price to something else first
     fireEvent.change(priceInput, { target: { value: "100.00" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /Mid/i }));
+    fireEvent.click(screen.getByTitle(/Snap limit price to current mid/i));
     expect(priceInput.value).toBe("155.00");
   });
 });

@@ -1,127 +1,125 @@
-import type { IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
-import { ColorType, createChart, HistogramSeries } from "lightweight-charts";
-import { useEffect, useRef } from "react";
 import { useAppSelector } from "../store/hooks.ts";
 
 interface Props {
   symbol: string;
 }
 
-export function MarketDepth({ symbol }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const bidSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const askSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+const MAX_LEVELS = 12;
 
+export function MarketDepth({ symbol }: Props) {
   const snapshot = useAppSelector((s) => s.market.orderBook[symbol]);
 
-  // Create chart on mount
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const chart = createChart(containerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "#030712" },
-        textColor: "#9ca3af",
-      },
-      grid: {
-        vertLines: { color: "#111827" },
-        horzLines: { color: "#111827" },
-      },
-      rightPriceScale: { borderColor: "#1f2937" },
-      timeScale: { visible: false },
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
-    });
-
-    // Bid side — green, positive values (size)
-    const bidSeries = chart.addSeries(HistogramSeries, {
-      color: "#34d399",
-      priceFormat: { type: "volume" },
-      priceScaleId: "right",
-      base: 0,
-    });
-
-    // Ask side — red, plotted as negative values so they face left
-    const askSeries = chart.addSeries(HistogramSeries, {
-      color: "#f87171",
-      priceFormat: { type: "volume" },
-      priceScaleId: "right",
-      base: 0,
-    });
-
-    chartRef.current = chart;
-    bidSeriesRef.current = bidSeries;
-    askSeriesRef.current = askSeries;
-
-    const ro = new ResizeObserver(() => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-      }
-    });
-    ro.observe(containerRef.current);
-
-    return () => {
-      ro.disconnect();
-      chart.remove();
-    };
-  }, []);
-
-  // Update depth data when snapshot changes
-  useEffect(() => {
-    if (!bidSeriesRef.current || !askSeriesRef.current || !snapshot) return;
-
-    // Use a fake timestamp base — depth chart is a snapshot, not a time-series.
-    // We map each price level to an incrementing integer timestamp so lightweight-charts
-    // can render them as ordered bars.
-    const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
-
-    bidSeriesRef.current.setData(
-      snapshot.bids.map((level, i) => ({
-        time: (now - i) as UTCTimestamp,
-        value: level.size,
-        color: "#34d39966",
-      }))
+  if (!snapshot) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-600 text-xs bg-gray-950">
+        No depth data for {symbol}
+      </div>
     );
+  }
 
-    askSeriesRef.current.setData(
-      snapshot.asks.map((level, i) => ({
-        time: (now + i + 1) as UTCTimestamp,
-        value: level.size,
-        color: "#f8717166",
-      }))
-    );
+  const bids = snapshot.bids.slice(0, MAX_LEVELS);
+  const asks = snapshot.asks.slice(0, MAX_LEVELS);
 
-    chartRef.current?.timeScale().fitContent();
-  }, [snapshot]);
+  // Max size across all levels for bar scaling
+  const maxSize = Math.max(...bids.map((l) => l.size), ...asks.map((l) => l.size), 1);
+
+  const decimals = symbol.includes("/") ? 4 : 2;
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
-      <div className="px-3 py-2 border-b border-gray-700 shrink-0 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Market Depth
+    <div className="flex flex-col h-full bg-gray-950 text-xs">
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_auto_auto] px-3 py-1 border-b border-gray-800/50 text-[10px] text-gray-600 uppercase tracking-wider shrink-0">
+        <span title="Number of shares available at this price level">Size</span>
+        <span className="text-right pr-4" title="Price level in the order book">
+          Price
         </span>
-        {snapshot ? (
-          <span className="font-mono text-xs text-gray-500">
-            mid{" "}
-            <span className="text-gray-300">
-              {snapshot.mid.toFixed(symbol.includes("/") ? 4 : 2)}
+        <span className="text-right w-16" title="Cumulative quantity from best price to this level">
+          Cum
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Asks — shown top-to-bottom, lowest ask at bottom */}
+        <div className="flex-1 flex flex-col justify-end overflow-hidden">
+          {[...asks].reverse().map((level, i) => {
+            const barPct = (level.size / maxSize) * 100;
+            const cum = asks.slice(0, asks.length - i).reduce((s, l) => s + l.size, 0);
+            return (
+              <div
+                key={`ask-${level.price}`}
+                className="relative grid grid-cols-[1fr_auto_auto] items-center px-3 py-[2px] hover:bg-red-950/20 transition-colors"
+              >
+                {/* Bar background */}
+                <div
+                  className="absolute inset-y-0 right-0 bg-red-900/20"
+                  style={{ width: `${barPct}%` }}
+                />
+                <span className="relative font-mono text-[10px] text-gray-400 tabular-nums">
+                  {level.size.toLocaleString()}
+                </span>
+                <span className="relative font-mono text-[11px] text-red-400 tabular-nums pr-4">
+                  {level.price.toFixed(decimals)}
+                </span>
+                <span className="relative font-mono text-[10px] text-gray-600 tabular-nums w-16 text-right">
+                  {cum.toLocaleString()}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Spread indicator */}
+        <div
+          title={`Spread ${asks.length > 0 && bids.length > 0 ? (asks[0].price - bids[0].price).toFixed(decimals) : "unavailable"}, mid price ${snapshot.mid.toFixed(decimals)}`}
+          className="flex items-center justify-center gap-3 py-1 border-y border-gray-800/50 bg-gray-900/40 shrink-0"
+        >
+          <span
+            className="text-[10px] text-gray-500"
+            title="Bid-ask spread — difference between best ask and best bid prices"
+          >
+            Spread{" "}
+            <span className="font-mono text-gray-300">
+              {asks.length > 0 && bids.length > 0
+                ? (asks[0].price - bids[0].price).toFixed(decimals)
+                : "—"}
             </span>
           </span>
-        ) : (
-          <span className="text-xs text-gray-600">waiting for data…</span>
-        )}
-      </div>
-      {snapshot ? (
-        <div ref={containerRef} className="flex-1" />
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-gray-600 text-xs">
-          No depth data for {symbol}
+          <span
+            className="text-[10px] font-mono font-semibold text-gray-200"
+            title="Mid price — midpoint between best bid and ask"
+          >
+            {snapshot.mid.toFixed(decimals)}
+          </span>
         </div>
-      )}
+
+        {/* Bids */}
+        <div className="flex-1 overflow-hidden">
+          {bids.map((level, i) => {
+            const barPct = (level.size / maxSize) * 100;
+            const cum = bids.slice(0, i + 1).reduce((s, l) => s + l.size, 0);
+            return (
+              <div
+                key={`bid-${level.price}`}
+                className="relative grid grid-cols-[1fr_auto_auto] items-center px-3 py-[2px] hover:bg-emerald-950/20 transition-colors"
+              >
+                <div
+                  className="absolute inset-y-0 right-0 bg-emerald-900/20"
+                  style={{ width: `${barPct}%` }}
+                />
+                <span className="relative font-mono text-[10px] text-gray-400 tabular-nums">
+                  {level.size.toLocaleString()}
+                </span>
+                <span className="relative font-mono text-[11px] text-emerald-400 tabular-nums pr-4">
+                  {level.price.toFixed(decimals)}
+                </span>
+                <span className="relative font-mono text-[10px] text-gray-600 tabular-nums w-16 text-right">
+                  {cum.toLocaleString()}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

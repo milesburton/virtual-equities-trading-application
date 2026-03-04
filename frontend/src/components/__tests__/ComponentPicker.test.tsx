@@ -49,15 +49,15 @@ function renderPicker(overrides?: {
 }
 
 function openDropdown() {
-  fireEvent.click(screen.getByRole("button", { name: /panels/i }));
+  fireEvent.click(screen.getByRole("button", { name: /add panel/i }));
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ComponentPicker – toggle open/closed", () => {
-  it("renders a Panels button", () => {
+  it("renders an Add Panel button", () => {
     renderPicker();
-    expect(screen.getByRole("button", { name: /panels/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add panel/i })).toBeInTheDocument();
   });
 
   it("does not show the dropdown before clicking", () => {
@@ -79,7 +79,7 @@ describe("ComponentPicker – toggle open/closed", () => {
     expect(screen.getByText("Order Blotter")).toBeInTheDocument();
     expect(screen.getByText("Algo Monitor")).toBeInTheDocument();
     expect(screen.getByText("Observability")).toBeInTheDocument();
-    expect(screen.getByText("Chart")).toBeInTheDocument();
+    expect(screen.getByText("Price Chart")).toBeInTheDocument();
     expect(screen.getByText("Market Depth")).toBeInTheDocument();
   });
 
@@ -100,24 +100,32 @@ describe("ComponentPicker – toggle open/closed", () => {
 });
 
 describe("ComponentPicker – active/hidden state", () => {
-  it("shows 'visible' badge for active panels", () => {
-    renderPicker({ activePanelIds: new Set(["market-ladder"]) });
+  it("disables singleton panels that are already open", () => {
+    // order-ticket is a singleton; if it is already open the button should be disabled
+    renderPicker({ activePanelIds: new Set(["order-ticket"]) });
     openDropdown();
-    // Find the badge next to Market Ladder
-    const row = screen.getByText("Market Ladder").closest("li");
-    expect(row?.textContent).toContain("visible");
+    const btn = screen.getByText("Order Ticket").closest("button");
+    expect(btn).toBeDisabled();
   });
 
-  it("shows 'hidden' badge for inactive panels", () => {
+  it("enables singleton panels that are not yet open", () => {
+    renderPicker({ activePanelIds: new Set([]) });
+    openDropdown();
+    const btn = screen.getByText("Order Ticket").closest("button");
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("always enables non-singleton panels regardless of open state", () => {
+    // market-ladder is not a singleton — can have multiple instances
     renderPicker({ activePanelIds: new Set(["market-ladder"]) });
     openDropdown();
-    const row = screen.getByText("Order Ticket").closest("li");
-    expect(row?.textContent).toContain("hidden");
+    const btn = screen.getByText("Market Ladder").closest("button");
+    expect(btn).not.toBeDisabled();
   });
 });
 
-describe("ComponentPicker – add / remove panels", () => {
-  it("calls addPanel when clicking a hidden panel", () => {
+describe("ComponentPicker – add panels", () => {
+  it("calls addPanel when clicking an enabled panel", () => {
     const addPanel = vi.fn();
     renderPicker({ activePanelIds: new Set([]), addPanel });
     openDropdown();
@@ -126,12 +134,21 @@ describe("ComponentPicker – add / remove panels", () => {
     expect(addPanel).toHaveBeenCalledWith("market-ladder");
   });
 
-  it("calls removePanel when clicking an active panel", () => {
-    const removePanel = vi.fn();
-    renderPicker({ activePanelIds: new Set(["market-ladder"]), removePanel });
+  it("closes the dropdown after adding a panel", () => {
+    renderPicker({ activePanelIds: new Set([]) });
     openDropdown();
+    expect(screen.getByText("Market Ladder")).toBeInTheDocument();
     const btn = screen.getByText("Market Ladder").closest("button");
     if (btn) fireEvent.click(btn);
-    expect(removePanel).toHaveBeenCalledWith("market-ladder");
+    expect(screen.queryByText("Market Ladder")).not.toBeInTheDocument();
+  });
+
+  it("does not call addPanel when clicking a disabled singleton button", () => {
+    const addPanel = vi.fn();
+    renderPicker({ activePanelIds: new Set(["order-ticket"]), addPanel });
+    openDropdown();
+    const btn = screen.getByText("Order Ticket").closest("button");
+    if (btn) fireEvent.click(btn);
+    expect(addPanel).not.toHaveBeenCalled();
   });
 });

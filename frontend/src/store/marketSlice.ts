@@ -11,6 +11,9 @@ import type {
 
 const HISTORY_LENGTH = 60;
 const MAX_CANDLES = 120;
+// Market-sim broadcasts per-minute volume on every tick (240 ticks/min).
+// Divide by this to get per-tick volume so candle volumes match the candle-store.
+const TICKS_PER_MINUTE = 240;
 const INTERVALS: { key: "1m" | "5m"; ms: number }[] = [
   { key: "1m", ms: 60_000 },
   { key: "5m", ms: 300_000 },
@@ -90,7 +93,7 @@ export const marketSlice = createSlice({
       state.prices = prices;
       for (const asset of Object.keys(prices)) {
         const price = prices[asset];
-        const tickVolume = volumes[asset] ?? 0;
+        const tickVolume = (volumes[asset] ?? 0) / TICKS_PER_MINUTE;
         const history = state.priceHistory[asset] ?? [];
         state.priceHistory[asset] = [...history, price].slice(-HISTORY_LENGTH);
         const current = state.candleHistory[asset] ?? { "1m": [], "5m": [] };
@@ -101,10 +104,18 @@ export const marketSlice = createSlice({
         state.candleHistory[asset] = updated;
       }
     },
+    candlesSeeded(
+      state,
+      action: PayloadAction<{ symbol: string; candles: { "1m": OhlcCandle[]; "5m": OhlcCandle[] } }>
+    ) {
+      const { symbol, candles } = action.payload;
+      state.candleHistory[symbol] = candles;
+    },
     orderBookUpdated(state, action: PayloadAction<Record<string, OrderBookSnapshot>>) {
       state.orderBook = action.payload;
     },
   },
 });
 
-export const { setAssets, setConnected, tickReceived, orderBookUpdated } = marketSlice.actions;
+export const { setAssets, setConnected, tickReceived, candlesSeeded, orderBookUpdated } =
+  marketSlice.actions;

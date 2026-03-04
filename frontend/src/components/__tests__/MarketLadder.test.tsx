@@ -134,7 +134,7 @@ describe("MarketLadder – column headers", () => {
     expect(screen.getByText("Ask")).toBeInTheDocument();
     expect(screen.getByText("Last")).toBeInTheDocument();
     expect(screen.getByText("Δ%")).toBeInTheDocument();
-    expect(screen.getByText("Chart")).toBeInTheDocument();
+    expect(screen.getByText("Trend")).toBeInTheDocument();
   });
 });
 

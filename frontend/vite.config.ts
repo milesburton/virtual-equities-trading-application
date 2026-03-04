@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react({ babel: { plugins: [["module:@preact/signals-react-transform"]] } })],
   server: {
-    port: 8081,
+    port: 5173, // socat on 8080 proxies here
     host: true,
     open: false,
     proxy: {
@@ -50,6 +50,10 @@ export default defineConfig({
       "/api/user-service": {
         target: "http://localhost:5008",
         rewrite: (path) => path.replace(/^\/api\/user-service/, ""),
+      },
+      "/api/candle-store": {
+        target: "http://localhost:5010",
+        rewrite: (path) => path.replace(/^\/api\/candle-store/, ""),
       },
       "/api/fix-gateway": {
         target: "http://localhost:9881",

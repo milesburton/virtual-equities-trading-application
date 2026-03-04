@@ -288,13 +288,6 @@ export function OrderTicket() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Order Ticket
-        </span>
-        <span className="text-[10px] text-gray-600">Ctrl+↵ submit · Esc reset</span>
-      </div>
-
       <form
         ref={formRef}
         onSubmit={handleSubmit}
@@ -306,6 +299,8 @@ export function OrderTicket() {
           </label>
           <select
             id="strategy"
+            aria-label="Execution strategy"
+            title="Choose how the order is executed. LIMIT sends a single order. TWAP/POV/VWAP are algorithmic strategies that slice the order over time."
             value={activeStrategy}
             onChange={(e) => dispatch(setActiveStrategy(e.target.value as typeof activeStrategy))}
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
@@ -337,6 +332,8 @@ export function OrderTicket() {
           <div className="flex gap-2">
             <button
               type="button"
+              aria-pressed={activeSide === "BUY"}
+              title="Buy — go long. Keyboard shortcut: B"
               onClick={() => dispatch(setActiveSide("BUY"))}
               className={`flex-1 py-2 text-xs font-semibold rounded border transition-colors ${
                 activeSide === "BUY"
@@ -348,6 +345,8 @@ export function OrderTicket() {
             </button>
             <button
               type="button"
+              aria-pressed={activeSide === "SELL"}
+              title="Sell — go short. Keyboard shortcut: S"
               onClick={() => dispatch(setActiveSide("SELL"))}
               className={`flex-1 py-2 text-xs font-semibold rounded border transition-colors ${
                 activeSide === "SELL"
@@ -368,6 +367,8 @@ export function OrderTicket() {
             id="quantity"
             type="number"
             min="1"
+            aria-label="Order quantity in shares"
+            title="Number of shares to buy or sell"
             value={quantity.value}
             onChange={(e) => {
               quantity.value = e.target.value;
@@ -384,16 +385,21 @@ export function OrderTicket() {
             </label>
             <div className="flex items-center gap-2">
               {currentPrice && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    limitPrice.value = formatPrice(symbol, currentPrice);
-                  }}
-                  className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
-                  title="Set limit at current mid price"
-                >
-                  Mid
-                </button>
+                <>
+                  <span className="text-[10px] text-gray-600 tabular-nums" title="Live mid price">
+                    mid <span className="text-gray-400">{formatPrice(symbol, currentPrice)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      limitPrice.value = formatPrice(symbol, currentPrice);
+                    }}
+                    className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors"
+                    title="Snap limit price to current mid"
+                  >
+                    ↺
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -446,6 +452,8 @@ export function OrderTicket() {
             id="expiresAt"
             type="number"
             min="1"
+            aria-label="Order duration in seconds"
+            title="How long the order remains active before expiring. 300 = 5 minutes."
             value={expiresAt.value}
             onChange={(e) => {
               expiresAt.value = e.target.value;
@@ -493,6 +501,16 @@ export function OrderTicket() {
         <button
           type="submit"
           disabled={!isValid || submitting.value}
+          title={
+            isValid
+              ? `Submit order — keyboard shortcut: Ctrl+Enter`
+              : "Fill in all required fields to submit"
+          }
+          aria-label={
+            isValid
+              ? `Submit ${activeSide} order for ${qty} shares of ${symbol} at $${lx}`
+              : "Submit order (form incomplete)"
+          }
           className={`w-full py-2.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
             activeSide === "BUY"
               ? "bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 text-white"

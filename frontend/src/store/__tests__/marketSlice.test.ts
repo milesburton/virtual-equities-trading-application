@@ -269,6 +269,9 @@ describe("tickReceived", () => {
   });
 
   it("accumulates volume in candles from volumes payload", () => {
+    // volumes from market-sim are per-minute figures divided by TICKS_PER_MINUTE (240)
+    // so two ticks with volumes 1000 and 500 produce 1000/240 + 500/240 ≈ 6.25
+    const TICKS_PER_MINUTE = 240;
     const ts = 1_700_000_060_000;
     let state = reducer(
       baseState,
@@ -278,7 +281,8 @@ describe("tickReceived", () => {
       state,
       tickReceived({ prices: { AAPL: 156 }, volumes: { AAPL: 500 }, ts: ts + 10_000 })
     );
-    expect(state.candleHistory.AAPL["1m"][0].volume).toBe(1500);
+    const expected = 1000 / TICKS_PER_MINUTE + 500 / TICKS_PER_MINUTE;
+    expect(state.candleHistory.AAPL["1m"][0].volume).toBeCloseTo(expected, 5);
   });
 
   it("creates a new candle when crossing a bucket boundary", () => {

@@ -364,7 +364,7 @@ export function ObservabilityPanel() {
 
   return (
     <div className="flex flex-col h-full text-xs">
-      <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between gap-2 flex-wrap shrink-0">
+      <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between gap-2 flex-wrap shrink-0">
         <div className="flex items-center gap-1">
           <div className="flex rounded overflow-hidden border border-gray-700 text-[11px]">
             <button
