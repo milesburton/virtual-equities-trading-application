@@ -86,6 +86,7 @@ describe("ComponentPicker – toggle open/closed", () => {
     expect(screen.getByText(/^Observability/)).toBeInTheDocument();
     expect(screen.getByText(/^Price Chart/)).toBeInTheDocument();
     expect(screen.getByText(/^Market Depth/)).toBeInTheDocument();
+    expect(screen.getByText(/^News & Signals/)).toBeInTheDocument();
   });
 
   it("closes dropdown when clicking the backdrop", () => {

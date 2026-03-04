@@ -10,6 +10,7 @@ import type { ChannelNumber } from "../store/channelsSlice.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import { AdminPanel } from "./AdminPanel.tsx";
 import { AlgoMonitor } from "./AlgoMonitor.tsx";
+import { AnalysisPanel } from "./AnalysisPanel.tsx";
 import { CandlestickChart } from "./CandlestickChart.tsx";
 import type { ContextMenuEntry } from "./ContextMenu.tsx";
 import { ContextMenu } from "./ContextMenu.tsx";
@@ -45,6 +46,7 @@ export const PANEL_IDS = [
   "decision-log",
   "market-match",
   "admin",
+  "news",
 ] as const;
 
 export type PanelId = (typeof PANEL_IDS)[number];
@@ -61,6 +63,7 @@ export const PANEL_TITLES: Record<PanelId, string> = {
   "decision-log": "Decision Log (algo audit trail)",
   "market-match": "Market Match (trade tape)",
   admin: "Admin (system config)",
+  news: "News & Signals (market analysis)",
 };
 
 export const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
@@ -78,6 +81,7 @@ export const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
   "decision-log": "Audit trail of algo decision events — signals, triggers, and reasoning",
   "market-match": "Live matched trade tape — recent prints for the selected symbol",
   admin: "Administrative panel — system configuration and user management",
+  news: "Live market news with sentiment scoring — signals for algo strategies",
 };
 
 // Panels that can only have one instance at a time
@@ -101,6 +105,7 @@ export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> 
   "decision-log": { out: false, in: true },
   "market-match": { out: false, in: true },
   admin: { out: false, in: false },
+  news: { out: false, in: false },
 };
 
 export interface LayoutItem {
@@ -288,6 +293,13 @@ function makeDefaultModel(): IJsonModel {
                       name: PANEL_TITLES["decision-log"],
                       component: "decision-log",
                       config: { panelType: "decision-log" } satisfies TabChannelConfig,
+                    },
+                    {
+                      type: "tab",
+                      id: "news",
+                      name: PANEL_TITLES.news,
+                      component: "news",
+                      config: { panelType: "news" } satisfies TabChannelConfig,
                     },
                   ],
                 },
@@ -1126,6 +1138,8 @@ export function DashboardLayout() {
           return wrap(<MarketMatch />);
         case "admin":
           return wrap(<AdminPanel />);
+        case "news":
+          return wrap(<AnalysisPanel />);
         default:
           return wrap(<div className="text-gray-600 text-xs p-4">Unknown panel: {panelType}</div>);
       }

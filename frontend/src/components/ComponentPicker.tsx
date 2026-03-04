@@ -15,6 +15,7 @@ const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
   "decision-log": "Real-time algo reasoning — every slice, fill, and decision",
   "market-match": "Live fill tape: venue, counterparty, liquidity, and impact",
   admin: "Admin controls",
+  news: "Live market news with sentiment scoring",
 };
 
 export function ComponentPicker() {
