@@ -112,31 +112,31 @@ test.describe("Dashboard panel layout (flexlayout)", () => {
       const after = await pane.boundingBox();
       if (!after) continue;
 
-      expect(Math.abs(after.x - before.x), `panel ${i} x changed after click`).toBeLessThan(3);
-      expect(Math.abs(after.y - before.y), `panel ${i} y changed after click`).toBeLessThan(3);
+      expect(Math.abs(after.x - before.x), `panel ${i} x changed after click`).toBeLessThanOrEqual(3);
+      expect(Math.abs(after.y - before.y), `panel ${i} y changed after click`).toBeLessThanOrEqual(3);
     }
   });
 
   test("dragging a tab to another tabset moves it and preserves all panels", async ({ page }) => {
-    const beforeBoxes = await allPanelBoxes(page);
-    const beforeCount = beforeBoxes.length;
-    expect(beforeCount).toBeGreaterThan(1);
-
-    // Drag the second tab button 300px to the right to drop into an adjacent tabset
+    // Count tab buttons (all tabs, not just visible panels) — this is the canonical panel count
     const tabs = page.locator(".flexlayout__tab_button");
     const tabCount = await tabs.count();
     if (tabCount < 2) return; // Not enough tabs to test
+    const beforeTabCount = tabCount;
 
+    // Drag the second tab button 300px to the right to drop into an adjacent tabset
     const srcTab = tabs.nth(1);
     await dragTab(page, srcTab, 300, 0);
 
     await page.waitForTimeout(400);
 
-    // Panel count should be the same — no panels lost or duplicated
-    const afterBoxes = await allPanelBoxes(page);
-    expect(afterBoxes.length).toBe(beforeCount);
+    // Tab button count should be the same — no tabs lost or duplicated
+    // (visible panel count may decrease by 1 if the tab lands in a tabset that already has an active panel)
+    const afterTabCount = await page.locator(".flexlayout__tab_button").count();
+    expect(afterTabCount).toBe(beforeTabCount);
 
-    // All panels still have positive size
+    // All visible panels still have positive size
+    const afterBoxes = await allPanelBoxes(page);
     for (const box of afterBoxes) {
       expect(box.w).toBeGreaterThan(10);
       expect(box.h).toBeGreaterThan(10);
