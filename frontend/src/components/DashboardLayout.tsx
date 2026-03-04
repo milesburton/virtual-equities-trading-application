@@ -1051,13 +1051,39 @@ export function DashboardLayout() {
   const onRenderTab = useCallback(
     (node: TabNode, renderValues: { content: ReactNode; buttons: ReactNode[] }) => {
       const cfg = node.getConfig() as TabChannelConfig | undefined;
-      if (cfg?.panelType === "candle-chart") {
-        const incoming = cfg.incoming ?? null;
+      const panelType = cfg?.panelType;
+
+      // Panels that receive a selected asset and should show the symbol in their tab title
+      const ASSET_RECEIVER_PANELS: ReadonlySet<PanelId> = new Set([
+        "candle-chart",
+        "market-depth",
+        "order-ticket",
+        "algo-monitor",
+        "decision-log",
+        "market-match",
+        "executions",
+      ]);
+
+      if (panelType && ASSET_RECEIVER_PANELS.has(panelType)) {
+        const incoming = cfg?.incoming ?? null;
         const symbol =
           incoming !== null
             ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
             : legacySelectedAsset;
-        if (symbol) renderValues.content = symbol;
+        if (symbol) {
+          const inCh = incoming !== null ? CHANNEL_COLOURS[incoming] : null;
+          renderValues.content = (
+            <span className="flex items-center gap-1">
+              {inCh && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
+                  style={{ backgroundColor: inCh.hex }}
+                />
+              )}
+              <span>{symbol}</span>
+            </span>
+          );
+        }
       }
 
       const btns = tabChannelButtons({
