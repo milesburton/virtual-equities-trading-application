@@ -110,6 +110,10 @@ export const marketSlice = createSlice({
       for (const a of action.payload) {
         state.priceHistory[a.symbol] ??= [];
         state.candleHistory[a.symbol] ??= { "1m": [], "5m": [] };
+        // Pre-mark ready so the chart renders from live ticks immediately;
+        // candlesSeeded will overwrite candleHistory with server history once
+        // the candle-store fetch completes.
+        state.candlesReady[a.symbol] ??= true;
       }
     },
     setConnected(state, action: PayloadAction<boolean>) {
