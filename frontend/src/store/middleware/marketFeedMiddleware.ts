@@ -1,6 +1,13 @@
 import type { Middleware } from "@reduxjs/toolkit";
-import type { AssetDef, MarketPrices, OhlcCandle, OrderBookSnapshot } from "../../types.ts";
+import type {
+  AssetDef,
+  MarketPrices,
+  OhlcCandle,
+  OrderBookSnapshot,
+  OrderRecord,
+} from "../../types.ts";
 import { candlesSeeded, marketSlice, orderBookUpdated } from "../marketSlice.ts";
+import { orderAdded } from "../ordersSlice.ts";
 
 // Derive base URLs from the current origin so the app works behind Traefik
 // without any environment variables. VITE_* overrides remain available for
@@ -10,6 +17,7 @@ const _wsOrigin = _origin.replace(/^http/, "ws");
 const MARKET_WS_URL = import.meta.env.VITE_MARKET_WS_URL ?? `${_wsOrigin}/ws/market-sim`;
 const MARKET_HTTP_URL = import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`;
 const CANDLE_STORE_URL = import.meta.env.VITE_CANDLE_STORE_URL ?? `${_origin}/api/candle-store`;
+const JOURNAL_URL = import.meta.env.VITE_JOURNAL_URL ?? `${_origin}/api/journal`;
 
 export const marketFeedMiddleware: Middleware = (storeAPI) => {
   let ws: WebSocket | null = null;
@@ -109,10 +117,25 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
     }
   }
 
+  async function hydrateOrders() {
+    try {
+      const res = await fetch(`${JOURNAL_URL}/orders?limit=200`, { credentials: "include" });
+      if (!res.ok) return;
+      const orders: OrderRecord[] = await res.json();
+      // Add oldest-first so the blotter shows newest at top (orderAdded unshifts)
+      for (const order of [...orders].reverse()) {
+        storeAPI.dispatch(orderAdded(order));
+      }
+    } catch {
+      // journal unavailable — orders start empty
+    }
+  }
+
   // Start fetching assets and connecting to market feed immediately
   // This is the initialization that happens on app load
   if (!started) {
     started = true;
+    hydrateOrders();
     fetchAssetsAndSeedCandles();
     connect();
   }

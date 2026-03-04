@@ -51,6 +51,10 @@ export default defineConfig({
         target: "http://localhost:5008",
         rewrite: (path) => path.replace(/^\/api\/user-service/, ""),
       },
+      "/api/journal": {
+        target: "http://localhost:5009",
+        rewrite: (path) => path.replace(/^\/api\/journal/, ""),
+      },
       "/api/candle-store": {
         target: "http://localhost:5010",
         rewrite: (path) => path.replace(/^\/api\/candle-store/, ""),
