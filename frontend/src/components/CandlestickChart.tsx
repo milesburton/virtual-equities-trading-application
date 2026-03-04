@@ -45,8 +45,7 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
 
     const chart = createChart(containerRef.current, {
       ...CHART_THEME,
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
+      autoSize: true,
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
@@ -58,7 +57,6 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
       wickDownColor: "#f87171",
     });
 
-    // Volume histogram in a separate scale pane at the bottom
     const volumeSeries = chart.addSeries(HistogramSeries, {
       color: "#34d399",
       priceFormat: { type: "volume" },
@@ -72,18 +70,7 @@ export function CandlestickChart({ symbol, candles, onClose }: Props) {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    const ro = new ResizeObserver(() => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-      }
-    });
-    ro.observe(containerRef.current);
-
     return () => {
-      ro.disconnect();
       chart.remove();
     };
   }, []);

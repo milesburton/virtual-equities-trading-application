@@ -2,6 +2,7 @@ import type { IJsonModel, IJsonTabNode, TabNode } from "flexlayout-react";
 import { Actions, DockLocation, Layout, Model } from "flexlayout-react";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "flexlayout-react/style/dark.css";
 
 import { ChannelContext } from "../contexts/ChannelContext.tsx";
@@ -460,16 +461,30 @@ interface ChannelPickerProps {
 
 function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        btnRef.current &&
+        !btnRef.current.closest("[data-channel-picker]")?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
+
+  function handleOpen() {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen((o) => !o);
+  }
 
   const colour = current !== null ? CHANNEL_COLOURS[current] : null;
   const isOut = dir === "out";
@@ -479,35 +494,13 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
     ? `${dirLabel}: ${colour.label} — click to change`
     : `${dirLabel}: not set — click to connect`;
 
-  return (
-    <div ref={ref} className="relative flex items-center gap-0.5">
-      <button
-        type="button"
-        title={buttonTitle}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
-          colour
-            ? "hover:bg-gray-700/60"
-            : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
-        }`}
-      >
-        <span className={colour ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
-        <span
-          className="w-2.5 h-2.5 rounded-full shrink-0 border"
-          style={{
-            backgroundColor: colour ? colour.hex : "transparent",
-            borderColor: colour ? colour.hex : "#4b5563",
-          }}
-        />
-        {colour && (
-          <span style={{ color: colour.hex }} className="hidden sm:inline">
-            {colour.label}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-0.5 z-50 bg-gray-900 border border-gray-700 rounded shadow-xl p-1.5 flex flex-col gap-0.5 min-w-[110px]">
+  const dropdown = open
+    ? createPortal(
+        <div
+          data-channel-picker
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          className="fixed z-[9999] bg-gray-900 border border-gray-700 rounded shadow-xl p-1.5 flex flex-col gap-0.5 min-w-[110px]"
+        >
           <span className="text-[9px] text-gray-500 px-1 pb-0.5">{dirLabel}</span>
           {([1, 2, 3, 4, 5, 6] as ChannelNumber[]).map((n) => {
             const col = CHANNEL_COLOURS[n];
@@ -549,8 +542,39 @@ function ChannelPicker({ dir, current, blockedChannels, onPick }: ChannelPickerP
           >
             None
           </button>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div data-channel-picker className="relative flex items-center gap-0.5">
+      <button
+        ref={btnRef}
+        type="button"
+        title={buttonTitle}
+        onClick={handleOpen}
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
+          colour
+            ? "hover:bg-gray-700/60"
+            : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
+        }`}
+      >
+        <span className={colour ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
+        <span
+          className="w-2.5 h-2.5 rounded-full shrink-0 border"
+          style={{
+            backgroundColor: colour ? colour.hex : "transparent",
+            borderColor: colour ? colour.hex : "#4b5563",
+          }}
+        />
+        {colour && (
+          <span style={{ color: colour.hex }} className="hidden sm:inline">
+            {colour.label}
+          </span>
+        )}
+      </button>
+      {dropdown}
     </div>
   );
 }
@@ -751,6 +775,16 @@ export function DashboardLayout() {
 
   const onRenderTab = useCallback(
     (node: TabNode, renderValues: { content: ReactNode; buttons: ReactNode[] }) => {
+      const cfg = node.getConfig() as TabChannelConfig | undefined;
+      if (cfg?.panelType === "candle-chart") {
+        const incoming = cfg.incoming ?? null;
+        const symbol =
+          incoming !== null
+            ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
+            : legacySelectedAsset;
+        if (symbol) renderValues.content = `Chart — ${symbol}`;
+      }
+
       const btns = tabChannelButtons({
         node,
         allItems: layout,
@@ -758,7 +792,7 @@ export function DashboardLayout() {
       });
       for (const b of btns) renderValues.buttons.push(b);
     },
-    [layout, handleChannelChange]
+    [layout, handleChannelChange, channelsData, legacySelectedAsset]
   );
 
   const onModelChange = useCallback(
