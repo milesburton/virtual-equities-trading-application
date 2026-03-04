@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { OhlcCandle } from "../../types";
 import {
   applyTick,
+  applyTickMut,
   bucketStart,
+  candlesSeeded,
   type MarketState,
   marketSlice,
   orderBookUpdated,
@@ -307,6 +309,170 @@ describe("tickReceived", () => {
     const state = reducer(stateWithTwo, action);
     expect(state.prices.AAPL).toBe(155);
     expect(state.prices.MSFT).toBe(320);
+  });
+});
+
+// ─── applyTickMut ─────────────────────────────────────────────────────────────
+
+describe("applyTickMut", () => {
+  const bucket = 1_700_000_040_000; // 60s-aligned
+  const INTERVAL_1M = 60_000;
+
+  it("creates a new candle when array is empty", () => {
+    const candles: OhlcCandle[] = [];
+    applyTickMut(candles, 100, bucket + 5_000, INTERVAL_1M);
+    expect(candles).toHaveLength(1);
+    expect(candles[0]).toMatchObject({ time: bucket, open: 100, high: 100, low: 100, close: 100 });
+  });
+
+  it("updates high/low/close of the current candle in-place", () => {
+    const candles: OhlcCandle[] = [{ time: bucket, open: 100, high: 100, low: 100, close: 100 }];
+    applyTickMut(candles, 105, bucket + 10_000, INTERVAL_1M);
+    expect(candles).toHaveLength(1);
+    expect(candles[0].high).toBe(105);
+    expect(candles[0].close).toBe(105);
+    expect(candles[0].open).toBe(100); // unchanged
+
+    applyTickMut(candles, 98, bucket + 20_000, INTERVAL_1M);
+    expect(candles[0].low).toBe(98);
+    expect(candles[0].high).toBe(105); // unchanged
+  });
+
+  it("accumulates volume", () => {
+    const candles: OhlcCandle[] = [
+      { time: bucket, open: 100, high: 100, low: 100, close: 100, volume: 10 },
+    ];
+    applyTickMut(candles, 101, bucket + 5_000, INTERVAL_1M, 5);
+    expect(candles[0].volume).toBe(15);
+  });
+
+  it("opens a new candle when crossing a bucket boundary", () => {
+    const nextBucket = bucket + INTERVAL_1M;
+    const candles: OhlcCandle[] = [{ time: bucket, open: 100, high: 110, low: 90, close: 105 }];
+    applyTickMut(candles, 108, nextBucket + 1_000, INTERVAL_1M);
+    expect(candles).toHaveLength(2);
+    expect(candles[1].time).toBe(nextBucket);
+    expect(candles[1].open).toBe(108);
+  });
+
+  it("trims to MAX_CANDLES (120) when exceeded", () => {
+    const candles: OhlcCandle[] = [];
+    for (let i = 0; i < 121; i++) {
+      const t = bucket + i * INTERVAL_1M;
+      applyTickMut(candles, 100 + i, t, INTERVAL_1M);
+    }
+    expect(candles.length).toBeLessThanOrEqual(120);
+  });
+});
+
+// ─── candlesSeeded reducer ────────────────────────────────────────────────────
+
+describe("candlesSeeded", () => {
+  const bucket = 1_700_000_040_000;
+  const serverCandles1m: OhlcCandle[] = [
+    { time: bucket, open: 100, high: 110, low: 90, close: 105 },
+    { time: bucket + 60_000, open: 105, high: 115, low: 100, close: 112 },
+  ];
+  const serverCandles5m: OhlcCandle[] = [
+    { time: bucket, open: 100, high: 120, low: 90, close: 112 },
+  ];
+
+  it("sets candlesReady[symbol] to true", () => {
+    const state = reducer(
+      { ...initialState, candleHistory: { AAPL: { "1m": [], "5m": [] } } },
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": serverCandles1m, "5m": serverCandles5m } })
+    );
+    expect(state.candlesReady.AAPL).toBe(true);
+  });
+
+  it("replaces candleHistory with server candles when no live ticks are newer", () => {
+    const state = reducer(
+      { ...initialState, candleHistory: { AAPL: { "1m": [], "5m": [] } } },
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": serverCandles1m, "5m": serverCandles5m } })
+    );
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(2);
+    expect(state.candleHistory.AAPL["1m"][0].close).toBe(105);
+  });
+
+  it("merges live ticks newer than last server bar", () => {
+    const liveCandle: OhlcCandle = {
+      time: bucket + 120_000, // newer than last server bar at bucket+60_000
+      open: 112,
+      high: 120,
+      low: 110,
+      close: 118,
+    };
+    const stateWithLive = {
+      ...initialState,
+      candleHistory: { AAPL: { "1m": [liveCandle], "5m": [] } },
+    };
+    const state = reducer(
+      stateWithLive,
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": serverCandles1m, "5m": [] } })
+    );
+    // Should have 2 server bars + 1 live bar
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(3);
+    expect(state.candleHistory.AAPL["1m"][2].time).toBe(bucket + 120_000);
+  });
+
+  it("excludes live ticks that overlap with server bars", () => {
+    const overlappingLive: OhlcCandle = {
+      time: bucket + 60_000, // same time as last server bar — should be excluded
+      open: 999,
+      high: 999,
+      low: 999,
+      close: 999,
+    };
+    const stateWithLive = {
+      ...initialState,
+      candleHistory: { AAPL: { "1m": [overlappingLive], "5m": [] } },
+    };
+    const state = reducer(
+      stateWithLive,
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": serverCandles1m, "5m": [] } })
+    );
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(2);
+    expect(state.candleHistory.AAPL["1m"][1].close).toBe(112); // server value wins
+  });
+
+  it("falls back to live ticks when server returns empty candles", () => {
+    const liveTick: OhlcCandle = { time: bucket, open: 50, high: 60, low: 45, close: 55 };
+    const stateWithLive = {
+      ...initialState,
+      candleHistory: { AAPL: { "1m": [liveTick], "5m": [] } },
+    };
+    const state = reducer(
+      stateWithLive,
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": [], "5m": [] } })
+    );
+    expect(state.candleHistory.AAPL["1m"]).toEqual([liveTick]);
+  });
+});
+
+// ─── setAssets — candlesReady pre-marking ─────────────────────────────────────
+
+describe("setAssets candlesReady", () => {
+  it("pre-marks candlesReady[symbol] = true so chart renders before candle-store fetch", () => {
+    const action = setAssets([
+      { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
+    ]);
+    const state = reducer(initialState, action);
+    expect(state.candlesReady.AAPL).toBe(true);
+  });
+
+  it("does not overwrite candlesReady already set (idempotent)", () => {
+    const action1 = setAssets([
+      { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
+    ]);
+    const state1 = reducer(initialState, action1);
+    // Simulate candlesSeeded setting it true (already true in our case)
+    const action2 = setAssets([
+      { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
+      { symbol: "MSFT", initialPrice: 300, volatility: 0.015, sector: "Technology" },
+    ]);
+    const state2 = reducer(state1, action2);
+    expect(state2.candlesReady.AAPL).toBe(true);
+    expect(state2.candlesReady.MSFT).toBe(true);
   });
 });
 
