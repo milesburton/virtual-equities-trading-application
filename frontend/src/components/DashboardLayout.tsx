@@ -191,7 +191,7 @@ function makeDefaultModel(): IJsonModel {
               children: [
                 {
                   type: "tabset",
-                  weight: 57,
+                  weight: 35,
                   children: [
                     {
                       type: "tab",
@@ -200,6 +200,12 @@ function makeDefaultModel(): IJsonModel {
                       component: "algo-monitor",
                       config: { panelType: "algo-monitor", incoming: 2 } satisfies TabChannelConfig,
                     },
+                  ],
+                },
+                {
+                  type: "tabset",
+                  weight: 35,
+                  children: [
                     {
                       type: "tab",
                       id: "decision-log",
@@ -211,7 +217,7 @@ function makeDefaultModel(): IJsonModel {
                 },
                 {
                   type: "tabset",
-                  weight: 43,
+                  weight: 30,
 
                   children: [
                     {
@@ -263,7 +269,7 @@ function makeDefaultModel(): IJsonModel {
 export const STORAGE_KEY_PREFIX = "dashboard-layout";
 export const STORAGE_KEY = STORAGE_KEY_PREFIX;
 
-const LAYOUT_VERSION = 9;
+const LAYOUT_VERSION = 10;
 
 function makeExecutionModel(): IJsonModel {
   return {
@@ -687,6 +693,8 @@ interface ChannelPickerProps {
   blockedChannels: Set<ChannelNumber>;
   onPick: (ch: ChannelNumber | null) => void;
   disabled?: boolean;
+  allItems?: LayoutItem[];
+  instanceId?: string;
 }
 
 function ChannelPicker({
@@ -695,6 +703,8 @@ function ChannelPicker({
   blockedChannels,
   onPick,
   disabled = false,
+  allItems = [],
+  instanceId,
 }: ChannelPickerProps) {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
@@ -726,12 +736,26 @@ function ChannelPicker({
   const colour = current !== null ? CHANNEL_COLOURS[current] : null;
   const isOut = dir === "out";
   const arrow = isOut ? "→" : "←";
-  const dirLabel = isOut ? "Broadcast channel" : "Listen channel";
+  const dirLabel = isOut ? "Broadcast" : "Listen";
   const disabledLabel = isOut ? "This panel cannot broadcast" : "This panel cannot listen";
+
+  // Find panels connected on this channel for the tooltip
+  const connectedPanels =
+    current !== null && allItems.length > 0
+      ? allItems
+          .filter((item) => {
+            if (isOut) return item.incoming === current && item.i !== instanceId;
+            return item.outgoing === current && item.i !== instanceId;
+          })
+          .map((item) => PANEL_TITLES[item.panelType] ?? item.panelType)
+      : [];
+  const connectedStr =
+    connectedPanels.length > 0 ? ` · ${isOut ? "→" : "←"} ${connectedPanels.join(", ")}` : "";
+
   const buttonTitle = disabled
     ? disabledLabel
     : colour
-      ? `${dirLabel}: ${colour.label} — click to change`
+      ? `${dirLabel} Ch ${current} ${colour.label}${connectedStr} — click to change`
       : `${dirLabel}: not set — click to connect`;
 
   const dropdown = open
@@ -795,22 +819,24 @@ function ChannelPicker({
         title={buttonTitle}
         onClick={handleOpen}
         disabled={disabled}
-        className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors text-[9px] font-medium leading-none ${
+        className={`flex items-center gap-0.5 rounded px-1.5 py-0.5 transition-colors text-[9px] font-mono font-medium leading-none ${
           disabled
-            ? "opacity-25 cursor-not-allowed"
+            ? "opacity-20 cursor-not-allowed"
             : colour
               ? "hover:bg-gray-700/60"
               : "hover:bg-gray-700/40 border border-dashed border-gray-700 hover:border-gray-500"
         }`}
       >
-        <span className={colour && !disabled ? "text-gray-400" : "text-gray-600"}>{arrow}</span>
-        <span
-          className="w-2.5 h-2.5 rounded-full shrink-0 border"
-          style={{
-            backgroundColor: disabled ? "transparent" : colour ? colour.hex : "transparent",
-            borderColor: disabled ? "#374151" : colour ? colour.hex : "#4b5563",
-          }}
-        />
+        {colour && !disabled ? (
+          <>
+            <span style={{ color: colour.hex }}>{arrow}</span>
+            <span className="font-mono tabular-nums" style={{ color: colour.hex }}>
+              {current}
+            </span>
+          </>
+        ) : (
+          <span className="text-gray-600">{arrow}</span>
+        )}
       </button>
       {dropdown}
     </div>
@@ -860,6 +886,8 @@ function tabChannelButtons({
       blockedChannels={blockedOut}
       onPick={(ch) => onChannelChange(instanceId, "out", ch)}
       disabled={!caps.out}
+      allItems={allItems}
+      instanceId={instanceId}
     />,
     <ChannelPicker
       key="in"
@@ -868,6 +896,8 @@ function tabChannelButtons({
       blockedChannels={blockedIn}
       onPick={(ch) => onChannelChange(instanceId, "in", ch)}
       disabled={!caps.in}
+      allItems={allItems}
+      instanceId={instanceId}
     />,
   ];
 }
