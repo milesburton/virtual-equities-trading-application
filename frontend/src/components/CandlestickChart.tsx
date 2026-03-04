@@ -104,7 +104,7 @@ export function CandlestickChart({ symbol, candles }: Props) {
     if (!cs || !vs) return;
 
     const raw = candles[interval.value];
-    if (raw.length < 2) return;
+    if (raw.length === 0) return;
 
     const newKey = `${symbol}:${interval.value}`;
     const isNewSeries = loadedKeyRef.current !== newKey;
@@ -117,10 +117,11 @@ export function CandlestickChart({ symbol, candles }: Props) {
       // Full reload — new symbol, interval switched, history seeded, or time went backwards
       cs.setData(raw.map(toBarData));
       vs.setData(raw.map(toVolData));
-      chartRef.current?.timeScale().fitContent();
       loadedKeyRef.current = newKey;
       loadedCountRef.current = raw.length;
       lastBarTimeRef.current = lastTime;
+      // fitContent after paint so the chart has correct dimensions
+      requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
     } else {
       // Incremental update — only update the last candle (tick append or bucket close)
       cs.update(toBarData(last));
@@ -158,7 +159,7 @@ export function CandlestickChart({ symbol, candles }: Props) {
         )}
       </div>
 
-      {raw.length < 2 && (
+      {raw.length === 0 && (
         <div className="absolute inset-0 top-8 flex items-center justify-center text-gray-600 text-xs pointer-events-none z-10">
           Collecting {interval.value} candles…
         </div>
