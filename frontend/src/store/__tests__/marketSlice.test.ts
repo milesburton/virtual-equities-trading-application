@@ -452,27 +452,34 @@ describe("candlesSeeded", () => {
 // ─── setAssets — candlesReady pre-marking ─────────────────────────────────────
 
 describe("setAssets candlesReady", () => {
-  it("pre-marks candlesReady[symbol] = true so chart renders before candle-store fetch", () => {
+  it("initialises candlesReady[symbol] = false (chart waits for candlesSeeded)", () => {
     const action = setAssets([
       { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
     ]);
     const state = reducer(initialState, action);
-    expect(state.candlesReady.AAPL).toBe(true);
+    expect(state.candlesReady.AAPL).toBe(false);
   });
 
-  it("does not overwrite candlesReady already set (idempotent)", () => {
+  it("does not overwrite candlesReady once set to true by candlesSeeded (idempotent)", () => {
     const action1 = setAssets([
       { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
     ]);
     const state1 = reducer(initialState, action1);
-    // Simulate candlesSeeded setting it true (already true in our case)
+    // Simulate candlesSeeded marking AAPL ready
+    const seeded = reducer(
+      state1,
+      candlesSeeded({ symbol: "AAPL", candles: { "1m": [], "5m": [] } })
+    );
+    expect(seeded.candlesReady.AAPL).toBe(true);
+
+    // Re-running setAssets must not reset the ready flag back to false
     const action2 = setAssets([
       { symbol: "AAPL", initialPrice: 150, volatility: 0.02, sector: "Technology" },
       { symbol: "MSFT", initialPrice: 300, volatility: 0.015, sector: "Technology" },
     ]);
-    const state2 = reducer(state1, action2);
-    expect(state2.candlesReady.AAPL).toBe(true);
-    expect(state2.candlesReady.MSFT).toBe(true);
+    const state2 = reducer(seeded, action2);
+    expect(state2.candlesReady.AAPL).toBe(true); // preserved
+    expect(state2.candlesReady.MSFT).toBe(false); // new symbol starts false
   });
 });
 
