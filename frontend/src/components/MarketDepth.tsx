@@ -43,7 +43,10 @@ export function MarketDepth({ symbol }: Props) {
         <div className="flex-1 flex flex-col justify-end overflow-hidden">
           {[...asks].reverse().map((level, i) => {
             const barPct = (level.size / maxSize) * 100;
-            const cum = asks.slice(0, asks.length - i).reduce((s, l) => s + l.size, 0);
+            // asks[0] is best ask; reversed display means index i from top = asks[LEVELS-1-i]
+            // cumulative = sum from best ask (asks[0]) to this level (asks[LEVELS-1-i])
+            const levelIdx = asks.length - 1 - i;
+            const cum = asks.slice(0, levelIdx + 1).reduce((s, l) => s + l.size, 0);
             return (
               <div
                 key={`ask-${level.price}`}
