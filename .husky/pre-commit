@@ -16,21 +16,25 @@ fi
 
 echo "Pre-commit checks... (commit: $COMMIT_SHA)"
 
-echo "  [1/5] Backend lint..."
+echo "  [1/6] Backend lint..."
 cd "$REPO_ROOT"
 deno task lint
 
-echo "  [2/5] Backend type-check..."
+echo "  [2/6] Backend type-check..."
 deno task check
 
-echo "  [3/5] Backend unit tests..."
+echo "  [3/6] Backend unit tests..."
 deno task test
 
-echo "  [4/5] Frontend lint & typecheck (staged files)..."
+echo "  [4/6] Frontend lint & typecheck (staged files)..."
 cd "$REPO_ROOT/frontend"
 ./node_modules/.bin/lint-staged --cwd .
 
-echo "  [5/5] Smoke tests (skipped if services offline)..."
+echo "  [5/6] Frontend unit tests..."
+cd "$REPO_ROOT/frontend"
+./node_modules/.bin/vitest run
+
+echo "  [6/6] Smoke tests (skipped if services offline)..."
 cd "$REPO_ROOT"
 if curl -sf http://localhost:5000/health >/dev/null 2>&1; then
   deno task test:smoke
