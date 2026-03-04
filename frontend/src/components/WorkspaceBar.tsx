@@ -1,6 +1,12 @@
 import { useSignal } from "@preact/signals-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppSelector } from "../store/hooks.ts";
+import {
+  makeAlgoModel,
+  makeAnalysisModel,
+  makeDefaultModel,
+  useDashboard,
+} from "./DashboardLayout.tsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +60,16 @@ function pushWorkspaceHistory(workspaceId: string, workspaceName: string) {
   history.pushState({ workspaceId }, workspaceName, url.toString());
 }
 
+// ─── View presets ─────────────────────────────────────────────────────────────
+
+const VIEW_PRESETS = [
+  { id: "trading", label: "Trading", icon: "📈", makeModel: makeDefaultModel },
+  { id: "analysis", label: "Analysis", icon: "🔬", makeModel: makeAnalysisModel },
+  { id: "algo", label: "Algo", icon: "🤖", makeModel: makeAlgoModel },
+] as const;
+
+type ViewPresetId = (typeof VIEW_PRESETS)[number]["id"];
+
 // ─── Vertical workspace sidebar ───────────────────────────────────────────────
 
 interface Props {
@@ -67,8 +83,10 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
   const expanded = useSignal(false);
   const editingId = useSignal<string | null>(null);
   const editValue = useSignal("");
+  const activeView = useSignal<ViewPresetId>("trading");
   const inputRef = useRef<HTMLInputElement>(null);
   const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
+  const { resetLayout } = useDashboard();
 
   useEffect(() => {
     if (editingId.value !== null) {
@@ -135,6 +153,37 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
       >
         {isExpanded ? "‹" : "›"}
       </button>
+
+      {/* View presets */}
+      <div className="shrink-0 border-b border-gray-800">
+        {isExpanded && (
+          <div className="px-2 pt-2 pb-1 text-[9px] uppercase tracking-widest text-gray-600">
+            Views
+          </div>
+        )}
+        {VIEW_PRESETS.map((preset) => {
+          const isActive = activeView.value === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              title={preset.label}
+              onClick={() => {
+                activeView.value = preset.id;
+                resetLayout(preset.makeModel());
+              }}
+              className={`flex items-center w-full border-b border-gray-800/40 transition-colors ${
+                isActive
+                  ? "bg-gray-800 text-emerald-400"
+                  : "text-gray-500 hover:bg-gray-900/60 hover:text-gray-300"
+              } ${isExpanded ? "gap-2 px-2.5 py-1.5" : "justify-center h-8"}`}
+            >
+              <span className="text-sm leading-none">{preset.icon}</span>
+              {isExpanded && <span className="text-[11px] font-medium">{preset.label}</span>}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Workspace list */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">

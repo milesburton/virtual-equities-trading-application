@@ -56,20 +56,19 @@ function TradingApp() {
 
         {/* Body: left workspace sidebar + main content */}
         <div className="flex flex-1 min-h-0">
-          {/* Left workspace sidebar — collapsed by default, expands on toggle */}
-          <WorkspaceSidebar
-            workspaces={workspaces}
-            activeId={activeId}
-            onSelect={handleSelect}
-            onWorkspacesChange={handleChange}
-          />
-
-          {/* Main content area: toolbar + dashboard */}
+          {/* Main content area: sidebar + toolbar + dashboard, all inside DashboardProvider */}
           {/* Key scoped to userId+workspaceId — ensures each user's workspaces are isolated */}
           <DashboardProvider
             key={`${userId}:${activeId}`}
             storageKey={workspaceStorageKey(userId, activeId)}
           >
+            {/* Left workspace sidebar — inside provider so it can access resetLayout */}
+            <WorkspaceSidebar
+              workspaces={workspaces}
+              activeId={activeId}
+              onSelect={handleSelect}
+              onWorkspacesChange={handleChange}
+            />
             <div className="flex flex-col flex-1 min-w-0 min-h-0">
               {/* Layout controls scoped to the active workspace/provider */}
               <WorkspaceToolbar />
