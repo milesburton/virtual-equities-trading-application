@@ -204,6 +204,7 @@ services:
     environment:
       MARKET_SIM_PORT: 5000
       REDPANDA_BROKERS: redpanda:9092
+      CANDLE_STORE_URL: http://candle-store:5010
       COMMIT_SHA: ${COMMIT_SHA:-dev}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
@@ -600,6 +601,120 @@ services:
       - "traefik.http.middlewares.candle-store-strip.stripprefix.prefixes=/api/candle-store"
       - "traefik.http.services.candle-store.loadbalancer.server.port=5010"
 
+  # ── FIX Archive (persists fix.execution events from bus) ─────────────────────
+  fix-archive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/fix/fix-archive.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      FIX_ARCHIVE_PORT: 5012
+      FIX_ARCHIVE_DB_PATH: /app/backend/data/fix-archive.db
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    volumes:
+      - observability-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5012/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fix-archive.rule=PathPrefix(`/api/fix-archive`)"
+      - "traefik.http.routers.fix-archive.entrypoints=web"
+      - "traefik.http.routers.fix-archive.middlewares=fix-archive-strip"
+      - "traefik.http.middlewares.fix-archive-strip.stripprefix.prefixes=/api/fix-archive"
+      - "traefik.http.services.fix-archive.loadbalancer.server.port=5012"
+
+  # ── Gateway (BFF — single entry point for GUI) ────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/gateway/gateway.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
+      candle-store:
+        condition: service_healthy
+      journal:
+        condition: service_healthy
+    environment:
+      GATEWAY_PORT: 5011
+      MARKET_SIM_URL: http://market-sim:5000
+      CANDLE_STORE_URL: http://candle-store:5010
+      JOURNAL_URL: http://journal:5009
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5011/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      # WebSocket
+      - "traefik.http.routers.gateway-ws.rule=PathPrefix(`/ws/gateway`)"
+      - "traefik.http.routers.gateway-ws.entrypoints=web"
+      - "traefik.http.routers.gateway-ws.middlewares=gateway-ws-strip"
+      - "traefik.http.middlewares.gateway-ws-strip.stripprefix.prefixes=/ws/gateway"
+      - "traefik.http.routers.gateway-ws.service=gateway"
+      # REST proxy
+      - "traefik.http.routers.gateway-api.rule=PathPrefix(`/api/gateway`)"
+      - "traefik.http.routers.gateway-api.entrypoints=web"
+      - "traefik.http.routers.gateway-api.middlewares=gateway-api-strip"
+      - "traefik.http.middlewares.gateway-api-strip.stripprefix.prefixes=/api/gateway"
+      - "traefik.http.routers.gateway-api.service=gateway"
+      - "traefik.http.services.gateway.loadbalancer.server.port=5011"
+
+  # ── News Aggregator ───────────────────────────────────────────────────────────
+  news-aggregator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: deno run --allow-all backend/src/news/news-aggregator.ts
+    restart: unless-stopped
+    networks:
+      - trading-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      market-sim:
+        condition: service_healthy
+    environment:
+      NEWS_AGGREGATOR_PORT: 5013
+      NEWS_POLL_INTERVAL_MS: ${NEWS_POLL_INTERVAL_MS:-120000}
+      MARKET_SIM_URL: http://market-sim:5000
+      REDPANDA_BROKERS: redpanda:9092
+      COMMIT_SHA: ${COMMIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5013/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.news-aggregator.rule=PathPrefix(`/api/news-aggregator`)"
+      - "traefik.http.routers.news-aggregator.entrypoints=web"
+      - "traefik.http.routers.news-aggregator.middlewares=news-aggregator-strip"
+      - "traefik.http.middlewares.news-aggregator-strip.stripprefix.prefixes=/api/news-aggregator"
+      - "traefik.http.services.news-aggregator.loadbalancer.server.port=5013"
+
   # ── FIX Exchange (internal TCP, not browser-facing) ──────────────────────────
   fix-exchange:
     build:
@@ -680,7 +795,7 @@ services:
         condition: service_healthy
       observability:
         condition: service_healthy
-      fix-gateway:
+      gateway:
         condition: service_healthy
     environment:
       COMMIT_SHA: ${COMMIT_SHA:-dev}

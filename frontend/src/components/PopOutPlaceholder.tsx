@@ -10,6 +10,7 @@ export function PopOutPlaceholder({ panelId }: { panelId: PanelId }) {
       <button
         type="button"
         onClick={() => dispatch(panelClosed({ panelId }))}
+        title="Close the external window and restore this panel to the dashboard"
         className="text-emerald-500 hover:text-emerald-300 transition-colors"
       >
         Restore here

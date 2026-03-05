@@ -1,7 +1,7 @@
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { v4 as uuidv4 } from "uuid";
-import type { ChildOrder, MarketPrices, OrderRecord, Strategy, Trade } from "../types.ts";
+import type { ChildOrder, MarketPrices, OrderRecord, Trade } from "../types.ts";
 
 export interface FillReceivedPayload {
   clOrdId: string;
@@ -10,39 +10,50 @@ export interface FillReceivedPayload {
   leavesQty: number;
 }
 
-// Relative paths work behind Traefik; VITE_* overrides for non-standard deployments.
-const ENDPOINTS: Record<Strategy, string> = {
-  LIMIT: import.meta.env.VITE_LIMIT_URL ?? "/api/limit-algo",
-  TWAP: import.meta.env.VITE_TWAP_URL ?? "/api/twap-algo",
-  POV: import.meta.env.VITE_POV_URL ?? "/api/pov-algo",
-  VWAP: import.meta.env.VITE_VWAP_URL ?? "/api/vwap-algo",
-};
+// Gateway WebSocket — shared singleton set by gatewayMiddleware
+let _gatewayWs: WebSocket | null = null;
+export function setGatewayWs(ws: WebSocket | null): void {
+  _gatewayWs = ws;
+}
 
+/**
+ * Submit an order via the gateway WebSocket.
+ *
+ * The order is added to Redux state immediately with clientOrderId so the
+ * blotter shows it at once. The gateway publishes it to the bus; the OMS
+ * assigns a canonical orderId and publishes orders.submitted, which the
+ * gateway forwards back to the GUI, triggering a patch.
+ */
 export const submitOrderThunk = createAsyncThunk(
   "orders/submit",
   async (trade: Trade, { dispatch }) => {
-    const strategy = trade.algoParams.strategy;
-    const id = uuidv4();
+    const clientOrderId = uuidv4();
     const order: OrderRecord = {
-      id,
+      id: clientOrderId,
       submittedAt: Date.now(),
       asset: trade.asset,
       side: trade.side,
       quantity: trade.quantity,
       limitPrice: trade.limitPrice,
       expiresAt: Date.now() + trade.expiresAt * 1000,
-      strategy,
+      strategy: trade.algoParams.strategy,
       status: "queued",
       filled: 0,
       algoParams: trade.algoParams,
       children: [],
     };
     dispatch(ordersSlice.actions.orderAdded(order));
-    fetch(ENDPOINTS[strategy], {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(trade),
-    }).catch(() => {});
+
+    if (_gatewayWs?.readyState === WebSocket.OPEN) {
+      _gatewayWs.send(
+        JSON.stringify({
+          type: "submitOrder",
+          payload: { ...trade, clientOrderId },
+        })
+      );
+    } else {
+      console.warn("[orders] Gateway WebSocket not connected — order queued locally only");
+    }
   }
 );
 
@@ -57,7 +68,10 @@ export const ordersSlice = createSlice({
   initialState,
   reducers: {
     orderAdded(state, action: PayloadAction<OrderRecord>) {
-      state.orders.unshift(action.payload);
+      // Avoid duplicates (hydration vs live event)
+      if (!state.orders.find((o) => o.id === action.payload.id)) {
+        state.orders.unshift(action.payload);
+      }
     },
     orderPatched(state, action: PayloadAction<{ id: string; patch: Partial<OrderRecord> }>) {
       const { id, patch } = action.payload;
@@ -67,7 +81,11 @@ export const ordersSlice = createSlice({
     childAdded(state, action: PayloadAction<{ parentId: string; child: ChildOrder }>) {
       const { parentId, child } = action.payload;
       const parent = state.orders.find((o) => o.id === parentId);
-      if (parent) parent.children.push(child);
+      if (parent) {
+        const exists = parent.children.find((c) => c.id === child.id);
+        if (!exists) parent.children.push(child);
+        else Object.assign(exists, child);
+      }
     },
     limitOrdersChecked(state, action: PayloadAction<MarketPrices>) {
       const prices = action.payload;
@@ -90,7 +108,7 @@ export const ordersSlice = createSlice({
       const { clOrdId, filledQty, leavesQty } = action.payload;
       const order = state.orders.find((o) => o.id === clOrdId);
       if (!order) return;
-      order.filled = filledQty;
+      order.filled = (order.filled ?? 0) + filledQty;
       if (leavesQty === 0) {
         order.status = "filled";
       } else if (filledQty > 0) {

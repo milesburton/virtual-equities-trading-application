@@ -3,16 +3,10 @@ import type { IJsonModel } from "flexlayout-react";
 import { Model } from "flexlayout-react";
 import { useContext } from "react";
 import { describe, expect, it } from "vitest";
-import type { PanelId } from "../DashboardLayout";
-import {
-  DashboardContext,
-  DashboardProvider,
-  DEFAULT_LAYOUT,
-  PANEL_DESCRIPTIONS,
-  PANEL_IDS,
-  PANEL_TITLES,
-  useDashboard,
-} from "../DashboardLayout";
+import { DashboardContext, DashboardProvider, useDashboard } from "../DashboardContext";
+import { DEFAULT_LAYOUT } from "../layoutUtils";
+import type { PanelId } from "../panelRegistry";
+import { PANEL_DESCRIPTIONS, PANEL_IDS, PANEL_TITLES } from "../panelRegistry";
 
 /** Build a minimal flexlayout JSON model with the given panel types */
 function makeMinimalModel(panelTypes: PanelId[]): IJsonModel {

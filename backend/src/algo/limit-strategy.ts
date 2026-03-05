@@ -1,23 +1,37 @@
+/**
+ * LIMIT order algorithm
+ *
+ * Consumes "orders.routed" from the bus (strategy=LIMIT).
+ * Monitors market prices via market-sim WebSocket.
+ * When limit price is touched, publishes "orders.child" to the bus.
+ * EMS subscribes to "orders.child" and executes the fill.
+ */
+
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
-import type { Trade } from "../types/types.ts";
 import { MarketSimClient } from "../lib/marketSimClient.ts";
-import { createProducer } from "../lib/messaging.ts";
+import { createConsumer, createProducer } from "../lib/messaging.ts";
 
 const MARKET_SIM_PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
 const MARKET_SIM_HOST = Deno.env.get("MARKET_SIM_HOST") || "localhost";
-const EMS_PORT = Number(Deno.env.get("EMS_PORT")) || 5_001;
-const EMS_HOST = Deno.env.get("EMS_HOST") || "localhost";
+const PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5_003;
+const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
 const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("limit-algo").catch((err) => {
-  console.warn("[limit-algo] Redpanda unavailable:", err.message);
-  return null;
+  console.error("[limit-algo] Cannot connect to Redpanda:", err.message);
+  Deno.exit(1);
 });
 
-interface PendingLimit extends Trade {
+interface PendingLimit {
   orderId: string;
+  clientOrderId?: string;
+  asset: string;
+  side: "BUY" | "SELL";
+  quantity: number;
+  limitPrice: number;
+  expiresAt: number; // absolute ms timestamp
   remainingQty: number;
   filledQty: number;
   avgFillPrice: number;
@@ -25,58 +39,35 @@ interface PendingLimit extends Trade {
 
 const pendingOrders: PendingLimit[] = [];
 
-async function sendToEms(order: PendingLimit, qty: number, marketPrice: number): Promise<void> {
-  const childId = `${order.orderId}-lim-${Date.now()}`;
-  try {
-    await producer?.send("orders.child", {
-      childId,
-      parentOrderId: order.orderId,
-      algo: "LIMIT",
-      asset: order.asset,
-      side: order.side,
-      quantity: qty,
-      limitPrice: order.limitPrice,
-      marketPrice,
-      algoParams: { limitPrice: order.limitPrice },
-      ts: Date.now(),
-    }).catch(() => {});
+// Subscribe to orders.routed — filter for LIMIT strategy
+const consumer = await createConsumer("limit-algo-routed", ["orders.routed"]).catch((err) => {
+  console.error("[limit-algo] Cannot subscribe to orders.routed:", err.message);
+  Deno.exit(1);
+});
 
-    const res = await fetch(`http://${EMS_HOST}:${EMS_PORT}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ asset: order.asset, side: order.side, quantity: qty }),
-    });
-    const result = await res.json();
+consumer.onMessage((_topic, raw) => {
+  const order = raw as PendingLimit & { strategy?: string; expiresAt?: number };
+  if ((order.strategy ?? "LIMIT").toUpperCase() !== "LIMIT") return;
 
-    if (result.filledQty > 0) {
-      const totalFilled = order.filledQty + result.filledQty;
-      order.avgFillPrice = (order.avgFillPrice * order.filledQty + result.avgFillPrice * result.filledQty) / totalFilled;
-      order.filledQty = totalFilled;
-      order.remainingQty = result.remainingQty;
+  const pending: PendingLimit = {
+    orderId: order.orderId,
+    clientOrderId: order.clientOrderId,
+    asset: order.asset,
+    side: order.side,
+    quantity: order.quantity,
+    limitPrice: order.limitPrice,
+    // expiresAt from OMS is seconds duration; convert to absolute ms
+    expiresAt: Date.now() + (Number(order.expiresAt ?? 300)) * 1_000,
+    remainingQty: order.quantity,
+    filledQty: 0,
+    avgFillPrice: 0,
+  };
 
-      await producer?.send("orders.filled", {
-        childId,
-        parentOrderId: order.orderId,
-        algo: "LIMIT",
-        asset: order.asset,
-        side: order.side,
-        filledQty: result.filledQty,
-        avgFillPrice: result.avgFillPrice,
-        marketImpactBps: result.marketImpactBps,
-        totalFilled: order.filledQty,
-        totalQty: order.quantity,
-        ts: Date.now(),
-      }).catch(() => {});
-
-      console.log(
-        `✅ LIMIT partial fill: ${result.filledQty} ${order.asset} @ ${result.avgFillPrice} | ` +
-        `total filled=${order.filledQty}/${order.quantity} avgFill=${order.avgFillPrice.toFixed(4)}`,
-      );
-    }
-  } catch (error) {
-    console.error("❌ EMS call failed:", error);
-  }
-}
+  console.log(
+    `[limit-algo] Queued ${pending.side} ${pending.quantity} ${pending.asset} @ ${pending.limitPrice} (${pending.orderId})`,
+  );
+  pendingOrders.push(pending);
+});
 
 marketClient.onTick(async (tick) => {
   const now = Date.now();
@@ -84,16 +75,13 @@ marketClient.onTick(async (tick) => {
   for (let i = pendingOrders.length - 1; i >= 0; i--) {
     const order = pendingOrders[i];
     const marketPrice = tick.prices[order.asset];
-
     if (!marketPrice) continue;
 
+    // Expiry
     if (now >= order.expiresAt) {
-      console.log(
-        `⏳ LIMIT order expired: ${order.side} ${order.quantity} ${order.asset} | ` +
-        `filled=${order.filledQty} avg=${order.avgFillPrice.toFixed(4)}`,
-      );
-      await producer?.send("orders.expired", {
+      await producer.send("orders.expired", {
         orderId: order.orderId,
+        clientOrderId: order.clientOrderId,
         algo: "LIMIT",
         asset: order.asset,
         side: order.side,
@@ -102,6 +90,7 @@ marketClient.onTick(async (tick) => {
         avgFillPrice: order.avgFillPrice,
         ts: now,
       }).catch(() => {});
+      console.log(`[limit-algo] Expired ${order.orderId} filled=${order.filledQty}/${order.quantity}`);
       pendingOrders.splice(i, 1);
       continue;
     }
@@ -111,80 +100,59 @@ marketClient.onTick(async (tick) => {
       (order.side === "SELL" && marketPrice >= order.limitPrice);
 
     if (triggered && order.remainingQty > 0) {
+      const childId = `${order.orderId}-lim-${now}`;
       console.log(
-        `🎯 LIMIT triggered: ${order.side} ${order.remainingQty} ${order.asset} @ market ${marketPrice} (limit ${order.limitPrice})`,
+        `[limit-algo] Triggered ${order.orderId}: ${order.side} ${order.remainingQty} ${order.asset} @ mkt ${marketPrice}`,
       );
-      await sendToEms(order, order.remainingQty, marketPrice);
+      await producer.send("orders.child", {
+        childId,
+        parentOrderId: order.orderId,
+        clientOrderId: order.clientOrderId,
+        algo: "LIMIT",
+        asset: order.asset,
+        side: order.side,
+        quantity: order.remainingQty,
+        limitPrice: order.limitPrice,
+        marketPrice,
+        ts: now,
+      }).catch(() => {});
 
-      if (order.remainingQty <= 0) {
-        pendingOrders.splice(i, 1);
-      }
+      // Mark as fully sent (EMS will fill and publish orders.filled)
+      order.remainingQty = 0;
+      pendingOrders.splice(i, 1);
     }
   }
 
-  // Heartbeat
-  await producer?.send("algo.heartbeat", {
+  await producer.send("algo.heartbeat", {
     algo: "LIMIT",
     ts: now,
     pendingOrders: pendingOrders.length,
   }).catch(() => {});
 });
 
-const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
-
+// ── Health endpoint (internal — not exposed to GUI) ───────────────────────────
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const PORT = Number(Deno.env.get("ALGO_TRADER_PORT")) || 5_003;
-
-Deno.serve({ port: PORT }, async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
-
+Deno.serve({ port: PORT }, (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   const url = new URL(req.url);
   if (url.pathname === "/health" && req.method === "GET") {
     return new Response(
-      JSON.stringify({
-        service: "limit",
-        version: VERSION,
-        status: "ok",
-        pending: pendingOrders.length,
-      }),
+      JSON.stringify({ service: "limit", version: VERSION, status: "ok", pending: pendingOrders.length }),
       { headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
     );
   }
-
-  if (req.method === "POST") {
-    try {
-      const raw: Trade & { orderId?: string } = await req.json();
-      const order: PendingLimit = {
-        ...raw,
-        orderId: raw.orderId ?? `limit-${Date.now()}`,
-        expiresAt: Date.now() + raw.expiresAt * 1_000,
-        remainingQty: raw.quantity,
-        filledQty: 0,
-        avgFillPrice: 0,
-      };
-      console.log(
-        `📥 LIMIT order received: ${order.side} ${order.quantity} ${order.asset} ` +
-        `@ limit ${order.limitPrice} expiry ${new Date(order.expiresAt).toLocaleTimeString()}`,
-      );
-      pendingOrders.push(order);
-      return new Response(
-        JSON.stringify({ success: true, message: "Limit order queued.", orderId: order.orderId }),
-        { headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
-      );
-    } catch {
-      return new Response(
-        JSON.stringify({ success: false, message: "Invalid trade request." }),
-        { headers: { "Content-Type": "application/json", ...CORS_HEADERS }, status: 400 },
-      );
-    }
-  }
-
-  return new Response("Limit Order Algo Running", { status: 200, headers: CORS_HEADERS });
+  return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
 });
+
+// News signals — log only; future: adjust limit price tolerance or pause orders
+createConsumer("limit-algo-news", ["news.signal"]).then((consumer) => {
+  consumer.onMessage((_topic, raw) => {
+    const sig = raw as { symbol: string; sentiment: string; score: number };
+    console.log(`[limit-algo] News signal: ${sig.symbol} ${sig.sentiment} (score=${sig.score})`);
+  });
+}).catch(() => {}); // non-fatal

@@ -8,13 +8,18 @@ export default defineConfig({
     host: true,
     open: false,
     proxy: {
-      // WebSocket feed
-      "/ws/market-sim": {
-        target: "ws://localhost:5000",
+      // Single gateway WebSocket — replaces direct market-sim + FIX WebSocket connections
+      "/ws/gateway": {
+        target: "ws://localhost:5011",
         ws: true,
-        rewrite: (path) => path.replace(/^\/ws\/market-sim/, "/ws"),
+        rewrite: (path) => path.replace(/^\/ws\/gateway/, "/ws"),
       },
-      // REST / SSE back-ends
+      // Gateway REST API — proxies assets, candles, orders history
+      "/api/gateway": {
+        target: "http://localhost:5011",
+        rewrite: (path) => path.replace(/^\/api\/gateway/, ""),
+      },
+      // Internal service health endpoints (retained for ServiceStatus panel)
       "/api/market-sim": {
         target: "http://localhost:5000",
         rewrite: (path) => path.replace(/^\/api\/market-sim/, ""),
@@ -59,14 +64,17 @@ export default defineConfig({
         target: "http://localhost:5010",
         rewrite: (path) => path.replace(/^\/api\/candle-store/, ""),
       },
+      "/api/fix-archive": {
+        target: "http://localhost:5012",
+        rewrite: (path) => path.replace(/^\/api\/fix-archive/, ""),
+      },
+      "/api/news-aggregator": {
+        target: "http://localhost:5013",
+        rewrite: (path) => path.replace(/^\/api\/news-aggregator/, ""),
+      },
       "/api/fix-gateway": {
         target: "http://localhost:9881",
         rewrite: (path) => path.replace(/^\/api\/fix-gateway/, ""),
-      },
-      "/ws/fix": {
-        target: "ws://localhost:9881",
-        ws: true,
-        rewrite: (path) => path.replace(/^\/ws\/fix/, "/ws/fix"),
       },
     },
   },

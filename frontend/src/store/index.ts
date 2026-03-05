@@ -3,11 +3,11 @@ import { authSlice } from "./authSlice.ts";
 import { createBroadcastChannelMiddleware } from "./channel.ts";
 import { channelsSlice } from "./channelsSlice.ts";
 import { marketSlice } from "./marketSlice.ts";
-import { fixMiddleware } from "./middleware/fixMiddleware.ts";
-import { marketFeedMiddleware } from "./middleware/marketFeedMiddleware.ts";
+import { gatewayMiddleware } from "./middleware/gatewayMiddleware.ts";
 import { observabilityMiddleware } from "./middleware/observabilityMiddleware.ts";
 import { simulationMiddleware } from "./middleware/simulationMiddleware.ts";
 import { versionWatchMiddleware } from "./middleware/versionWatchMiddleware.ts";
+import { newsSlice } from "./newsSlice.ts";
 import { obsApi } from "./obsApi.ts";
 import { observabilitySlice } from "./observabilitySlice.ts";
 import { ordersSlice } from "./ordersSlice.ts";
@@ -20,6 +20,7 @@ export const store = configureStore({
     auth: authSlice.reducer,
     market: marketSlice.reducer,
     orders: ordersSlice.reducer,
+    news: newsSlice.reducer,
     observability: observabilitySlice.reducer,
     ui: uiSlice.reducer,
     windows: windowSlice.reducer,
@@ -31,8 +32,7 @@ export const store = configureStore({
     getDefaultMiddleware()
       .concat(servicesApi.middleware)
       .concat(obsApi.middleware)
-      .concat(marketFeedMiddleware)
-      .concat(fixMiddleware)
+      .concat(gatewayMiddleware)
       .concat(observabilityMiddleware)
       .concat(simulationMiddleware.middleware)
       .concat(versionWatchMiddleware)

@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals-react";
 import { useMemo } from "react";
+import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { ContextMenuEntry } from "./ContextMenu.tsx";
@@ -104,8 +105,9 @@ const ALGO_COLORS: Record<string, string> = {
 
 export function DecisionLog() {
   const events = useAppSelector((s) => s.observability.events);
+  const { incoming } = useChannelContext();
   const channelIn = useChannelIn();
-  const filterAsset = channelIn.selectedAsset ?? null;
+  const filterAsset = incoming !== null ? (channelIn.selectedAsset ?? null) : null;
   const filterOrderId = channelIn.selectedOrderId ?? null;
 
   const showHeartbeats = useSignal(false);

@@ -6,6 +6,9 @@ import { test, expect, type Page } from "@playwright/test";
 async function mockAuth(page: Page) {
   const user = { id: "alice", name: "Alice Chen", role: "trader", avatar_emoji: "👩‍💼" };
 
+  // Playwright matches routes in reverse registration order (last registered wins).
+  // stubBackend must be called BEFORE mockAuth so the specific session routes take precedence.
+  // These two are registered last here so they win over the catch-all in stubBackend.
   await page.route("/api/user-service/sessions/me", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) })
   );
@@ -62,8 +65,9 @@ async function dragTab(page: Page, tabLocator: ReturnType<Page["locator"]>, dx: 
 
 test.describe("Dashboard panel layout (flexlayout)", () => {
   test.beforeEach(async ({ page }) => {
-    await mockAuth(page);
+    // stubBackend first (catch-all, lowest priority), mockAuth last (specific routes, highest priority)
     await stubBackend(page);
+    await mockAuth(page);
     await page.goto("/");
     await waitForDashboard(page);
   });

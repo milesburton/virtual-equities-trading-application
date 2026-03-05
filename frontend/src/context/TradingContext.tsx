@@ -95,6 +95,8 @@ function ShortcutOverlay({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
+              title="Close shortcuts overlay (Escape)"
+              aria-label="Close keyboard shortcuts overlay"
               className="text-gray-500 hover:text-gray-300 text-lg leading-none"
             >
               ×

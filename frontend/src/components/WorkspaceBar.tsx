@@ -2,8 +2,10 @@ import { useSignal } from "@preact/signals-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppSelector } from "../store/hooks.ts";
 import {
+  makeAdminModel,
   makeAlgoModel,
   makeAnalysisModel,
+  makeClearModel,
   makeDefaultModel,
   useDashboard,
 } from "./DashboardLayout.tsx";
@@ -63,9 +65,11 @@ function pushWorkspaceHistory(workspaceId: string, workspaceName: string) {
 // ─── View presets ─────────────────────────────────────────────────────────────
 
 const VIEW_PRESETS = [
-  { id: "trading", label: "Trading", icon: "▲", makeModel: makeDefaultModel },
-  { id: "analysis", label: "Analysis", icon: "◈", makeModel: makeAnalysisModel },
-  { id: "algo", label: "Algo", icon: "⊞", makeModel: makeAlgoModel },
+  { id: "trading", label: "Trading", icon: "▲", makeModel: makeDefaultModel, adminOnly: false },
+  { id: "analysis", label: "Analysis", icon: "◈", makeModel: makeAnalysisModel, adminOnly: false },
+  { id: "algo", label: "Algo", icon: "⊞", makeModel: makeAlgoModel, adminOnly: false },
+  { id: "admin", label: "Mission Control", icon: "⚙", makeModel: makeAdminModel, adminOnly: true },
+  { id: "clear", label: "Clear", icon: "☐", makeModel: makeClearModel, adminOnly: false },
 ] as const;
 
 type ViewPresetId = (typeof VIEW_PRESETS)[number]["id"];
@@ -83,9 +87,10 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
   const expanded = useSignal(false);
   const editingId = useSignal<string | null>(null);
   const editValue = useSignal("");
-  const activeView = useSignal<ViewPresetId>("trading");
   const inputRef = useRef<HTMLInputElement>(null);
   const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
+  const userRole = useAppSelector((s) => s.auth.user?.role);
+  const activeView = useSignal<ViewPresetId>(userRole === "admin" ? "admin" : "trading");
   const { resetLayout } = useDashboard();
 
   useEffect(() => {
@@ -168,23 +173,30 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
             Views
           </div>
         )}
-        {VIEW_PRESETS.map((preset) => {
+        {VIEW_PRESETS.filter((p) => !p.adminOnly || userRole === "admin").map((preset) => {
           const isActive = activeView.value === preset.id;
+          const isClear = preset.id === "clear";
           return (
             <button
               key={preset.id}
               type="button"
               aria-label={`${preset.label} view`}
               aria-pressed={isActive}
-              title={`${preset.label} — switch to ${preset.label.toLowerCase()} layout`}
+              title={
+                isClear
+                  ? "Clear layout — remove all panels (add from picker)"
+                  : `${preset.label} — switch to ${preset.label.toLowerCase()} layout`
+              }
               onClick={() => {
                 activeView.value = preset.id;
                 resetLayout(preset.makeModel());
               }}
               className={`flex items-center w-full border-b border-gray-800/40 transition-colors ${
-                isActive
-                  ? "bg-gray-800 text-emerald-400"
-                  : "text-gray-500 hover:bg-gray-900/60 hover:text-gray-300"
+                isClear
+                  ? "text-gray-600 hover:bg-gray-900/60 hover:text-red-400"
+                  : isActive
+                    ? "bg-gray-800 text-emerald-400"
+                    : "text-gray-500 hover:bg-gray-900/60 hover:text-gray-300"
               } ${isExpanded ? "gap-2 px-2.5 py-1.5" : "justify-center h-8"}`}
             >
               <span className="text-sm leading-none" aria-hidden="true">

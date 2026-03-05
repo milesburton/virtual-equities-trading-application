@@ -50,6 +50,8 @@ export function AssetSelector({ assets, value, onChange, onSelect, inputRef, pri
               <button
                 type="button"
                 onMouseDown={() => onSelect(a.symbol)}
+                title={`Select ${a.symbol} — ${a.sector}`}
+                aria-label={`Select ${a.symbol}`}
                 className="w-full text-left px-2.5 py-1.5 hover:bg-gray-700 flex items-center justify-between"
               >
                 <span className="font-semibold text-gray-200">{a.symbol}</span>

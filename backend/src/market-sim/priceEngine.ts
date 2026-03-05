@@ -39,10 +39,22 @@ export const marketData: Record<string, number> = Object.fromEntries(
   SP500_ASSETS.map((a) => [a.symbol, a.initialPrice]),
 );
 
-/** Anchor prices used for mean reversion (never change). */
+/** Anchor prices used for mean reversion (updated when seeded from candle-store). */
 const anchorPrices: Record<string, number> = Object.fromEntries(
   SP500_ASSETS.map((a) => [a.symbol, a.initialPrice]),
 );
+
+/**
+ * Seed both the current price and the mean-reversion anchor for an asset.
+ * Call this at startup when resuming from candle-store history so the price
+ * is continuous with the previous session and the anchor follows the new level.
+ */
+export function seedPrice(symbol: string, price: number): void {
+  if (price > 0 && symbol in marketData) {
+    marketData[symbol] = price;
+    anchorPrices[symbol] = price;
+  }
+}
 
 /** Current sector drift shocks (refreshed each tick for all assets in a sector). */
 const sectorShocks: Record<string, number> = {};
@@ -63,13 +75,13 @@ function refreshRegime() {
   if (r < 0.40) {
     marketDrift = 0; // neutral (most common)
   } else if (r < 0.65) {
-    marketDrift = 0.000008; // mild bull
+    marketDrift = 0.0000008; // mild bull (~0.01%/min)
   } else if (r < 0.85) {
-    marketDrift = -0.000008; // mild bear
+    marketDrift = -0.0000008; // mild bear (~0.01%/min)
   } else if (r < 0.93) {
-    marketDrift = 0.000025; // strong bull
+    marketDrift = 0.0000025; // strong bull (~0.036%/min)
   } else {
-    marketDrift = -0.000025; // strong bear
+    marketDrift = -0.0000025; // strong bear (~0.036%/min)
   }
 }
 

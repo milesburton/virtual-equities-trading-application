@@ -348,3 +348,56 @@ describe("simulationMiddleware – observability events", () => {
     );
   });
 });
+
+// ─── Gateway-connected guard ──────────────────────────────────────────────────
+
+describe("simulationMiddleware – gateway-connected guard", () => {
+  it("does NOT run local simulation for TWAP when gateway is connected", () => {
+    const store = makeStore();
+    // Simulate gateway connection
+    store.dispatch(marketSlice.actions.setConnected(true));
+
+    store.dispatch(
+      ordersSlice.actions.orderAdded(
+        makeOrder({
+          strategy: "TWAP",
+          algoParams: { strategy: "TWAP", numSlices: 4, participationCap: 25 },
+        })
+      )
+    );
+
+    // Status should remain queued — local simulation must not have started
+    const [order] = store.getState().orders.orders;
+    expect(order.status).toBe("queued");
+  });
+
+  it("does NOT fill LIMIT orders on tick when gateway is connected", () => {
+    const store = makeStore();
+    store.dispatch(marketSlice.actions.setConnected(true));
+    store.dispatch(ordersSlice.actions.orderAdded(makeOrder({ limitPrice: 200 })));
+
+    // Price is below limit — would fill if local simulation were running
+    store.dispatch(marketSlice.actions.tickReceived({ prices: { AAPL: 100 }, ts: NOW + 1000 }));
+
+    const [order] = store.getState().orders.orders;
+    expect(order.status).toBe("queued");
+  });
+
+  it("DOES run local TWAP simulation when gateway is disconnected", () => {
+    const store = makeStore();
+    // Connected starts false by default — explicitly set to false
+    store.dispatch(marketSlice.actions.setConnected(false));
+
+    store.dispatch(
+      ordersSlice.actions.orderAdded(
+        makeOrder({
+          strategy: "TWAP",
+          algoParams: { strategy: "TWAP", numSlices: 4, participationCap: 25 },
+        })
+      )
+    );
+
+    const [order] = store.getState().orders.orders;
+    expect(order.status).toBe("executing");
+  });
+});

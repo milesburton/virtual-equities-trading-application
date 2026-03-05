@@ -372,6 +372,8 @@ export function ObservabilityPanel() {
               onClick={() => {
                 tab.value = "summary";
               }}
+              title="Summary — overview of fill statistics, notional, commission, and liquidity mix"
+              aria-pressed={tab.value === "summary"}
               className={`px-2.5 py-1 transition-colors ${tab.value === "summary" ? "bg-sky-900/60 text-sky-300" : "text-gray-500 hover:text-gray-300"}`}
             >
               Summary
@@ -381,6 +383,8 @@ export function ObservabilityPanel() {
               onClick={() => {
                 tab.value = "trades";
               }}
+              title="Trades — individual trade records with fill progression charts"
+              aria-pressed={tab.value === "trades"}
               className={`px-2.5 py-1 transition-colors ${tab.value === "trades" ? "bg-sky-900/60 text-sky-300" : "text-gray-500 hover:text-gray-300"}`}
             >
               Trades
@@ -395,6 +399,8 @@ export function ObservabilityPanel() {
               onClick={() => {
                 tab.value = "events";
               }}
+              title="Events — raw observability event stream from the algo engine"
+              aria-pressed={tab.value === "events"}
               className={`px-2.5 py-1 transition-colors ${tab.value === "events" ? "bg-sky-900/60 text-sky-300" : "text-gray-500 hover:text-gray-300"}`}
             >
               Events
@@ -406,6 +412,8 @@ export function ObservabilityPanel() {
             <button
               type="button"
               onClick={replay}
+              title="Export event log as JSON and open in new tab"
+              aria-label="Export events as JSON"
               className="text-[11px] text-gray-400 hover:text-gray-200"
             >
               Export
@@ -529,15 +537,42 @@ export function ObservabilityPanel() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-500 border-b border-gray-800 sticky top-0 bg-gray-950">
-                  <th className="text-left px-3 py-2">Time</th>
-                  <th className="text-left px-3 py-2">Asset</th>
-                  <th className="text-left px-3 py-2">Side</th>
-                  <th className="text-left px-3 py-2">Strategy</th>
-                  <th className="text-left px-3 py-2">Status</th>
-                  <th className="text-right px-3 py-2">Fill%</th>
-                  <th className="text-right px-3 py-2">Impact</th>
-                  <th className="text-right px-3 py-2">Comm</th>
-                  <th className="text-right px-3 py-2">Slices</th>
+                  <th className="text-left px-3 py-2" title="Time order was submitted">
+                    Time
+                  </th>
+                  <th className="text-left px-3 py-2" title="Instrument / ticker symbol">
+                    Asset
+                  </th>
+                  <th className="text-left px-3 py-2" title="Order direction: BUY or SELL">
+                    Side
+                  </th>
+                  <th
+                    className="text-left px-3 py-2"
+                    title="Execution strategy (LIMIT, TWAP, POV, VWAP)"
+                  >
+                    Strategy
+                  </th>
+                  <th className="text-left px-3 py-2" title="Order lifecycle status">
+                    Status
+                  </th>
+                  <th
+                    className="text-right px-3 py-2"
+                    title="Percentage of order quantity that has been filled"
+                  >
+                    Fill%
+                  </th>
+                  <th
+                    className="text-right px-3 py-2"
+                    title="Market impact in basis points — slippage of average fill price vs limit price"
+                  >
+                    Impact
+                  </th>
+                  <th className="text-right px-3 py-2" title="Total execution commission in USD">
+                    Comm
+                  </th>
+                  <th className="text-right px-3 py-2" title="Number of child execution slices">
+                    Slices
+                  </th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>

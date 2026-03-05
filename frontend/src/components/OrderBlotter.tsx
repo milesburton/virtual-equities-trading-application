@@ -1,5 +1,5 @@
 import { useSignal } from "@preact/signals-react";
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
 import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -15,6 +15,7 @@ const STATUS_STYLES: Record<OrderStatus, string> = {
   executing: "bg-sky-900/50 text-sky-300 border border-sky-700/50",
   filled: "bg-emerald-900/50 text-emerald-300 border border-emerald-700/50",
   expired: "bg-gray-800/50 text-gray-500 border border-gray-700/50",
+  rejected: "bg-red-950/60 text-red-400 border border-red-800/50",
 };
 
 const LIQ_STYLES: Record<LiquidityFlag, string> = {
@@ -117,6 +118,16 @@ export function OrderBlotter() {
   const ctxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
   const { outgoing } = useChannelContext();
   const channelColour = outgoing !== null ? (CHANNEL_COLOURS[outgoing]?.hex ?? null) : null;
+
+  // Auto-select the most recent order on first load (once orders arrive)
+  useEffect(() => {
+    if (selectedOrderId.value === null && orders.length > 0) {
+      const latest = orders[orders.length - 1];
+      selectedOrderId.value = latest.id;
+      broadcast({ selectedOrderId: latest.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders.length, orders, broadcast, selectedOrderId]);
 
   function selectOrder(id: string) {
     const next = selectedOrderId.value === id ? null : id;

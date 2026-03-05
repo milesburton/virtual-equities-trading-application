@@ -1,5 +1,9 @@
 import { useEffect } from "react";
-import { DashboardLayout, DashboardProvider } from "./components/DashboardLayout.tsx";
+import {
+  DashboardLayout,
+  DashboardProvider,
+  makeAdminModel,
+} from "./components/DashboardLayout.tsx";
 import { LoginPage } from "./components/LoginPage.tsx";
 import { AppHeader, WorkspaceToolbar } from "./components/StatusBar.tsx";
 import {
@@ -46,6 +50,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function TradingApp() {
   const userId = useAppSelector((s) => s.auth.user?.id ?? "anonymous");
+  const userRole = useAppSelector((s) => s.auth.user?.role);
   const { workspaces, activeId, handleSelect, handleChange } = useWorkspaces(userId);
 
   return (
@@ -61,6 +66,7 @@ function TradingApp() {
           <DashboardProvider
             key={`${userId}:${activeId}`}
             storageKey={workspaceStorageKey(userId, activeId)}
+            initialModel={userRole === "admin" ? makeAdminModel() : undefined}
           >
             {/* Left workspace sidebar — inside provider so it can access resetLayout */}
             <WorkspaceSidebar

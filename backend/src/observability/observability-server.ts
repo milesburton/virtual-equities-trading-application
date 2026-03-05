@@ -1,9 +1,9 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
-import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
 import { createConsumer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("OBSERVABILITY_PORT")) || 5007;
+const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -78,8 +78,10 @@ const BUS_TOPICS = [
   "orders.child",
   "orders.filled",
   "orders.expired",
+  "orders.rejected",
   "algo.heartbeat",
   "user.session",
+  "user.access",
 ];
 
 createConsumer("observability-group", BUS_TOPICS).then((consumer) => {
@@ -108,7 +110,7 @@ async function handle(req: Request): Promise<Response> {
 
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname === "/health") {
-    return new Response(JSON.stringify({ service: "observability", status: "ok" }), {
+    return new Response(JSON.stringify({ service: "observability", version: VERSION, status: "ok" }), {
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
@@ -207,5 +209,4 @@ async function handle(req: Request): Promise<Response> {
   return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
 }
 
-console.log(`🔭 Observability service running on port ${PORT}`);
-serve(handle, { port: PORT });
+Deno.serve({ port: PORT }, handle);

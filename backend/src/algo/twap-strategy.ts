@@ -1,123 +1,58 @@
+/**
+ * TWAP (Time-Weighted Average Price) algorithm
+ *
+ * Consumes "orders.routed" from the bus (strategy=TWAP).
+ * Divides order into N time slices; on each interval publishes "orders.child"
+ * to the bus. EMS subscribes and executes the fill.
+ */
+
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
-import type { Trade } from "../types/types.ts";
 import { MarketSimClient } from "../lib/marketSimClient.ts";
-import { createProducer } from "../lib/messaging.ts";
+import { createConsumer, createProducer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("TWAP_ALGO_PORT")) || 5_004;
-const EMS_PORT = Number(Deno.env.get("EMS_PORT")) || 5_001;
-const EMS_HOST = Deno.env.get("EMS_HOST") || "localhost";
 const MARKET_SIM_PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
 const MARKET_SIM_HOST = Deno.env.get("MARKET_SIM_HOST") || "localhost";
 const INTERVAL_MS = Number(Deno.env.get("TWAP_INTERVAL_MS")) || 5_000;
+const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
-console.log(`TWAP Algo running on port ${PORT}, interval=${INTERVAL_MS}ms`);
+console.log(`[twap-algo] Starting, interval=${INTERVAL_MS}ms`);
 
 const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("twap-algo").catch((err) => {
-  console.warn("[twap-algo] Redpanda unavailable:", err.message);
-  return null;
+  console.error("[twap-algo] Cannot connect to Redpanda:", err.message);
+  Deno.exit(1);
 });
 
-interface TwapState {
+interface RoutedOrder {
   orderId: string;
-  order: Trade;
-  totalQty: number;
-  filledQty: number;
-  costBasis: number;
-  numSlices: number;
-  currentSlice: number;
+  clientOrderId?: string;
+  asset: string;
+  side: "BUY" | "SELL";
+  quantity: number;
+  limitPrice: number;
+  expiresAt: number; // seconds duration from OMS
+  strategy?: string;
+  algoParams?: { numSlices?: number; participationCap?: number };
 }
 
-async function sendSliceToEms(state: TwapState, qty: number, marketPrice: number): Promise<void> {
-  const childId = `${state.orderId}-twap-${state.currentSlice}`;
-  try {
-    await producer?.send("orders.child", {
-      childId,
-      parentOrderId: state.orderId,
-      algo: "TWAP",
-      asset: state.order.asset,
-      side: state.order.side,
-      quantity: qty,
-      limitPrice: state.order.limitPrice,
-      marketPrice,
-      sliceIndex: state.currentSlice,
-      numSlices: state.numSlices,
-      algoParams: { intervalMs: INTERVAL_MS, numSlices: state.numSlices },
-      ts: Date.now(),
-    }).catch(() => {});
-
-    const res = await fetch(`http://${EMS_HOST}:${EMS_PORT}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        asset: state.order.asset,
-        side: state.order.side,
-        quantity: qty,
-      }),
-    });
-    const result = await res.json();
-
-    if (result.filledQty > 0) {
-      state.filledQty += result.filledQty;
-      state.costBasis += result.filledQty * result.avgFillPrice;
-      const avgFill = state.costBasis / state.filledQty;
-      const pct = ((state.filledQty / state.totalQty) * 100).toFixed(1);
-
-      await producer?.send("orders.filled", {
-        childId,
-        parentOrderId: state.orderId,
-        algo: "TWAP",
-        asset: state.order.asset,
-        side: state.order.side,
-        filledQty: result.filledQty,
-        avgFillPrice: result.avgFillPrice,
-        marketImpactBps: result.marketImpactBps,
-        totalFilled: state.filledQty,
-        totalQty: state.totalQty,
-        ts: Date.now(),
-      }).catch(() => {});
-
-      console.log(
-        `📈 TWAP slice ${state.currentSlice}/${state.numSlices}: ` +
-        `filled ${result.filledQty} @ ${result.avgFillPrice} | ` +
-        `total ${state.filledQty}/${state.totalQty} (${pct}%) avgFill=${avgFill.toFixed(4)} ` +
-        `impact=${result.marketImpactBps.toFixed(2)}bps`,
-      );
-    } else {
-      console.log(
-        `⚠️  TWAP slice ${state.currentSlice}/${state.numSlices}: no fill (${result.message})`,
-      );
-    }
-  } catch (error) {
-    console.error(`❌ TWAP EMS call failed (slice ${state.currentSlice}):`, error);
-  }
-}
-
-async function executeTWAP(orderId: string, order: Trade): Promise<void> {
+async function executeTWAP(order: RoutedOrder): Promise<void> {
   const durationMs = order.expiresAt * 1_000;
   const numSlices = Math.max(1, Math.round(durationMs / INTERVAL_MS));
   const baseSliceQty = order.quantity / numSlices;
 
-  const state: TwapState = {
-    orderId,
-    order,
-    totalQty: order.quantity,
-    filledQty: 0,
-    costBasis: 0,
-    numSlices,
-    currentSlice: 0,
-  };
+  const filledQty = 0;
+  const costBasis = 0;
 
   console.log(
-    `⏳ TWAP started: ${order.quantity} ${order.asset} over ${numSlices} slices ` +
-    `every ${INTERVAL_MS / 1_000}s (${(durationMs / 1_000).toFixed(0)}s total)`,
+    `[twap-algo] Started ${order.orderId}: ${order.quantity} ${order.asset} over ${numSlices} slices`,
   );
 
-  await producer?.send("algo.heartbeat", {
+  await producer.send("algo.heartbeat", {
     algo: "TWAP",
-    orderId,
+    orderId: order.orderId,
     event: "start",
     asset: order.asset,
     quantity: order.quantity,
@@ -125,52 +60,81 @@ async function executeTWAP(orderId: string, order: Trade): Promise<void> {
     ts: Date.now(),
   }).catch(() => {});
 
-  for (let i = 0; i < numSlices && state.filledQty < state.totalQty; i++) {
-    state.currentSlice = i + 1;
+  for (let i = 0; i < numSlices && filledQty < order.quantity; i++) {
+    if (i > 0) await new Promise<void>((r) => setTimeout(r, INTERVAL_MS));
 
-    if (i > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, INTERVAL_MS));
-    }
-
-    const remaining = state.totalQty - state.filledQty;
+    const remaining = order.quantity - filledQty;
     const sliceQty = Math.min(Math.round(baseSliceQty), remaining);
-
     if (sliceQty <= 0) break;
 
     const tick = marketClient.getLatest();
-    const midPrice = tick.prices[order.asset] ?? 0;
+    const marketPrice = tick.prices[order.asset] ?? 0;
+    const childId = `${order.orderId}-twap-${i + 1}`;
+
+    await producer.send("orders.child", {
+      childId,
+      parentOrderId: order.orderId,
+      clientOrderId: order.clientOrderId,
+      algo: "TWAP",
+      asset: order.asset,
+      side: order.side,
+      quantity: sliceQty,
+      limitPrice: order.limitPrice,
+      marketPrice,
+      sliceIndex: i,
+      numSlices,
+      ts: Date.now(),
+    }).catch(() => {});
+
     console.log(
-      `⏳ TWAP slice ${state.currentSlice}/${numSlices}: sending ${sliceQty} ${order.asset} @ mkt ${midPrice}`,
+      `[twap-algo] Slice ${i + 1}/${numSlices}: ${sliceQty} ${order.asset} @ mkt ${marketPrice}`,
     );
-    await sendSliceToEms(state, sliceQty, midPrice);
+
+    // Publish heartbeat so GUI can track progress
+    await producer.send("algo.heartbeat", {
+      algo: "TWAP",
+      orderId: order.orderId,
+      asset: order.asset,
+      pendingOrders: numSlices - i - 1,
+      ts: Date.now(),
+    }).catch(() => {});
   }
 
-  const avgFill = state.filledQty > 0 ? (state.costBasis / state.filledQty).toFixed(4) : "N/A";
-  console.log(
-    `✅ TWAP complete: filled ${state.filledQty}/${state.totalQty} ${order.asset} avgFill=${avgFill}`,
-  );
-  await producer?.send("algo.heartbeat", {
+  const avgFill = filledQty > 0 ? (costBasis / filledQty).toFixed(4) : "N/A";
+  await producer.send("algo.heartbeat", {
     algo: "TWAP",
-    orderId,
+    orderId: order.orderId,
     event: "complete",
     asset: order.asset,
-    filled: state.filledQty,
-    avgFill,
+    filled: filledQty,
+    avgFillPrice: avgFill,
     ts: Date.now(),
   }).catch(() => {});
+
+  console.log(`[twap-algo] Complete ${order.orderId}: filled=${filledQty}/${order.quantity} avg=${avgFill}`);
 }
 
-const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
+// Subscribe to orders.routed — filter for TWAP
+const consumer = await createConsumer("twap-algo-routed", ["orders.routed"]).catch((err) => {
+  console.error("[twap-algo] Cannot subscribe to orders.routed:", err.message);
+  Deno.exit(1);
+});
 
+consumer.onMessage((_topic, raw) => {
+  const order = raw as RoutedOrder;
+  if ((order.strategy ?? "").toUpperCase() !== "TWAP") return;
+  executeTWAP(order); // fire-and-forget; errors are caught internally
+});
+
+// ── Health endpoint ───────────────────────────────────────────────────────────
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-Deno.serve({ port: PORT }, async (req) => {
+Deno.serve({ port: PORT }, (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-
   const url = new URL(req.url);
   if (url.pathname === "/health" && req.method === "GET") {
     return new Response(
@@ -178,18 +142,13 @@ Deno.serve({ port: PORT }, async (req) => {
       { headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
     );
   }
-
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405, headers: CORS_HEADERS });
-
-  try {
-    const raw: Trade & { orderId?: string } = await req.json();
-    const orderId = raw.orderId ?? `twap-${Date.now()}`;
-    executeTWAP(orderId, raw);
-    return new Response(
-      JSON.stringify({ success: true, message: "TWAP execution started.", orderId }),
-      { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
-    );
-  } catch (_error) {
-    return new Response("Internal Server Error", { status: 500, headers: CORS_HEADERS });
-  }
+  return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
 });
+
+// News signals — log only; future: adjust slice timing or participation
+createConsumer("twap-algo-news", ["news.signal"]).then((consumer) => {
+  consumer.onMessage((_topic, raw) => {
+    const sig = raw as { symbol: string; sentiment: string; score: number };
+    console.log(`[twap-algo] News signal: ${sig.symbol} ${sig.sentiment} (score=${sig.score})`);
+  });
+}).catch(() => {}); // non-fatal

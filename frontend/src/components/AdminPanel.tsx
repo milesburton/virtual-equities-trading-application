@@ -109,7 +109,7 @@ export function AdminPanel() {
           Trading Limits
           {!isAdmin && (
             <span className="ml-2 text-orange-400">
-              (read-only — admin access required to edit)
+              (read-only — mission control access required to edit)
             </span>
           )}
         </div>
@@ -125,103 +125,105 @@ export function AdminPanel() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user, idx) => {
-                const lim = limits[user.id];
-                return (
-                  <tr
-                    key={user.id}
-                    className={`border-t border-gray-800 ${idx % 2 === 0 ? "bg-gray-950" : "bg-gray-900/40"}`}
-                  >
-                    <td className="px-3 py-2">
-                      <span className="mr-1">{user.avatar_emoji}</span>
-                      <span className="text-gray-200">{user.name}</span>
-                      <span
-                        className={`ml-1.5 text-[9px] px-1 py-0.5 rounded ${
-                          user.role === "admin"
-                            ? "bg-orange-900/50 text-orange-400"
-                            : "bg-blue-900/50 text-blue-400"
-                        }`}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      {lim ? (
-                        <input
-                          type="number"
-                          value={lim.max_order_qty}
-                          disabled={!isAdmin}
-                          onChange={(e) =>
-                            setLimits((prev) => ({
-                              ...prev,
-                              [user.id]: { ...lim, max_order_qty: Number(e.target.value) },
-                            }))
-                          }
-                          className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                      ) : (
-                        <span className="text-gray-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {lim ? (
-                        <input
-                          type="number"
-                          value={lim.max_daily_notional}
-                          disabled={!isAdmin}
-                          onChange={(e) =>
-                            setLimits((prev) => ({
-                              ...prev,
-                              [user.id]: { ...lim, max_daily_notional: Number(e.target.value) },
-                            }))
-                          }
-                          className="w-28 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                      ) : (
-                        <span className="text-gray-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {lim ? (
-                        <div className="flex gap-1">
-                          {ALL_STRATEGIES.map((s) => {
-                            const enabled = lim.allowed_strategies.includes(s);
-                            return (
-                              <button
-                                key={s}
-                                type="button"
-                                disabled={!isAdmin}
-                                onClick={() => toggleStrategy(user.id, s)}
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors disabled:cursor-not-allowed ${
-                                  enabled
-                                    ? "bg-emerald-900/50 text-emerald-400 hover:bg-emerald-900"
-                                    : "bg-gray-800 text-gray-600 hover:bg-gray-700"
-                                }`}
-                              >
-                                {s}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-gray-600">—</span>
-                      )}
-                    </td>
-                    {isAdmin && (
+              {users
+                .filter((u) => u.role !== "admin")
+                .map((user, idx) => {
+                  const lim = limits[user.id];
+                  return (
+                    <tr
+                      key={user.id}
+                      className={`border-t border-gray-800 ${idx % 2 === 0 ? "bg-gray-950" : "bg-gray-900/40"}`}
+                    >
                       <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          disabled={saving === user.id || !lim}
-                          onClick={() => saveLimits(user.id)}
-                          className="px-2 py-0.5 bg-emerald-800/60 text-emerald-400 hover:bg-emerald-800 rounded text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        <span className="mr-1">{user.avatar_emoji}</span>
+                        <span className="text-gray-200">{user.name}</span>
+                        <span
+                          className={`ml-1.5 text-[9px] px-1 py-0.5 rounded ${
+                            user.role === "admin"
+                              ? "bg-orange-900/50 text-orange-400"
+                              : "bg-blue-900/50 text-blue-400"
+                          }`}
                         >
-                          {saving === user.id ? "Saving…" : "Save"}
-                        </button>
+                          {user.role}
+                        </span>
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
+                      <td className="px-3 py-2">
+                        {lim ? (
+                          <input
+                            type="number"
+                            value={lim.max_order_qty}
+                            disabled={!isAdmin}
+                            onChange={(e) =>
+                              setLimits((prev) => ({
+                                ...prev,
+                                [user.id]: { ...lim, max_order_qty: Number(e.target.value) },
+                              }))
+                            }
+                            className="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        ) : (
+                          <span className="text-gray-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {lim ? (
+                          <input
+                            type="number"
+                            value={lim.max_daily_notional}
+                            disabled={!isAdmin}
+                            onChange={(e) =>
+                              setLimits((prev) => ({
+                                ...prev,
+                                [user.id]: { ...lim, max_daily_notional: Number(e.target.value) },
+                              }))
+                            }
+                            className="w-28 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        ) : (
+                          <span className="text-gray-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {lim ? (
+                          <div className="flex gap-1">
+                            {ALL_STRATEGIES.map((s) => {
+                              const enabled = lim.allowed_strategies.includes(s);
+                              return (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  disabled={!isAdmin}
+                                  onClick={() => toggleStrategy(user.id, s)}
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors disabled:cursor-not-allowed ${
+                                    enabled
+                                      ? "bg-emerald-900/50 text-emerald-400 hover:bg-emerald-900"
+                                      : "bg-gray-800 text-gray-600 hover:bg-gray-700"
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-gray-600">—</span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            disabled={saving === user.id || !lim}
+                            onClick={() => saveLimits(user.id)}
+                            className="px-2 py-0.5 bg-emerald-800/60 text-emerald-400 hover:bg-emerald-800 rounded text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {saving === user.id ? "Saving…" : "Save"}
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

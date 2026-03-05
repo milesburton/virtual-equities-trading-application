@@ -15,9 +15,11 @@ const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
   executions: "Filled order history and analytics",
   "decision-log": "Real-time algo reasoning — every slice, fill, and decision",
   "market-match": "Live fill tape: venue, counterparty, liquidity, and impact",
-  admin: "Admin controls",
+  admin: "Mission Control — system config and user management",
   news: "Live market news with sentiment scoring",
+  "news-sources": "Enable or disable news feed sources",
   "order-progress": "Fill progress pies and avg fill rate by strategy",
+  "market-heatmap": "Sector treemap heatmap — assets sized by market cap, coloured by % change",
 };
 
 export function ComponentPicker() {
@@ -25,8 +27,14 @@ export function ComponentPicker() {
   const { activePanelIds, addPanel } = useDashboard();
   const user = useAppSelector((s) => s.auth.user);
 
+  // Admin-only panels
+  const ADMIN_ONLY_PANELS: ReadonlySet<PanelId> = new Set(["admin", "news-sources"]);
+  // Panels hidden from admins (trading capability — admins must not interfere with the market)
+  const TRADER_ONLY_PANELS: ReadonlySet<PanelId> = new Set(["order-ticket"]);
+
   const visiblePanelIds = PANEL_IDS.filter((id) => {
-    if (id === "admin") return user?.role === "admin";
+    if (ADMIN_ONLY_PANELS.has(id)) return user?.role === "admin";
+    if (TRADER_ONLY_PANELS.has(id)) return user?.role !== "admin";
     return true;
   });
 
@@ -96,7 +104,7 @@ export function ComponentPicker() {
                         >
                           {PANEL_TITLES[id]}
                           {id === "admin" && (
-                            <span className="ml-1 text-[9px] text-orange-400">admin</span>
+                            <span className="ml-1 text-[9px] text-orange-400">mission control</span>
                           )}
                         </span>
                         <span className="text-gray-600 text-[10px] truncate">

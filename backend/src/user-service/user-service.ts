@@ -182,6 +182,30 @@ async function handle(req: Request): Promise<Response> {
     return json(user);
   }
 
+  // POST /sessions/validate — internal service-to-service token validation
+  // Body: { token: string }
+  // Returns: { user, limits } or 401
+  if (req.method === "POST" && path === "/sessions/validate") {
+    let body: { token?: string };
+    try { body = await req.json(); } catch { return json({ error: "invalid json" }, 400); }
+    const user = getUserFromToken(body.token ?? null);
+    if (!user) return json({ error: "unauthenticated" }, 401);
+
+    const limitRows = [...db.query(
+      "SELECT max_order_qty, max_daily_notional, allowed_strategies FROM trading_limits WHERE user_id = ?;",
+      [user.id],
+    )];
+    const limits = limitRows.length > 0
+      ? {
+          max_order_qty: limitRows[0][0] as number,
+          max_daily_notional: limitRows[0][1] as number,
+          allowed_strategies: (limitRows[0][2] as string).split(","),
+        }
+      : { max_order_qty: 10000, max_daily_notional: 1_000_000, allowed_strategies: ["LIMIT", "TWAP", "POV", "VWAP"] };
+
+    return json({ user, limits });
+  }
+
   // GET /users/:id/limits
   const limitsMatch = path.match(/^\/users\/([^/]+)\/limits$/);
   if (limitsMatch) {

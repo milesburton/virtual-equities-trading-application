@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it, vi } from "vitest";
 import { TradingProvider } from "../../context/TradingContext";
 import { ChannelContext } from "../../contexts/ChannelContext";
+import { authSlice } from "../../store/authSlice";
 import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { ordersSlice } from "../../store/ordersSlice";
@@ -22,6 +23,7 @@ const prices: MarketPrices = { AAPL: 155, MSFT: 305 };
 function makeStore() {
   return configureStore({
     reducer: {
+      auth: authSlice.reducer,
       market: marketSlice.reducer,
       orders: ordersSlice.reducer,
       ui: uiSlice.reducer,

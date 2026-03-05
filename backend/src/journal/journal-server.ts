@@ -1,5 +1,4 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
-import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
 import { createConsumer } from "../lib/messaging.ts";
 
@@ -7,6 +6,7 @@ const PORT = Number(Deno.env.get("JOURNAL_PORT")) || 5_009;
 const DB_PATH = Deno.env.get("JOURNAL_DB_PATH") || "./backend/data/journal.db";
 const RETENTION_DAYS = Number(Deno.env.get("JOURNAL_RETENTION_DAYS")) || 90;
 const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1_000;
+const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +18,10 @@ const CORS_HEADERS = {
 
 await Deno.mkdir(DB_PATH.substring(0, DB_PATH.lastIndexOf("/")), { recursive: true }).catch(() => {});
 const db = new DB(DB_PATH);
+
+// WAL mode for concurrent reads during high-frequency candle writes
+db.query("PRAGMA journal_mode=WAL");
+db.query("PRAGMA busy_timeout=3000");
 
 db.query(`CREATE TABLE IF NOT EXISTS journal (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,14 +48,111 @@ db.query(`CREATE INDEX IF NOT EXISTS idx_journal_ts ON journal(ts);`);
 db.query(`CREATE INDEX IF NOT EXISTS idx_journal_order_id ON journal(order_id);`);
 db.query(`CREATE INDEX IF NOT EXISTS idx_journal_instrument ON journal(instrument);`);
 
-// ── Ingest from Redpanda ───────────────────────────────────────────────────────
+// ── Candle store (market data history) ────────────────────────────────────────
+// Aggregates market.ticks into OHLCV candles at 1m and 5m intervals.
+// This replaces the standalone candle-store service, mirroring real TCA systems
+// where market data history and trade journal share the same data tier.
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS candles (
+    instrument TEXT NOT NULL,
+    interval   TEXT NOT NULL,
+    time       INTEGER NOT NULL,
+    open       REAL NOT NULL,
+    high       REAL NOT NULL,
+    low        REAL NOT NULL,
+    close      REAL NOT NULL,
+    volume     REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (instrument, interval, time)
+  );
+`);
+db.query(`CREATE INDEX IF NOT EXISTS idx_candles_lookup ON candles(instrument, interval, time);`);
+
+const TICKS_PER_MINUTE = 240; // 4 ticks/s × 60 s
+const MAX_CANDLES = 120;
+const INTERVALS: { key: "1m" | "5m"; ms: number }[] = [
+  { key: "1m", ms: 60_000 },
+  { key: "5m", ms: 300_000 },
+];
+
+function bucketStart(ts: number, intervalMs: number): number {
+  return Math.floor(ts / intervalMs) * intervalMs;
+}
+
+const stmtCandleUpsert = db.prepareQuery<
+  [string, string, number, number, number, number, number, number],
+  Record<string, unknown>,
+  [string, string, number, number, number]
+>(
+  `INSERT INTO candles (instrument, interval, time, open, high, low, close, volume)
+   VALUES (?1, ?2, ?3, ?4, ?4, ?4, ?4, ?5)
+   ON CONFLICT(instrument, interval, time) DO UPDATE SET
+     high   = MAX(high,   excluded.high),
+     low    = MIN(low,    excluded.low),
+     close  = excluded.close,
+     volume = volume + excluded.volume`,
+);
+
+let lastPruneTs = 0;
+function maybePruneCandles(now: number) {
+  if (now - lastPruneTs < 60_000) return;
+  lastPruneTs = now;
+  // For each instrument+interval pair that exceeds MAX_CANDLES, delete the
+  // oldest rows beyond the cap. We use a correlated subquery to find the
+  // cut-off timestamp per instrument so only genuinely excess rows are removed.
+  for (const { key } of INTERVALS) {
+    db.query(
+      `DELETE FROM candles
+       WHERE interval = ?
+         AND (instrument, time) IN (
+           SELECT instrument, time FROM candles
+           WHERE interval = ?
+             AND time < (
+               SELECT time FROM candles c2
+               WHERE c2.instrument = candles.instrument
+                 AND c2.interval   = ?
+               ORDER BY time DESC
+               LIMIT 1 OFFSET ?
+             )
+         )`,
+      [key, key, key, MAX_CANDLES - 1],
+    );
+  }
+}
+
+function ingestTick(msg: { prices?: Record<string, number>; volumes?: Record<string, number> }) {
+  if (!msg.prices) return;
+  const ts = Date.now();
+  const volumes = msg.volumes ?? {};
+
+  db.query("BEGIN");
+  try {
+    for (const [instrument, price] of Object.entries(msg.prices)) {
+      const tickVolume = (volumes[instrument] ?? 0) / TICKS_PER_MINUTE;
+      for (const { key, ms } of INTERVALS) {
+        const bucket = bucketStart(ts, ms);
+        stmtCandleUpsert.execute([instrument, key, bucket, price, tickVolume]);
+      }
+    }
+    db.query("COMMIT");
+  } catch (err) {
+    db.query("ROLLBACK");
+    console.warn("[journal] candle upsert failed:", (err as Error).message);
+  }
+
+  maybePruneCandles(ts);
+}
+
+// ── Ingest order events from Redpanda ─────────────────────────────────────────
 
 const CONSUME_TOPICS = [
   "orders.submitted",
   "orders.child",
   "orders.filled",
   "orders.expired",
+  "orders.rejected",
   "user.session",
+  "user.access",
 ];
 
 // deno-lint-ignore no-explicit-any
@@ -109,6 +210,16 @@ createConsumer("journal-group", CONSUME_TOPICS).then((consumer) => {
   console.warn("[journal] Redpanda unavailable, no audit events will be captured:", err.message);
 });
 
+// Subscribe to market ticks to build OHLCV candle history
+createConsumer("journal-market", ["market.ticks"]).then((consumer) => {
+  consumer.onMessage((_topic, value) => {
+    ingestTick(value as { prices?: Record<string, number>; volumes?: Record<string, number> });
+  });
+  console.log("[journal] Subscribed to: market.ticks (candle aggregation)");
+}).catch((err) => {
+  console.warn("[journal] Could not subscribe to market.ticks:", err.message);
+});
+
 // ── HTTP handlers ──────────────────────────────────────────────────────────────
 
 function json(data: unknown, status = 200): Response {
@@ -136,7 +247,32 @@ function handle(req: Request): Response {
   const path = url.pathname;
 
   if (req.method === "GET" && path === "/health") {
-    return json({ service: "journal", status: "ok", retentionDays: RETENTION_DAYS });
+    return json({ service: "journal", version: VERSION, status: "ok", retentionDays: RETENTION_DAYS });
+  }
+
+  // GET /candles?instrument=AAPL&interval=1m&limit=120
+  if (req.method === "GET" && path === "/candles") {
+    const instrument = url.searchParams.get("instrument");
+    const interval = url.searchParams.get("interval") ?? "1m";
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? MAX_CANDLES), MAX_CANDLES);
+
+    if (!instrument) return json({ error: "instrument is required" }, 400);
+    if (interval !== "1m" && interval !== "5m") return json({ error: "interval must be 1m or 5m" }, 400);
+
+    const rows = [...db.query(
+      `SELECT time, open, high, low, close, volume
+       FROM candles
+       WHERE instrument = ? AND interval = ?
+       ORDER BY time DESC
+       LIMIT ?`,
+      [instrument, interval, limit],
+    )].reverse(); // return ascending
+
+    const candles = rows.map(([time, open, high, low, close, volume]) => ({
+      time, open, high, low, close, volume,
+    }));
+
+    return json(candles);
   }
 
   // GET /journal?from=&to=&userId=&instrument=&orderId=&algo=&limit=&offset=
@@ -212,7 +348,24 @@ function handle(req: Request): Response {
       let raw: Record<string, unknown> = {};
       try { raw = JSON.parse(rawStr); } catch { /* skip */ }
 
-      if (eventType === "orders.submitted") {
+      if (eventType === "orders.rejected" && !orderMap.has(orderId)) {
+        // Gateway-rejected before OMS: create a minimal stub so the order appears in the blotter
+        orderMap.set(orderId, {
+          id: orderId,
+          submittedAt: ts,
+          asset: raw.asset ?? raw.instrument ?? "",
+          side: raw.side ?? "BUY",
+          quantity: raw.quantity ?? raw.requestedQty ?? 0,
+          limitPrice: raw.limitPrice ?? 0,
+          expiresAt: ts + 86_400_000,
+          strategy: raw.strategy ?? raw.algo ?? "LIMIT",
+          status: "rejected",
+          rejectReason: raw.reason ?? raw.message ?? null,
+          filled: 0,
+          algoParams: raw.algoParams ?? { strategy: raw.strategy ?? "LIMIT" },
+          children: [],
+        });
+      } else if (eventType === "orders.submitted") {
         orderMap.set(orderId, {
           id: orderId,
           submittedAt: ts,
@@ -230,13 +383,17 @@ function handle(req: Request): Response {
       } else if (orderMap.has(orderId)) {
         const order = orderMap.get(orderId)!;
         if (eventType === "orders.filled") {
-          const filledQty = Number(raw.filledQty ?? 0);
-          const totalFilled = Number(raw.totalFilled ?? filledQty);
+          // EMS sends per-child filledQty; accumulate across all fill events
+          // for this parent order to get the running total.
+          const childFilled = Number(raw.filledQty ?? 0);
+          order.filled = Number(order.filled ?? 0) + childFilled;
           const qty = Number(order.quantity ?? 0);
-          order.filled = totalFilled;
-          order.status = qty > 0 && totalFilled >= qty ? "filled" : "executing";
+          order.status = qty > 0 && Number(order.filled) >= qty ? "filled" : "executing";
         } else if (eventType === "orders.expired") {
           order.status = "expired";
+        } else if (eventType === "orders.rejected") {
+          order.status = "rejected";
+          if (raw.reason) order.rejectReason = raw.reason;
         } else if (eventType === "orders.child") {
           const children = order.children as unknown[];
           children.push({
@@ -264,5 +421,4 @@ function handle(req: Request): Response {
   return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
 }
 
-console.log(`📋 Journal service running on port ${PORT} (retention: ${RETENTION_DAYS} days)`);
-serve(handle, { port: PORT });
+Deno.serve({ port: PORT }, handle);

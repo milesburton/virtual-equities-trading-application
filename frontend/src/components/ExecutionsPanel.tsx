@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { LiquidityFlag, OrderRecord } from "../types.ts";
@@ -247,23 +248,39 @@ function TradeRow({ order }: { order: OrderRecord }) {
 
 export function ExecutionsPanel() {
   const orders = useAppSelector((s) => s.orders.orders);
+  const { incoming } = useChannelContext();
   const channelIn = useChannelIn();
-  const filterAsset = channelIn.selectedAsset;
+  // When wired to a channel: prefer filtering by the broadcast orderId (1:1 with a trade),
+  // falling back to asset if only an asset is broadcast.
+  // Without a channel link, show all executions.
+  const filterOrderId = incoming !== null ? channelIn.selectedOrderId : null;
+  const filterAsset = incoming !== null && !filterOrderId ? channelIn.selectedAsset : null;
 
   const tradeOrders = useMemo(
     () =>
       orders
         .filter((o) => o.children.length > 0 || o.status === "filled" || o.status === "expired")
-        .filter((o) => (filterAsset ? o.asset === filterAsset : true))
+        .filter((o) => {
+          if (filterOrderId) return o.id === filterOrderId;
+          if (filterAsset) return o.asset === filterAsset;
+          return true;
+        })
         .slice()
         .reverse(),
-    [orders, filterAsset]
+    [orders, filterOrderId, filterAsset]
   );
 
   return (
     <div className="flex flex-col h-full text-xs">
       <div className="px-2 py-1.5 border-b border-gray-800 flex items-center gap-2 shrink-0">
-        {filterAsset && <span className="text-[10px] text-gray-500 font-mono">{filterAsset}</span>}
+        {filterOrderId && (
+          <span className="text-[10px] text-amber-400 bg-amber-900/30 font-mono px-1.5 py-0.5 rounded">
+            {filterOrderId.slice(0, 8)}
+          </span>
+        )}
+        {filterAsset && !filterOrderId && (
+          <span className="text-[10px] text-gray-500 font-mono">{filterAsset}</span>
+        )}
         {tradeOrders.length > 0 && (
           <span className="text-[10px] text-gray-600 ml-auto">{tradeOrders.length}</span>
         )}
@@ -273,7 +290,11 @@ export function ExecutionsPanel() {
       <div className="flex-1 overflow-auto">
         {tradeOrders.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-gray-600">
-            {filterAsset ? `No executions for ${filterAsset}` : "No executions yet"}
+            {filterOrderId
+              ? `No executions for order ${filterOrderId.slice(0, 8)}`
+              : filterAsset
+                ? `No executions for ${filterAsset}`
+                : "No executions yet"}
           </div>
         ) : (
           <table className="w-full text-xs">

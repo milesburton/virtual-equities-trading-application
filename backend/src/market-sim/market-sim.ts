@@ -1,17 +1,50 @@
 import "https://deno.land/std@0.210.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.210.0/http/server.ts";
-import { advanceRegime, generatePrice, marketData, refreshSectorShocks } from "./priceEngine.ts";
+import { advanceRegime, generatePrice, marketData, seedPrice, refreshSectorShocks } from "./priceEngine.ts";
 import { ASSET_MAP, SP500_ASSETS } from "./sp500Assets.ts";
 import { intradayVolumeFactor } from "../lib/timeScale.ts";
 import { createProducer } from "../lib/messaging.ts";
 
 const PORT = Number(Deno.env.get("MARKET_SIM_PORT")) || 5_000;
 const VERSION = Deno.env.get("COMMIT_SHA") || "dev";
+const JOURNAL_URL = `http://${Deno.env.get("JOURNAL_HOST") ?? "localhost"}:${Deno.env.get("JOURNAL_PORT") ?? "5009"}`;
 
 const producer = await createProducer("market-sim").catch((err) => {
   console.warn("[market-sim] Redpanda unavailable, ticks will not be published to bus:", err.message);
   return null;
 });
+
+// ── Seed prices from candle-store history ──────────────────────────────────────
+// Fetch the last known 1m close for each asset so that prices are continuous
+// across restarts rather than resetting to hard-coded initialPrice values.
+async function seedFromJournal(): Promise<void> {
+  const symbols = SP500_ASSETS.map((a) => a.symbol);
+  let seeded = 0;
+  await Promise.allSettled(
+    symbols.map(async (symbol) => {
+      try {
+        const res = await fetch(
+          `${JOURNAL_URL}/candles?instrument=${symbol}&interval=1m&limit=1`,
+        );
+        if (!res.ok) return;
+        const rows = await res.json() as { close: number }[];
+        if (rows.length > 0 && rows[rows.length - 1].close > 0) {
+          seedPrice(symbol, rows[rows.length - 1].close);
+          seeded++;
+        }
+      } catch {
+        // Journal not available — keep initialPrice
+      }
+    }),
+  );
+  if (seeded > 0) {
+    console.log(`[market-sim] Seeded ${seeded}/${symbols.length} assets from journal candle history`);
+  } else {
+    console.log("[market-sim] Journal unavailable or empty — starting from initialPrice");
+  }
+}
+
+await seedFromJournal();
 
 let marketMinute = 0;
 let tickCount = 0;

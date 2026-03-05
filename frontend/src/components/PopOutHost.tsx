@@ -1,19 +1,77 @@
 import type { IJsonModel } from "flexlayout-react";
 import { Model } from "flexlayout-react";
+import type React from "react";
 import type { ChannelContextValue } from "../contexts/ChannelContext.tsx";
-import { ChannelContext } from "../contexts/ChannelContext.tsx";
+import { ChannelContext, useChannelContext } from "../contexts/ChannelContext.tsx";
+import { useAppSelector } from "../store/hooks.ts";
+import { AdminPanel } from "./AdminPanel.tsx";
 import { AlgoMonitor } from "./AlgoMonitor.tsx";
+import { AnalysisPanel } from "./AnalysisPanel.tsx";
+import { CandlestickChart } from "./CandlestickChart.tsx";
 import type { LayoutItem, PanelId } from "./DashboardLayout.tsx";
 import { modelToLayoutItems } from "./DashboardLayout.tsx";
+import { DecisionLog } from "./DecisionLog.tsx";
+import { ExecutionsPanel } from "./ExecutionsPanel.tsx";
+import { MarketDepth } from "./MarketDepth.tsx";
+import { MarketHeatmap } from "./MarketHeatmap.tsx";
 import { MarketLadder } from "./MarketLadder.tsx";
+import { MarketMatch } from "./MarketMatch.tsx";
+import { NewsSourcesPanel } from "./NewsSourcesPanel.tsx";
 import { ObservabilityPanel } from "./ObservabilityPanel.tsx";
 import { OrderBlotter } from "./OrderBlotter.tsx";
+import { OrderProgressPanel } from "./OrderProgressPanel.tsx";
+import { OrderTicket } from "./OrderTicket.tsx";
+
+/** Candle chart wrapper — reads incoming channel from context to resolve symbol. */
+function CandleChartForPopOut() {
+  const { incoming } = useChannelContext();
+  const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
+  const channelsData = useAppSelector((s) => s.channels.data);
+  const symbol =
+    incoming !== null
+      ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
+      : legacySelectedAsset;
+  const candles = useAppSelector((s) => (symbol ? s.market.candleHistory[symbol] : undefined));
+  const ready = useAppSelector((s) => (symbol ? s.market.candlesReady[symbol] : false));
+
+  if (symbol && ready && candles && (candles["1m"].length >= 2 || candles["5m"].length >= 2)) {
+    return <CandlestickChart key={symbol} symbol={symbol} candles={candles} />;
+  }
+  return (
+    <div className="flex items-center justify-center h-full text-gray-600 text-xs">
+      Waiting for candle data…
+    </div>
+  );
+}
+
+/** Market depth wrapper — reads symbol from channel context. */
+function MarketDepthForPopOut() {
+  const { incoming } = useChannelContext();
+  const legacySelectedAsset = useAppSelector((s) => s.ui.selectedAsset);
+  const channelsData = useAppSelector((s) => s.channels.data);
+  const symbol =
+    incoming !== null
+      ? (channelsData[incoming]?.selectedAsset ?? legacySelectedAsset)
+      : (legacySelectedAsset ?? "AAPL");
+  return <MarketDepth symbol={symbol ?? "AAPL"} />;
+}
 
 const PANEL_MAP: Record<string, React.ComponentType> = {
+  "market-ladder": MarketLadder,
+  "order-ticket": OrderTicket,
   "order-blotter": OrderBlotter,
   "algo-monitor": AlgoMonitor,
   observability: ObservabilityPanel,
-  "market-ladder": MarketLadder,
+  "candle-chart": CandleChartForPopOut,
+  "market-depth": MarketDepthForPopOut,
+  executions: ExecutionsPanel,
+  "decision-log": DecisionLog,
+  "market-match": MarketMatch,
+  admin: AdminPanel,
+  news: AnalysisPanel,
+  "news-sources": NewsSourcesPanel,
+  "order-progress": OrderProgressPanel,
+  "market-heatmap": MarketHeatmap,
 };
 
 /** Read channel assignments for a given instance from the persisted layout.

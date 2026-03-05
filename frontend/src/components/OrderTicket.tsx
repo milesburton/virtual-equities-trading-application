@@ -148,11 +148,13 @@ export function OrderTicket() {
   const dispatch = useAppDispatch();
   const { registerTicketRef } = useTradingContext();
   const channelIn = useChannelIn();
+  const userRole = useAppSelector((s) => s.auth.user?.role);
 
   const assets = useAppSelector((s) => s.market.assets);
   const prices = useAppSelector((s) => s.market.prices);
   const activeStrategy = useAppSelector((s) => s.ui.activeStrategy);
   const activeSide = useAppSelector((s) => s.ui.activeSide);
+  const limits = useAppSelector((s) => s.auth.limits);
 
   const assetSearch = useSignal("AAPL");
   const quantity = useSignal("100");
@@ -203,7 +205,31 @@ export function OrderTicket() {
   const qty = Number(quantity.value);
   const lx = Number(limitPrice.value);
 
-  const isValid = qty > 0 && lx > 0 && Number(expiresAt.value) > 0 && selectedAsset !== undefined;
+  // Trading limit violations (shown as warnings before submission)
+  const limitWarnings: string[] = [];
+  if (qty > 0 && limits.max_order_qty > 0 && qty > limits.max_order_qty) {
+    limitWarnings.push(
+      `Quantity ${qty.toLocaleString()} exceeds your limit of ${limits.max_order_qty.toLocaleString()} shares`
+    );
+  }
+  if (qty > 0 && lx > 0) {
+    const notional = qty * lx;
+    if (notional > limits.max_daily_notional) {
+      limitWarnings.push(
+        `Notional $${notional.toLocaleString(undefined, { maximumFractionDigits: 0 })} exceeds your daily limit of $${limits.max_daily_notional.toLocaleString()}`
+      );
+    }
+  }
+  if (!limits.allowed_strategies.includes(activeStrategy)) {
+    limitWarnings.push(`Strategy ${activeStrategy} is not permitted for your account`);
+  }
+
+  const isValid =
+    qty > 0 &&
+    lx > 0 &&
+    Number(expiresAt.value) > 0 &&
+    selectedAsset !== undefined &&
+    limitWarnings.length === 0;
 
   function buildAlgoParams(): AlgoParams {
     if (activeStrategy === "TWAP") {
@@ -286,6 +312,21 @@ export function OrderTicket() {
 
   const symbol = selectedAsset?.symbol ?? "";
 
+  // Admins cannot submit orders — show a read-only notice instead of the form
+  if (userRole === "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+        <span className="text-2xl" aria-hidden="true">
+          ⚙
+        </span>
+        <p className="text-sm font-semibold text-gray-300">Admin account</p>
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Administrators cannot submit orders. This panel is reserved for trader accounts.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <form
@@ -305,10 +346,21 @@ export function OrderTicket() {
             onChange={(e) => dispatch(setActiveStrategy(e.target.value as typeof activeStrategy))}
             className="w-full bg-gray-800 border border-gray-700 text-gray-100 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-emerald-500"
           >
-            <option value="LIMIT">Limit Order</option>
-            <option value="TWAP">TWAP — Time Weighted Avg Price</option>
-            <option value="POV">POV — Percentage of Volume</option>
-            <option value="VWAP">VWAP — Volume Weighted Avg Price</option>
+            <option value="LIMIT" disabled={!limits.allowed_strategies.includes("LIMIT")}>
+              Limit Order{!limits.allowed_strategies.includes("LIMIT") ? " (not permitted)" : ""}
+            </option>
+            <option value="TWAP" disabled={!limits.allowed_strategies.includes("TWAP")}>
+              TWAP — Time Weighted Avg Price
+              {!limits.allowed_strategies.includes("TWAP") ? " (not permitted)" : ""}
+            </option>
+            <option value="POV" disabled={!limits.allowed_strategies.includes("POV")}>
+              POV — Percentage of Volume
+              {!limits.allowed_strategies.includes("POV") ? " (not permitted)" : ""}
+            </option>
+            <option value="VWAP" disabled={!limits.allowed_strategies.includes("VWAP")}>
+              VWAP — Volume Weighted Avg Price
+              {!limits.allowed_strategies.includes("VWAP") ? " (not permitted)" : ""}
+            </option>
           </select>
         </div>
 
@@ -498,13 +550,27 @@ export function OrderTicket() {
           }}
         />
 
+        {limitWarnings.length > 0 && (
+          <div
+            className="rounded border border-amber-700/60 bg-amber-950/40 px-2.5 py-2 text-[10px] text-amber-400 space-y-0.5"
+            role="alert"
+            aria-label="Trading limit violations"
+          >
+            {limitWarnings.map((w) => (
+              <div key={w}>⚠ {w}</div>
+            ))}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={!isValid || submitting.value}
           title={
-            isValid
-              ? `Submit order — keyboard shortcut: Ctrl+Enter`
-              : "Fill in all required fields to submit"
+            limitWarnings.length > 0
+              ? `Order blocked: ${limitWarnings[0]}`
+              : isValid
+                ? `Submit order — keyboard shortcut: Ctrl+Enter`
+                : "Fill in all required fields to submit"
           }
           aria-label={
             isValid

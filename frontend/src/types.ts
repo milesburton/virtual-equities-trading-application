@@ -48,7 +48,7 @@ export interface CandleHistory {
   [asset: string]: { "1m": OhlcCandle[]; "5m": OhlcCandle[] };
 }
 
-export type OrderStatus = "queued" | "executing" | "filled" | "expired";
+export type OrderStatus = "queued" | "executing" | "filled" | "expired" | "rejected";
 export type Strategy = "LIMIT" | "TWAP" | "POV" | "VWAP";
 
 /** FIX Time In Force (tag 59). */

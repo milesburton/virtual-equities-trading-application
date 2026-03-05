@@ -1,5 +1,6 @@
 import { useSignal } from "@preact/signals-react";
 import { useMemo } from "react";
+import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { ContextMenuEntry } from "./ContextMenu.tsx";
@@ -139,8 +140,9 @@ function BookPosition({
 
 export function MarketMatch() {
   const events = useAppSelector((s) => s.observability.events);
+  const { incoming } = useChannelContext();
   const channelIn = useChannelIn();
-  const filterAsset = channelIn.selectedAsset ?? null;
+  const filterAsset = incoming !== null ? (channelIn.selectedAsset ?? null) : null;
   const ctxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
 
   function openFillCtxMenu(e: React.MouseEvent, f: FillEvent) {

@@ -89,7 +89,7 @@ function enrichChildOrder(
 
 // Use structural types to avoid circular import with store/index.ts
 interface SimState {
-  market: { prices: MarketPrices };
+  market: { prices: MarketPrices; connected: boolean };
   orders: { orders: OrderRecord[] };
 }
 type SimListenerAPI = ListenerEffectAPI<SimState, Dispatch<UnknownAction>>;
@@ -261,6 +261,9 @@ const startAppListening = simulationMiddleware.startListening.withTypes<
 startAppListening({
   actionCreator: marketSlice.actions.tickReceived,
   effect: (_action, api) => {
+    // Limit order matching runs locally only in disconnected / demo mode.
+    // When connected, the OMS and EMS handle fills via the bus.
+    if (api.getState().market.connected) return;
     api.dispatch(ordersSlice.actions.limitOrdersChecked(api.getState().market.prices));
   },
 });
@@ -268,6 +271,9 @@ startAppListening({
 startAppListening({
   actionCreator: ordersSlice.actions.orderAdded,
   effect: (action, api) => {
+    // When the gateway is connected the real backend algos handle execution.
+    // Only run local simulation in disconnected / demo mode.
+    if (api.getState().market.connected) return;
     const order = action.payload;
     if (order.strategy === "TWAP") startTwapSimulation(order, api);
     if (order.strategy === "POV") startPovSimulation(order, api);

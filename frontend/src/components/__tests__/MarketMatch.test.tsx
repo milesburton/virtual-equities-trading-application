@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { ChannelContext } from "../../contexts/ChannelContext";
 import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { observabilitySlice } from "../../store/observabilitySlice";
@@ -11,7 +12,7 @@ import { windowSlice } from "../../store/windowSlice";
 import type { ObsEvent, Strategy } from "../../types";
 import { MarketMatch } from "../MarketMatch";
 
-function makeStore(events: ObsEvent[] = [], selectedAsset?: string) {
+function makeStore(events: ObsEvent[] = [], channelAsset?: string) {
   return configureStore({
     reducer: {
       market: marketSlice.reducer,
@@ -36,18 +37,33 @@ function makeStore(events: ObsEvent[] = [], selectedAsset?: string) {
         activeStrategy: "TWAP" as Strategy,
         activeSide: "BUY" as "BUY" | "SELL",
         showShortcuts: false,
-        selectedAsset: selectedAsset ?? null,
+        selectedAsset: null,
         updateAvailable: false,
+      },
+      channels: {
+        data: {
+          1: { selectedAsset: channelAsset ?? null, selectedOrderId: null },
+          2: { selectedAsset: null, selectedOrderId: null },
+          3: { selectedAsset: null, selectedOrderId: null },
+          4: { selectedAsset: null, selectedOrderId: null },
+          5: { selectedAsset: null, selectedOrderId: null },
+          6: { selectedAsset: null, selectedOrderId: null },
+        },
       },
     },
   });
 }
 
-function renderMatch(events: ObsEvent[] = [], selectedAsset?: string) {
-  const store = makeStore(events, selectedAsset);
+function renderMatch(events: ObsEvent[] = [], channelAsset?: string) {
+  const store = makeStore(events, channelAsset);
+  const incoming = channelAsset ? 1 : null;
   render(
     <Provider store={store}>
-      <MarketMatch />
+      <ChannelContext.Provider
+        value={{ instanceId: "test", panelType: "market-match", outgoing: null, incoming }}
+      >
+        <MarketMatch />
+      </ChannelContext.Provider>
     </Provider>
   );
   return store;
