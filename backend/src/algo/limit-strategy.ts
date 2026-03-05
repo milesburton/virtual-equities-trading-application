@@ -20,8 +20,8 @@ const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("limit-algo").catch((err) => {
-  console.error("[limit-algo] Cannot connect to Redpanda:", err.message);
-  Deno.exit(1);
+  console.warn("[limit-algo] Redpanda unavailable — orders will not be published:", err.message);
+  return null;
 });
 
 interface PendingLimit {
@@ -41,11 +41,11 @@ const pendingOrders: PendingLimit[] = [];
 
 // Subscribe to orders.routed — filter for LIMIT strategy
 const consumer = await createConsumer("limit-algo-routed", ["orders.routed"]).catch((err) => {
-  console.error("[limit-algo] Cannot subscribe to orders.routed:", err.message);
-  Deno.exit(1);
+  console.warn("[limit-algo] Cannot subscribe to orders.routed:", err.message);
+  return null;
 });
 
-consumer.onMessage((_topic, raw) => {
+consumer?.onMessage((_topic, raw) => {
   const order = raw as PendingLimit & { strategy?: string; expiresAt?: number };
   if ((order.strategy ?? "LIMIT").toUpperCase() !== "LIMIT") return;
 
@@ -79,7 +79,7 @@ marketClient.onTick(async (tick) => {
 
     // Expiry
     if (now >= order.expiresAt) {
-      await producer.send("orders.expired", {
+      await producer?.send("orders.expired", {
         orderId: order.orderId,
         clientOrderId: order.clientOrderId,
         algo: "LIMIT",
@@ -104,7 +104,7 @@ marketClient.onTick(async (tick) => {
       console.log(
         `[limit-algo] Triggered ${order.orderId}: ${order.side} ${order.remainingQty} ${order.asset} @ mkt ${marketPrice}`,
       );
-      await producer.send("orders.child", {
+      await producer?.send("orders.child", {
         childId,
         parentOrderId: order.orderId,
         clientOrderId: order.clientOrderId,
@@ -123,7 +123,7 @@ marketClient.onTick(async (tick) => {
     }
   }
 
-  await producer.send("algo.heartbeat", {
+  await producer?.send("algo.heartbeat", {
     algo: "LIMIT",
     ts: now,
     pendingOrders: pendingOrders.length,

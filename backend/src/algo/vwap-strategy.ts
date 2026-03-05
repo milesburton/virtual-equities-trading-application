@@ -23,8 +23,8 @@ const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("vwap-algo").catch((err) => {
-  console.error("[vwap-algo] Cannot connect to Redpanda:", err.message);
-  Deno.exit(1);
+  console.warn("[vwap-algo] Redpanda unavailable — orders will not be published:", err.message);
+  return null;
 });
 
 interface PriceVolPoint { price: number; volume: number; }
@@ -84,7 +84,7 @@ async function processTickForOrder(order: VwapOrder, tick: MarketTick): Promise<
   const sliceQty = Math.min(order.maxSlice, remaining);
   const childId = `${order.orderId}-vwap-${Date.now()}`;
 
-  await producer.send("orders.child", {
+  await producer?.send("orders.child", {
     childId,
     parentOrderId: order.orderId,
     clientOrderId: order.clientOrderId,
@@ -103,11 +103,11 @@ async function processTickForOrder(order: VwapOrder, tick: MarketTick): Promise<
 
 // Subscribe to orders.routed — filter for VWAP
 const consumer = await createConsumer("vwap-algo-routed", ["orders.routed"]).catch((err) => {
-  console.error("[vwap-algo] Cannot subscribe to orders.routed:", err.message);
-  Deno.exit(1);
+  console.warn("[vwap-algo] Cannot subscribe to orders.routed:", err.message);
+  return null;
 });
 
-consumer.onMessage((_topic, raw) => {
+consumer?.onMessage((_topic, raw) => {
   const order = raw as VwapOrder & { strategy?: string; expiresAt?: number; quantity?: number; algoParams?: { maxDeviation?: number; maxSlice?: number } };
   if ((order.strategy ?? "").toUpperCase() !== "VWAP") return;
 
@@ -136,7 +136,7 @@ marketClient.onTick(async (tick) => {
   for (const [id, order] of activeOrders) {
     if (now >= order.expiresAt || order.filledQty >= order.totalQty) {
       if (now >= order.expiresAt && order.filledQty < order.totalQty) {
-        await producer.send("orders.expired", {
+        await producer?.send("orders.expired", {
           orderId: order.orderId,
           clientOrderId: order.clientOrderId,
           algo: "VWAP",
@@ -154,7 +154,7 @@ marketClient.onTick(async (tick) => {
     await processTickForOrder(order, tick);
   }
 
-  await producer.send("algo.heartbeat", {
+  await producer?.send("algo.heartbeat", {
     algo: "VWAP",
     ts: now,
     activeOrders: activeOrders.size,

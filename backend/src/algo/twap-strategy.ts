@@ -22,8 +22,8 @@ const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("twap-algo").catch((err) => {
-  console.error("[twap-algo] Cannot connect to Redpanda:", err.message);
-  Deno.exit(1);
+  console.warn("[twap-algo] Redpanda unavailable — orders will not be published:", err.message);
+  return null;
 });
 
 interface RoutedOrder {
@@ -50,7 +50,7 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
     `[twap-algo] Started ${order.orderId}: ${order.quantity} ${order.asset} over ${numSlices} slices`,
   );
 
-  await producer.send("algo.heartbeat", {
+  await producer?.send("algo.heartbeat", {
     algo: "TWAP",
     orderId: order.orderId,
     event: "start",
@@ -71,7 +71,7 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
     const marketPrice = tick.prices[order.asset] ?? 0;
     const childId = `${order.orderId}-twap-${i + 1}`;
 
-    await producer.send("orders.child", {
+    await producer?.send("orders.child", {
       childId,
       parentOrderId: order.orderId,
       clientOrderId: order.clientOrderId,
@@ -91,7 +91,7 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
     );
 
     // Publish heartbeat so GUI can track progress
-    await producer.send("algo.heartbeat", {
+    await producer?.send("algo.heartbeat", {
       algo: "TWAP",
       orderId: order.orderId,
       asset: order.asset,
@@ -101,7 +101,7 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
   }
 
   const avgFill = filledQty > 0 ? (costBasis / filledQty).toFixed(4) : "N/A";
-  await producer.send("algo.heartbeat", {
+  await producer?.send("algo.heartbeat", {
     algo: "TWAP",
     orderId: order.orderId,
     event: "complete",
@@ -116,11 +116,11 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
 
 // Subscribe to orders.routed — filter for TWAP
 const consumer = await createConsumer("twap-algo-routed", ["orders.routed"]).catch((err) => {
-  console.error("[twap-algo] Cannot subscribe to orders.routed:", err.message);
-  Deno.exit(1);
+  console.warn("[twap-algo] Cannot subscribe to orders.routed:", err.message);
+  return null;
 });
 
-consumer.onMessage((_topic, raw) => {
+consumer?.onMessage((_topic, raw) => {
   const order = raw as RoutedOrder;
   if ((order.strategy ?? "").toUpperCase() !== "TWAP") return;
   executeTWAP(order); // fire-and-forget; errors are caught internally

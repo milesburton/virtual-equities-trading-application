@@ -24,8 +24,8 @@ const marketClient = new MarketSimClient(MARKET_SIM_HOST, MARKET_SIM_PORT);
 marketClient.start();
 
 const producer = await createProducer("pov-algo").catch((err) => {
-  console.error("[pov-algo] Cannot connect to Redpanda:", err.message);
-  Deno.exit(1);
+  console.warn("[pov-algo] Redpanda unavailable — orders will not be published:", err.message);
+  return null;
 });
 
 interface PovOrder {
@@ -53,7 +53,7 @@ async function processTickForOrder(state: PovOrder, tick: MarketTick): Promise<v
   const sliceQty = Math.max(MIN_SLICE, Math.min(MAX_SLICE, Math.min(rawSlice, remaining)));
   const childId = `${state.orderId}-pov-${Date.now()}`;
 
-  await producer.send("orders.child", {
+  await producer?.send("orders.child", {
     childId,
     parentOrderId: state.orderId,
     clientOrderId: state.clientOrderId,
@@ -71,11 +71,11 @@ async function processTickForOrder(state: PovOrder, tick: MarketTick): Promise<v
 
 // Subscribe to orders.routed — filter for POV
 const consumer = await createConsumer("pov-algo-routed", ["orders.routed"]).catch((err) => {
-  console.error("[pov-algo] Cannot subscribe to orders.routed:", err.message);
-  Deno.exit(1);
+  console.warn("[pov-algo] Cannot subscribe to orders.routed:", err.message);
+  return null;
 });
 
-consumer.onMessage((_topic, raw) => {
+consumer?.onMessage((_topic, raw) => {
   const order = raw as PovOrder & { strategy?: string; expiresAt?: number };
   if ((order.strategy ?? "").toUpperCase() !== "POV") return;
 
@@ -102,7 +102,7 @@ marketClient.onTick(async (tick) => {
   for (const [id, state] of activeOrders) {
     if (now >= state.expiresAt || state.filledQty >= state.quantity) {
       if (now >= state.expiresAt && state.filledQty < state.quantity) {
-        await producer.send("orders.expired", {
+        await producer?.send("orders.expired", {
           orderId: state.orderId,
           clientOrderId: state.clientOrderId,
           algo: "POV",
@@ -120,7 +120,7 @@ marketClient.onTick(async (tick) => {
     await processTickForOrder(state, tick);
   }
 
-  await producer.send("algo.heartbeat", {
+  await producer?.send("algo.heartbeat", {
     algo: "POV",
     ts: now,
     activeOrders: activeOrders.size,
