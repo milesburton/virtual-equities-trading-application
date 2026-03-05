@@ -43,8 +43,8 @@ async function executeTWAP(order: RoutedOrder): Promise<void> {
   const numSlices = Math.max(1, Math.round(durationMs / INTERVAL_MS));
   const baseSliceQty = order.quantity / numSlices;
 
-  const filledQty = 0;
-  const costBasis = 0;
+  let filledQty = 0;
+  let costBasis = 0;
 
   console.log(
     `[twap-algo] Started ${order.orderId}: ${order.quantity} ${order.asset} over ${numSlices} slices`,

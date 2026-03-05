@@ -105,11 +105,11 @@ export const ordersSlice = createSlice({
       });
     },
     fillReceived(state, action: PayloadAction<FillReceivedPayload>) {
-      const { clOrdId, filledQty, leavesQty } = action.payload;
+      const { clOrdId, filledQty } = action.payload;
       const order = state.orders.find((o) => o.id === clOrdId);
       if (!order) return;
       order.filled = (order.filled ?? 0) + filledQty;
-      if (leavesQty === 0) {
+      if (order.filled >= order.quantity) {
         order.status = "filled";
       } else if (filledQty > 0) {
         order.status = "executing";
