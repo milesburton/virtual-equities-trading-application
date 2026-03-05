@@ -88,6 +88,12 @@ npm run test:ui:headed    # With visible browser
 
 See [docs/deployment.md](docs/deployment.md) for Fly.io deployment instructions.
 
+## Built with
+
+[![Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-orange?logo=anthropic&logoColor=white)](https://claude.ai/claude-code)
+
+This project was developed with [Claude Code](https://claude.ai/claude-code), Anthropic's AI coding assistant.
+
 ## Licence
 
 MIT Licence &copy; 2025 Miles Burton
