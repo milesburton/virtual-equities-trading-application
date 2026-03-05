@@ -64,6 +64,9 @@ export function CandlestickChart({ symbol, candles }: Props) {
   // fitContent should only fire once both the container has width AND data is loaded.
   const hasWidthRef = useRef(false);
   const hasDataRef = useRef(false);
+  // After a full reload, fitContent once more on the next incremental tick so that
+  // lightweight-charts' auto-scroll-to-right doesn't push historical bars off screen.
+  const fitOnNextTickRef = useRef(false);
   // Stable ref so the helper can be called from effects without appearing in dep arrays.
   const tryFitContentRef = useRef(() => {
     if (hasWidthRef.current && hasDataRef.current) {
@@ -146,8 +149,12 @@ export function CandlestickChart({ symbol, candles }: Props) {
       vs.setData(raw.map(toVolData));
       loadedKeyRef.current = newKey;
       lastBarTimeRef.current = lastTime;
-      // fitContent on every full series load (symbol/interval change)
+      // fitContent on every full series load (symbol/interval change).
+      // Also schedule a second fitContent on the next tick so that
+      // lightweight-charts' built-in auto-scroll-to-right doesn't push
+      // historical bars off screen after the first live update arrives.
       hasDataRef.current = true;
+      fitOnNextTickRef.current = true;
       requestAnimationFrame(() => tryFitContentRef.current());
     } else {
       // Incremental update — append or update the last candle.
@@ -155,6 +162,11 @@ export function CandlestickChart({ symbol, candles }: Props) {
       cs.update(toBarData(last));
       vs.update(toVolData(last));
       lastBarTimeRef.current = lastTime;
+      // Re-fit once after the first live tick post-reload so all history stays visible.
+      if (fitOnNextTickRef.current) {
+        fitOnNextTickRef.current = false;
+        requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
+      }
     }
   }, [candles, interval.value, symbol]);
 
