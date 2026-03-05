@@ -60,19 +60,9 @@ export function CandlestickChart({ symbol, candles }: Props) {
   // Track which candle set is loaded so we know when a full reload is needed
   const loadedKeyRef = useRef<string>("");
   const lastBarTimeRef = useRef<number>(0);
-  // Coordinate fitContent between resize and data effects:
-  // fitContent should only fire once both the container has width AND data is loaded.
-  const hasWidthRef = useRef(false);
-  const hasDataRef = useRef(false);
   // After a full reload, fitContent once more on the next incremental tick so that
   // lightweight-charts' auto-scroll-to-right doesn't push historical bars off screen.
   const fitOnNextTickRef = useRef(false);
-  // Stable ref so the helper can be called from effects without appearing in dep arrays.
-  const tryFitContentRef = useRef(() => {
-    if (hasWidthRef.current && hasDataRef.current) {
-      chartRef.current?.timeScale().fitContent();
-    }
-  });
 
   // Create chart once on mount
   useEffect(() => {
@@ -107,22 +97,7 @@ export function CandlestickChart({ symbol, candles }: Props) {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // Observe container width. Once non-zero, record it and try to fit.
-    // Disconnect immediately — subsequent resizes should not re-fit (preserve user zoom).
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      if (width > 0) {
-        hasWidthRef.current = true;
-        ro.disconnect();
-        tryFitContentRef.current();
-      }
-    });
-    ro.observe(containerRef.current);
-
     return () => {
-      ro.disconnect();
-      hasWidthRef.current = false;
-      hasDataRef.current = false;
       chart.remove();
     };
   }, []);
@@ -150,12 +125,12 @@ export function CandlestickChart({ symbol, candles }: Props) {
       loadedKeyRef.current = newKey;
       lastBarTimeRef.current = lastTime;
       // fitContent on every full series load (symbol/interval change).
-      // Also schedule a second fitContent on the next tick so that
-      // lightweight-charts' built-in auto-scroll-to-right doesn't push
-      // historical bars off screen after the first live update arrives.
-      hasDataRef.current = true;
+      // Double-rAF ensures this fires after lightweight-charts' own layout
+      // and auto-scroll-to-right, so all historical bars remain visible.
       fitOnNextTickRef.current = true;
-      requestAnimationFrame(() => tryFitContentRef.current());
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => chartRef.current?.timeScale().fitContent())
+      );
     } else {
       // Incremental update — append or update the last candle.
       // Works for both tick updates within a bucket and new bucket openings.
