@@ -10,19 +10,12 @@ import { candlesSeeded, marketSlice, orderBookUpdated } from "../marketSlice.ts"
 import { orderAdded } from "../ordersSlice.ts";
 import { setSelectedAsset } from "../uiSlice.ts";
 
-// Derive base URLs from the current origin so the app works behind Traefik
-// without any environment variables. VITE_* overrides remain available for
-// non-standard deployments (separate hosts, custom ports, etc).
 const _origin = typeof window !== "undefined" ? window.location.origin : "";
 const _wsOrigin = _origin.replace(/^http/, "ws");
 const MARKET_WS_URL = import.meta.env.VITE_MARKET_WS_URL ?? `${_wsOrigin}/ws/market-sim`;
 const MARKET_HTTP_URL = import.meta.env.VITE_MARKET_HTTP_URL ?? `${_origin}/api/market-sim`;
 const CANDLE_STORE_URL = import.meta.env.VITE_CANDLE_STORE_URL ?? `${_origin}/api/candle-store`;
 const JOURNAL_URL = import.meta.env.VITE_JOURNAL_URL ?? `${_origin}/api/journal`;
-
-// UI throttle: batch ticks and dispatch to Redux at most 4 times per second.
-// The candle-store accumulates full-rate data server-side; the UI only needs
-// ~4 renders/s to look smooth. This halves React render work vs raw 4/s ticks.
 const UI_TICK_INTERVAL_MS = 250;
 
 export const marketFeedMiddleware: Middleware = (storeAPI) => {
@@ -85,7 +78,6 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
           ? ((data as { volumes?: Record<string, number> }).volumes ?? {})
           : {};
 
-        // Accumulate — last prices win, volumes accumulate
         pendingPrices = newPrices;
         for (const [sym, vol] of Object.entries(volumes)) {
           pendingVolumes[sym] = (pendingVolumes[sym] ?? 0) + vol;
@@ -95,12 +87,11 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
           if (ob) pendingOrderBook = ob;
         }
 
-        // Schedule a single flush if not already pending
         if (!tickTimer) {
           tickTimer = setTimeout(flushTick, UI_TICK_INTERVAL_MS);
         }
       } catch {
-        // unparseable frame — discard
+        // ignore unparseable frames
       }
     };
 
@@ -126,7 +117,6 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
       const candles5m: OhlcCandle[] = res5m.ok ? await res5m.json() : [];
       storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": candles1m, "5m": candles5m } }));
     } catch {
-      // candle-store unavailable — mark ready so chart renders from live ticks
       storeAPI.dispatch(candlesSeeded({ symbol, candles: { "1m": [], "5m": [] } }));
     }
   }
@@ -139,18 +129,12 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
 
       if (data.length === 0) return;
 
-      // Auto-select the first asset so the chart and depth panels
-      // pre-populate without requiring the user to click in Market Ladder.
       storeAPI.dispatch(setSelectedAsset(data[0].symbol));
-
-      // Seed the first asset immediately so the chart populates right away,
-      // then trickle-fetch the rest with a small delay between each to avoid
-      // hammering the candle-store with 50 concurrent requests.
       await fetchCandlesForAsset(data[0].symbol);
 
       for (let i = 1; i < data.length; i++) {
         await new Promise((res) => setTimeout(res, 50));
-        fetchCandlesForAsset(data[i].symbol); // fire-and-forget
+        fetchCandlesForAsset(data[i].symbol);
       }
     } catch {
       // assets unavailable
@@ -162,17 +146,14 @@ export const marketFeedMiddleware: Middleware = (storeAPI) => {
       const res = await fetch(`${JOURNAL_URL}/orders?limit=200`, { credentials: "include" });
       if (!res.ok) return;
       const orders: OrderRecord[] = await res.json();
-      // Add oldest-first so the blotter shows newest at top (orderAdded unshifts)
       for (const order of [...orders].reverse()) {
         storeAPI.dispatch(orderAdded(order));
       }
     } catch {
-      // journal unavailable — orders start empty
+      // journal unavailable
     }
   }
 
-  // Start fetching assets and connecting to market feed immediately
-  // This is the initialization that happens on app load
   if (!started) {
     started = true;
     hydrateOrders();

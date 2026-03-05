@@ -81,7 +81,7 @@ describe("ComponentPicker – toggle open/closed", () => {
     openDropdown();
     expect(screen.getByText(/^Market Ladder/)).toBeInTheDocument();
     expect(screen.getByText(/^Order Ticket/)).toBeInTheDocument();
-    expect(screen.getByText(/^Order Blotter/)).toBeInTheDocument();
+    expect(screen.getByText(/^Orders/)).toBeInTheDocument();
     expect(screen.getByText(/^Algo Monitor/)).toBeInTheDocument();
     expect(screen.getByText(/^Observability/)).toBeInTheDocument();
     expect(screen.getByText(/^Price Chart/)).toBeInTheDocument();

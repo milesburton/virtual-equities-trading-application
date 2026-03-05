@@ -5,7 +5,7 @@
 # and changes alongside the application.
 # Build context is the repo root (devcontainer.json: "context": "..").
 # =============================================================================
-FROM ghcr.io/milesburton/equities-trading-simulator/devcontainer-base:latest
+FROM ghcr.io/milesburton/virtual-equities-trading-application/devcontainer-base:latest
 
 COPY supervisord.conf /home/deno/supervisord.conf
 

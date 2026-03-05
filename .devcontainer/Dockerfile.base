@@ -1,6 +1,6 @@
 # =============================================================================
 # Dockerfile.base
-# Published to ghcr.io/milesburton/equities-trading-simulator/devcontainer-base
+# Published to ghcr.io/milesburton/virtual-equities-trading-application/devcontainer-base
 # Contains all heavy tooling that rarely changes (OS packages, runtimes, Playwright browsers).
 # Rebuild via GitHub Actions (build-base-image.yml) when this file changes.
 # The app .devcontainer/Dockerfile inherits FROM this image.
@@ -115,7 +115,7 @@ RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
     echo 'if status is-interactive' >> /home/deno/.config/fish/config.fish && \
     echo '  echo ""' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
-    echo '  echo "Equities Trading Simulator" | lolcat' >> /home/deno/.config/fish/config.fish && \
+    echo '  echo "Virtual Equities Trading Application" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "All services start automatically via supervisord."' >> /home/deno/.config/fish/config.fish && \
     echo '  echo "Frontend UI: http://localhost:8080"' >> /home/deno/.config/fish/config.fish && \
@@ -134,15 +134,15 @@ RUN echo '# Deno setup' > /home/deno/.config/fish/config.fish && \
     echo '  echo "-------------------------------------------------" | lolcat' >> /home/deno/.config/fish/config.fish && \
     echo 'end' >> /home/deno/.config/fish/config.fish && \
     echo '' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-frontend="cd /workspaces/equities-trading-simulator/frontend && npm run dev"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-market-sim="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-ems="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-oms="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-limit-strategy="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-twap-strategy="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/algo/twap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-pov-strategy="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-vwap-strategy="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/algo/vwap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
-    echo 'alias run-observability="cd /workspaces/equities-trading-simulator && deno run --allow-all backend/src/observability/observability-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-frontend="cd /workspaces/virtual-equities-trading-application/frontend && npm run dev"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-market-sim="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/market-sim/market-sim.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-ems="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/ems/ems-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-oms="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/oms/oms-server.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-limit-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/limit-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-twap-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/twap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-pov-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/pov-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-vwap-strategy="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/algo/vwap-strategy.ts"' >> /home/deno/.config/fish/config.fish && \
+    echo 'alias run-observability="cd /workspaces/virtual-equities-trading-application && deno run --allow-all backend/src/observability/observability-server.ts"' >> /home/deno/.config/fish/config.fish && \
     echo 'alias restart-services="supervisorctl restart market-sim ems oms algo-trader twap-algo pov-algo vwap-algo observability user-service && supervisorctl status"' >> /home/deno/.config/fish/config.fish
 
 # Set Fish as the default shell

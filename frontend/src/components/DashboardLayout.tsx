@@ -55,7 +55,7 @@ export type PanelId = (typeof PANEL_IDS)[number];
 export const PANEL_TITLES: Record<PanelId, string> = {
   "market-ladder": "Market Ladder (live quotes)",
   "order-ticket": "Order Ticket (place trades)",
-  "order-blotter": "Order Blotter (order history)",
+  "order-blotter": "Orders (active & filled)",
   "algo-monitor": "Algo Monitor (strategy status)",
   observability: "Observability (system health)",
   "candle-chart": "Price Chart (OHLC history)",
@@ -964,10 +964,9 @@ function CandleChartPanel({ incoming }: { incoming: ChannelNumber | null }) {
       : legacySelectedAsset;
   const candles = useAppSelector((s) => (symbol ? s.market.candleHistory[symbol] : undefined));
   const ready = useAppSelector((s) => (symbol ? s.market.candlesReady[symbol] : false));
+  const hasEnoughBars = candles && (candles["1m"].length >= 2 || candles["5m"].length >= 2);
 
-  if (symbol && ready && candles) {
-    // key={symbol} forces a clean remount on symbol change so the chart refs,
-    // loadedKeyRef and fitContent logic all reset rather than patching in-place.
+  if (symbol && ready && hasEnoughBars) {
     return <CandlestickChart key={symbol} symbol={symbol} candles={candles} />;
   }
   return (
