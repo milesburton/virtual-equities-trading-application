@@ -79,6 +79,24 @@ jobs:
       - name: Install backend dependencies
         run: deno install
 
+      - name: Start Redpanda
+        run: |
+          docker run -d --name redpanda \
+            -p 9092:9092 \
+            redpandadata/redpanda:v24.3.6 \
+            redpanda start \
+            --mode=dev-container \
+            --smp=1 \
+            --memory=200M \
+            --default-log-level=warn \
+            --kafka-addr=0.0.0.0:9092 \
+            --advertise-kafka-addr=localhost:9092
+          # Wait for Redpanda to be ready
+          for i in $(seq 1 30); do
+            docker exec redpanda rpk cluster health 2>/dev/null && echo "Redpanda ready" && break || sleep 2
+            echo "Waiting for Redpanda ($i/30)..."
+          done
+
       - name: Start backend services
         run: |
           SHA=$(git rev-parse --short HEAD)
@@ -89,11 +107,16 @@ jobs:
           COMMIT_SHA=$SHA TWAP_ALGO_PORT=5004 deno run --allow-all backend/src/algo/twap-strategy.ts &
           COMMIT_SHA=$SHA POV_ALGO_PORT=5005 deno run --allow-all backend/src/algo/pov-strategy.ts &
           COMMIT_SHA=$SHA VWAP_ALGO_PORT=5006 deno run --allow-all backend/src/algo/vwap-strategy.ts &
+          COMMIT_SHA=$SHA JOURNAL_PORT=5009 deno run --allow-all backend/src/journal/journal-server.ts &
+          COMMIT_SHA=$SHA OBSERVABILITY_PORT=5007 deno run --allow-all backend/src/observability/observability-server.ts &
+          COMMIT_SHA=$SHA FIX_ARCHIVE_PORT=5012 deno run --allow-all backend/src/fix/fix-archive.ts &
+          COMMIT_SHA=$SHA NEWS_AGGREGATOR_PORT=5013 deno run --allow-all backend/src/news/news-aggregator.ts &
+          COMMIT_SHA=$SHA GATEWAY_PORT=5011 deno run --allow-all backend/src/gateway/gateway.ts &
 
       - name: Wait for services to be ready
         run: |
-          for port in 5000 5001 5002 5003 5004 5005 5006; do
-            for i in $(seq 1 20); do
+          for port in 5000 5001 5002 5003 5004 5005 5006 5007 5009 5011 5012 5013; do
+            for i in $(seq 1 30); do
               curl -sf http://localhost:$port/health && break || sleep 1
             done
           done
