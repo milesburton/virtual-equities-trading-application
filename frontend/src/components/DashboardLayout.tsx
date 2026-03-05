@@ -21,6 +21,7 @@ import { MarketLadder } from "./MarketLadder.tsx";
 import { MarketMatch } from "./MarketMatch.tsx";
 import { ObservabilityPanel } from "./ObservabilityPanel.tsx";
 import { OrderBlotter } from "./OrderBlotter.tsx";
+import { OrderProgressPanel } from "./OrderProgressPanel.tsx";
 import { OrderTicket } from "./OrderTicket.tsx";
 import { clearDraggedPanelId, draggedPanelId } from "./panelDragState.ts";
 
@@ -48,6 +49,7 @@ export const PANEL_IDS = [
   "market-match",
   "admin",
   "news",
+  "order-progress",
 ] as const;
 
 export type PanelId = (typeof PANEL_IDS)[number];
@@ -65,6 +67,7 @@ export const PANEL_TITLES: Record<PanelId, string> = {
   "market-match": "Market Match (trade tape)",
   admin: "Admin (system config)",
   news: "News & Signals (market analysis)",
+  "order-progress": "Order Progress (fill tracker)",
 };
 
 export const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
@@ -83,6 +86,8 @@ export const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
   "market-match": "Live matched trade tape — recent prints for the selected symbol",
   admin: "Administrative panel — system configuration and user management",
   news: "Live market news with sentiment scoring — signals for algo strategies",
+  "order-progress":
+    "Pie charts showing fill progress per active order, plus avg fill rate by strategy",
 };
 
 // Panels that can only have one instance at a time
@@ -107,6 +112,7 @@ export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> 
   "market-match": { out: false, in: true },
   admin: { out: false, in: false },
   news: { out: false, in: false },
+  "order-progress": { out: false, in: false },
 };
 
 export interface LayoutItem {
@@ -143,7 +149,7 @@ export function makeDefaultModel(): IJsonModel {
     layout: {
       type: "row",
       children: [
-        // ── Left column: Order Ticket (full height, pinned) ───────────────────
+        // ── Column 1: Order Ticket (full height, pinned) ──────────────────────
         {
           type: "tabset",
           weight: 18,
@@ -164,138 +170,106 @@ export function makeDefaultModel(): IJsonModel {
             },
           ],
         },
-        // ── Market Ladder (full height, pinned) ───────────────────────────────
+        // ── Column 2: Market Ladder (2/3) + Candle Chart (1/3) ───────────────
         {
-          type: "tabset",
+          type: "row",
           weight: 22,
-          enableDrag: false,
           children: [
             {
-              type: "tab",
-              id: "market-ladder",
-              name: PANEL_TITLES["market-ladder"],
-              component: "market-ladder",
+              type: "tabset",
+              weight: 67,
               enableDrag: false,
-              enableClose: false,
-              config: {
-                panelType: "market-ladder",
-                outgoing: 1,
-                pinned: true,
-              } satisfies TabChannelConfig,
+              children: [
+                {
+                  type: "tab",
+                  id: "market-ladder",
+                  name: PANEL_TITLES["market-ladder"],
+                  component: "market-ladder",
+                  enableDrag: false,
+                  enableClose: false,
+                  config: {
+                    panelType: "market-ladder",
+                    outgoing: 1,
+                    pinned: true,
+                  } satisfies TabChannelConfig,
+                },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 33,
+              children: [
+                {
+                  type: "tab",
+                  id: "candle-chart",
+                  name: PANEL_TITLES["candle-chart"],
+                  component: "candle-chart",
+                  config: {
+                    panelType: "candle-chart",
+                    incoming: 1,
+                  } satisfies TabChannelConfig,
+                },
+              ],
             },
           ],
         },
-        // ── Right area ────────────────────────────────────────────────────────
+        // ── Column 3: Orders → Executions → Algo Monitor → Decision Log ───────
         {
           type: "row",
           weight: 60,
           children: [
-            // Order Blotter (top strip) + Chart + Market Depth
             {
-              type: "row",
-              weight: 60,
+              type: "tabset",
+              weight: 28,
               children: [
-                // Order Blotter — top strip
                 {
-                  type: "tabset",
-                  weight: 35,
-                  children: [
-                    {
-                      type: "tab",
-                      id: "order-blotter",
-                      name: PANEL_TITLES["order-blotter"],
-                      component: "order-blotter",
-                      config: {
-                        panelType: "order-blotter",
-                        outgoing: 2,
-                      } satisfies TabChannelConfig,
-                    },
-                  ],
-                },
-                // Chart + Market Depth (below blotter)
-                {
-                  type: "row",
-                  weight: 65,
-                  children: [
-                    {
-                      type: "tabset",
-                      weight: 58,
-                      children: [
-                        {
-                          type: "tab",
-                          id: "candle-chart",
-                          name: PANEL_TITLES["candle-chart"],
-                          component: "candle-chart",
-                          config: {
-                            panelType: "candle-chart",
-                            incoming: 1,
-                          } satisfies TabChannelConfig,
-                        },
-                      ],
-                    },
-                    {
-                      type: "tabset",
-                      weight: 42,
-                      children: [
-                        {
-                          type: "tab",
-                          id: "market-depth",
-                          name: PANEL_TITLES["market-depth"],
-                          component: "market-depth",
-                          config: {
-                            panelType: "market-depth",
-                            incoming: 1,
-                          } satisfies TabChannelConfig,
-                        },
-                      ],
-                    },
-                  ],
+                  type: "tab",
+                  id: "order-blotter",
+                  name: PANEL_TITLES["order-blotter"],
+                  component: "order-blotter",
+                  config: {
+                    panelType: "order-blotter",
+                    outgoing: 2,
+                  } satisfies TabChannelConfig,
                 },
               ],
             },
-            // Algo Monitor + Executions + Decision Log (bottom)
             {
-              type: "row",
-              weight: 40,
+              type: "tabset",
+              weight: 24,
               children: [
                 {
-                  type: "tabset",
-                  weight: 34,
-                  children: [
-                    {
-                      type: "tab",
-                      id: "algo-monitor",
-                      name: PANEL_TITLES["algo-monitor"],
-                      component: "algo-monitor",
-                      config: { panelType: "algo-monitor", incoming: 2 } satisfies TabChannelConfig,
-                    },
-                  ],
+                  type: "tab",
+                  id: "executions",
+                  name: PANEL_TITLES.executions,
+                  component: "executions",
+                  config: { panelType: "executions", incoming: 2 } satisfies TabChannelConfig,
                 },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 24,
+              children: [
                 {
-                  type: "tabset",
-                  weight: 34,
-                  children: [
-                    {
-                      type: "tab",
-                      id: "executions",
-                      name: PANEL_TITLES.executions,
-                      component: "executions",
-                      config: { panelType: "executions", incoming: 2 } satisfies TabChannelConfig,
-                    },
-                  ],
+                  type: "tab",
+                  id: "algo-monitor",
+                  name: PANEL_TITLES["algo-monitor"],
+                  component: "algo-monitor",
+                  config: { panelType: "algo-monitor", incoming: 2 } satisfies TabChannelConfig,
                 },
+              ],
+            },
+            {
+              type: "tabset",
+              weight: 24,
+              children: [
                 {
-                  type: "tabset",
-                  weight: 32,
-                  children: [
-                    {
-                      type: "tab",
-                      id: "decision-log",
-                      name: PANEL_TITLES["decision-log"],
-                      component: "decision-log",
-                      config: { panelType: "decision-log" } satisfies TabChannelConfig,
-                    },
-                  ],
+                  type: "tab",
+                  id: "decision-log",
+                  name: PANEL_TITLES["decision-log"],
+                  component: "decision-log",
+                  config: { panelType: "decision-log" } satisfies TabChannelConfig,
                 },
               ],
             },
@@ -1157,6 +1131,8 @@ export function DashboardLayout() {
           return wrap(<AdminPanel />);
         case "news":
           return wrap(<AnalysisPanel />);
+        case "order-progress":
+          return wrap(<OrderProgressPanel />);
         default:
           return wrap(<div className="text-gray-600 text-xs p-4">Unknown panel: {panelType}</div>);
       }

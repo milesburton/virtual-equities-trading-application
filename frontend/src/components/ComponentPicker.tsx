@@ -17,6 +17,7 @@ const PANEL_DESCRIPTIONS: Record<PanelId, string> = {
   "market-match": "Live fill tape: venue, counterparty, liquidity, and impact",
   admin: "Admin controls",
   news: "Live market news with sentiment scoring",
+  "order-progress": "Fill progress pies and avg fill rate by strategy",
 };
 
 export function ComponentPicker() {

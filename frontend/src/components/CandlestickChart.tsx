@@ -132,8 +132,8 @@ export function CandlestickChart({ symbol, candles }: Props) {
 
     function doLoad() {
       if (isFullReplace) {
-        cs!.setData(raw.map(toBarData));
-        vs!.setData(raw.map(toVolData));
+        cs?.setData(raw.map(toBarData));
+        vs?.setData(raw.map(toVolData));
         loadedKeyRef.current = newKey;
         lastBarTimeRef.current = lastTime;
         fitOnNextTickRef.current = true;
@@ -141,8 +141,8 @@ export function CandlestickChart({ symbol, candles }: Props) {
           requestAnimationFrame(() => chartRef.current?.timeScale().fitContent())
         );
       } else {
-        cs!.update(toBarData(last));
-        vs!.update(toVolData(last));
+        cs?.update(toBarData(last));
+        vs?.update(toVolData(last));
         lastBarTimeRef.current = lastTime;
         if (fitOnNextTickRef.current) {
           fitOnNextTickRef.current = false;
