@@ -1202,7 +1202,7 @@ export function DashboardLayout() {
           }`}
           style={{ fontSize: "10px", lineHeight: 1 }}
         >
-          {isPinned ? "📌" : "📍"}
+          {isPinned ? "◈" : "◇"}
         </button>
       );
 
@@ -1296,7 +1296,7 @@ export function DashboardLayout() {
           },
           {
             label: isTabPinned ? "Unpin panel" : "Pin panel",
-            icon: isTabPinned ? "📍" : "📌",
+            icon: isTabPinned ? "◇" : "◈",
             title: isTabPinned ? "Allow moving and closing" : "Prevent moving or closing",
             onClick: () => {
               const next = !isTabPinned;

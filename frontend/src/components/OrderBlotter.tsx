@@ -141,7 +141,7 @@ export function OrderBlotter() {
       },
       {
         label: "View asset in ladder",
-        icon: "📈",
+        icon: "↗",
         onClick: () => broadcast({ selectedAsset: order.asset }),
       },
       { separator: true },

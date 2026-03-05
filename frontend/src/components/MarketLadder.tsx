@@ -288,7 +288,7 @@ export function MarketLadder() {
       },
       {
         label: "View chart & depth",
-        icon: "📊",
+        icon: "≡",
         title: "Select this asset to load it in linked Chart and Market Depth panels",
         onClick: () => {
           onSelectAsset(symbol);

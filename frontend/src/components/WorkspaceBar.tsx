@@ -63,9 +63,9 @@ function pushWorkspaceHistory(workspaceId: string, workspaceName: string) {
 // ─── View presets ─────────────────────────────────────────────────────────────
 
 const VIEW_PRESETS = [
-  { id: "trading", label: "Trading", icon: "📈", makeModel: makeDefaultModel },
-  { id: "analysis", label: "Analysis", icon: "🔬", makeModel: makeAnalysisModel },
-  { id: "algo", label: "Algo", icon: "🤖", makeModel: makeAlgoModel },
+  { id: "trading", label: "Trading", icon: "▲", makeModel: makeDefaultModel },
+  { id: "analysis", label: "Analysis", icon: "◈", makeModel: makeAnalysisModel },
+  { id: "algo", label: "Algo", icon: "⊞", makeModel: makeAlgoModel },
 ] as const;
 
 type ViewPresetId = (typeof VIEW_PRESETS)[number]["id"];

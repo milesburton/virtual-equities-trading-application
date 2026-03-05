@@ -44,14 +44,14 @@ const LIQ_STYLES = {
 };
 
 const VENUE_FLAGS: Record<string, string> = {
-  XNAS: "🇺🇸",
-  XNYS: "🇺🇸",
-  ARCX: "🇺🇸",
-  BATS: "🇺🇸",
-  XBOS: "🇺🇸",
-  XPHL: "🇺🇸",
-  IEXG: "🇺🇸",
-  XCBO: "🇺🇸",
+  XNAS: "US",
+  XNYS: "US",
+  ARCX: "US",
+  BATS: "US",
+  XBOS: "US",
+  XPHL: "US",
+  IEXG: "US",
+  XCBO: "US",
 };
 
 function formatTime(ms: number) {

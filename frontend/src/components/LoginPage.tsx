@@ -117,11 +117,11 @@ interface SeedUser {
 }
 
 const SEED_USERS: SeedUser[] = [
-  { id: "alice", name: "Alice Chen", role: "trader", avatar_emoji: "👩‍💼" },
-  { id: "bob", name: "Bob Martinez", role: "trader", avatar_emoji: "👨‍💻" },
-  { id: "carol", name: "Carol Singh", role: "trader", avatar_emoji: "👩‍🔬" },
-  { id: "dave", name: "Dave Okafor", role: "trader", avatar_emoji: "🧑‍💼" },
-  { id: "admin", name: "Admin", role: "admin", avatar_emoji: "🔐" },
+  { id: "alice", name: "Alice Chen", role: "trader", avatar_emoji: "AC" },
+  { id: "bob", name: "Bob Martinez", role: "trader", avatar_emoji: "BM" },
+  { id: "carol", name: "Carol Singh", role: "trader", avatar_emoji: "CS" },
+  { id: "dave", name: "Dave Okafor", role: "trader", avatar_emoji: "DO" },
+  { id: "admin", name: "Admin", role: "admin", avatar_emoji: "AD" },
 ];
 
 export function LoginPage() {
@@ -181,7 +181,15 @@ export function LoginPage() {
                   ${isLoading ? "border-emerald-500 bg-gray-800 shadow-[0_0_20px_rgba(52,211,153,0.15)]" : ""}
                 `}
               >
-                <span className="text-4xl leading-none select-none">{user.avatar_emoji}</span>
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold tracking-wide select-none ${
+                    user.role === "admin"
+                      ? "bg-orange-900/60 text-orange-300 border border-orange-700/50"
+                      : "bg-gray-800 text-gray-200 border border-gray-600/50"
+                  }`}
+                >
+                  {user.avatar_emoji}
+                </div>
                 <div className="text-center">
                   <div className="text-gray-100 font-medium text-xs leading-tight">{user.name}</div>
                   <div

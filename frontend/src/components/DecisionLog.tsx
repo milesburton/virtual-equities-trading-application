@@ -34,7 +34,7 @@ interface AlgoEvent {
 }
 
 const TOPIC_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  "orders.submitted": { label: "Submitted", icon: "📋", color: "text-sky-400" },
+  "orders.submitted": { label: "Submitted", icon: "○", color: "text-sky-400" },
   "orders.routed": { label: "Routed", icon: "→", color: "text-sky-500" },
   "orders.child": { label: "Slice", icon: "⚡", color: "text-amber-400" },
   "orders.filled": { label: "Filled", icon: "✓", color: "text-emerald-400" },
