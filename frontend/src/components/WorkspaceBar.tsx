@@ -143,7 +143,6 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
         isExpanded ? "w-40" : "w-8"
       }`}
     >
-      {/* Toggle button */}
       <button
         type="button"
         aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
@@ -157,7 +156,6 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
         {isExpanded ? "‹" : "›"}
       </button>
 
-      {/* View presets */}
       <fieldset
         aria-label="View presets"
         className="shrink-0 border-b border-gray-800 border-0 m-0 p-0"
@@ -198,104 +196,101 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
         })}
       </fieldset>
 
-      {/* Workspace list */}
       <ul
         aria-label="Workspaces"
         className="flex-1 overflow-y-auto overflow-x-hidden list-none m-0 p-0"
       >
-        {workspaces.map((ws) => {
-          const active = ws.id === activeId;
-          const isEditing = editingId.value === ws.id;
+        {workspaces.length > 1 &&
+          workspaces.map((ws) => {
+            const active = ws.id === activeId;
+            const isEditing = editingId.value === ws.id;
 
-          return (
-            <li
-              key={ws.id}
-              className={`group relative flex items-center border-b border-gray-800/60 ${
-                active
-                  ? "bg-gray-900 border-l-2 border-l-emerald-500"
-                  : "border-l-2 border-l-transparent hover:bg-gray-900/40"
-              }`}
-            >
-              {isExpanded ? (
-                // Expanded: show name horizontally
-                <div className="flex items-center w-full min-w-0 px-2 py-1.5 gap-1">
-                  {isEditing ? (
-                    <input
-                      ref={inputRef}
-                      aria-label={`Rename workspace ${ws.name}`}
-                      value={editValue.value}
-                      onChange={(e) => {
-                        editValue.value = e.target.value;
-                      }}
-                      onBlur={commitRename}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename();
-                        if (e.key === "Escape") {
-                          editingId.value = null;
+            return (
+              <li
+                key={ws.id}
+                className={`group relative flex items-center border-b border-gray-800/60 ${
+                  active
+                    ? "bg-gray-900 border-l-2 border-l-emerald-500"
+                    : "border-l-2 border-l-transparent hover:bg-gray-900/40"
+                }`}
+              >
+                {isExpanded ? (
+                  <div className="flex items-center w-full min-w-0 px-2 py-1.5 gap-1">
+                    {isEditing ? (
+                      <input
+                        ref={inputRef}
+                        aria-label={`Rename workspace ${ws.name}`}
+                        value={editValue.value}
+                        onChange={(e) => {
+                          editValue.value = e.target.value;
+                        }}
+                        onBlur={commitRename}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRename();
+                          if (e.key === "Escape") {
+                            editingId.value = null;
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 min-w-0 bg-gray-800 text-gray-100 text-[11px] px-1 rounded outline-none border border-emerald-500"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`Switch to workspace: ${ws.name}`}
+                        aria-current={active ? "page" : undefined}
+                        title={
+                          active
+                            ? `${ws.name} (active — double-click to rename)`
+                            : `Switch to ${ws.name}`
                         }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 min-w-0 bg-gray-800 text-gray-100 text-[11px] px-1 rounded outline-none border border-emerald-500"
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      aria-label={`Switch to workspace: ${ws.name}`}
-                      aria-current={active ? "page" : undefined}
-                      title={
-                        active
-                          ? `${ws.name} (active — double-click to rename)`
-                          : `Switch to ${ws.name}`
-                      }
-                      className={`flex-1 min-w-0 text-left text-[11px] truncate bg-transparent border-0 p-0 cursor-pointer ${
-                        active ? "text-gray-200" : "text-gray-500 hover:text-gray-300"
-                      }`}
-                      onClick={() => onSelect(ws.id)}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        editingId.value = ws.id;
-                        editValue.value = ws.name;
-                      }}
-                    >
-                      {ws.name}
-                    </button>
-                  )}
-                  {active && workspaces.length > 1 && !isEditing && (
-                    <button
-                      type="button"
-                      aria-label={`Remove workspace ${ws.name}`}
-                      title={`Remove ${ws.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeWorkspace(ws.id);
-                      }}
-                      className="shrink-0 text-gray-700 hover:text-gray-400 text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ) : (
-                // Collapsed: show initial as icon button
-                <button
-                  type="button"
-                  aria-label={`Switch to workspace: ${ws.name}`}
-                  aria-current={active ? "page" : undefined}
-                  title={`Switch to workspace: ${ws.name}`}
-                  onClick={() => onSelect(ws.id)}
-                  className={`flex items-center justify-center w-8 h-8 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
-                    active ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"
-                  }`}
-                >
-                  {ws.name.charAt(0)}
-                </button>
-              )}
-            </li>
-          );
-        })}
+                        className={`flex-1 min-w-0 text-left text-[11px] truncate bg-transparent border-0 p-0 cursor-pointer ${
+                          active ? "text-gray-200" : "text-gray-500 hover:text-gray-300"
+                        }`}
+                        onClick={() => onSelect(ws.id)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          editingId.value = ws.id;
+                          editValue.value = ws.name;
+                        }}
+                      >
+                        {ws.name}
+                      </button>
+                    )}
+                    {active && !isEditing && (
+                      <button
+                        type="button"
+                        aria-label={`Remove workspace ${ws.name}`}
+                        title={`Remove ${ws.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeWorkspace(ws.id);
+                        }}
+                        className="shrink-0 text-gray-700 hover:text-gray-400 text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`Switch to workspace: ${ws.name}`}
+                    aria-current={active ? "page" : undefined}
+                    title={`Switch to workspace: ${ws.name}`}
+                    onClick={() => onSelect(ws.id)}
+                    className={`flex items-center justify-center w-8 h-8 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                      active ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"
+                    }`}
+                  >
+                    {ws.name.charAt(0)}
+                  </button>
+                )}
+              </li>
+            );
+          })}
       </ul>
 
-      {/* Add workspace button */}
       <button
         type="button"
         aria-label="Add new workspace"

@@ -146,9 +146,6 @@ export const marketSlice = createSlice({
       action: PayloadAction<{ symbol: string; candles: { "1m": OhlcCandle[]; "5m": OhlcCandle[] } }>
     ) {
       const { symbol, candles } = action.payload;
-      // Use server candles directly — live ticks accumulate on top via applyTickMut.
-      // Merging pre-seed live ticks caused giant candles when those ticks spanned
-      // a wide price range (e.g. snapshot + drift before the first flush).
       const { "1m": bars1m, "5m": bars5m } = candles;
       state.candleHistory[symbol] = {
         "1m": bars1m.length > 0 ? bars1m : (state.candleHistory[symbol]?.["1m"] ?? []),
