@@ -1,11 +1,13 @@
 import { useSignal } from "@preact/signals-react";
 import { Fragment } from "react";
+import { useChannelContext } from "../contexts/ChannelContext.tsx";
 import { useChannelOut } from "../hooks/useChannelOut.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { orderPatched } from "../store/ordersSlice.ts";
 import type { ChildOrder, LiquidityFlag, OrderStatus } from "../types.ts";
 import type { ContextMenuEntry } from "./ContextMenu.tsx";
 import { ContextMenu } from "./ContextMenu.tsx";
+import { CHANNEL_COLOURS } from "./DashboardLayout.tsx";
 import { PopOutButton } from "./PopOutButton.tsx";
 
 const STATUS_STYLES: Record<OrderStatus, string> = {
@@ -113,6 +115,8 @@ export function OrderBlotter() {
   const broadcast = useChannelOut();
   const dispatch = useAppDispatch();
   const ctxMenu = useSignal<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
+  const { outgoing } = useChannelContext();
+  const channelColour = outgoing !== null ? (CHANNEL_COLOURS[outgoing]?.hex ?? null) : null;
 
   function selectOrder(id: string) {
     const next = selectedOrderId.value === id ? null : id;
@@ -177,8 +181,17 @@ export function OrderBlotter() {
           }}
         />
       )}
-      <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-end gap-2">
-        <span className="text-[10px] text-gray-600">
+      <div className="px-3 py-1.5 border-b border-gray-800 flex items-center gap-2">
+        {selectedOrderId.value && channelColour && (
+          <span
+            className="text-[10px] rounded px-1.5 py-0.5 font-mono tabular-nums shrink-0"
+            style={{ color: channelColour, background: `${channelColour}22` }}
+            title="Broadcasting selected order to linked panels"
+          >
+            ↗ {selectedOrderId.value.slice(0, 8)}
+          </span>
+        )}
+        <span className="text-[10px] text-gray-600 ml-auto">
           {orders.length} order{orders.length !== 1 ? "s" : ""}
         </span>
         <PopOutButton panelId="order-blotter" />
@@ -253,10 +266,20 @@ export function OrderBlotter() {
                     onContextMenu={(e) => openOrderCtxMenu(e, order.id)}
                     aria-selected={selectedOrderId.value === order.id}
                     title={`${order.side} ${order.quantity.toLocaleString()} ${order.asset} @ ${formatPrice(order.asset, order.limitPrice)} — ${order.status}. Right-click for actions. Click to ${selectedOrderId.value === order.id ? "deselect" : "select and broadcast to linked panels"}`}
+                    style={
+                      selectedOrderId.value === order.id && channelColour
+                        ? {
+                            borderLeft: `3px solid ${channelColour}`,
+                            background: `${channelColour}18`,
+                          }
+                        : { borderLeft: "3px solid transparent" }
+                    }
                     className={`border-b border-gray-800/40 cursor-pointer transition-colors ${
-                      selectedOrderId.value === order.id
+                      selectedOrderId.value === order.id && !channelColour
                         ? "bg-sky-900/20 border-l-2 border-l-sky-500"
-                        : "hover:bg-gray-800/20"
+                        : selectedOrderId.value !== order.id
+                          ? "hover:bg-gray-800/20"
+                          : ""
                     }`}
                   >
                     <td className="px-3 py-1.5 text-gray-500 tabular-nums whitespace-nowrap">

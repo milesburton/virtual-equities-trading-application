@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useChannelIn } from "../hooks/useChannelIn.ts";
 import { useAppSelector } from "../store/hooks.ts";
 import type { OrderRecord } from "../types.ts";
 
@@ -26,10 +27,6 @@ function fillPct(order: OrderRecord): number {
   return Math.min(1, order.filled / order.quantity);
 }
 
-function shortId(id: string): string {
-  return id.slice(0, 6).toUpperCase();
-}
-
 interface PieEntry {
   name: string;
   value: number;
@@ -37,43 +34,27 @@ interface PieEntry {
 }
 
 interface BarEntry {
-  strategy: string;
-  avgFill: number;
-  count: number;
+  name: string;
+  value: number;
   colour: string;
 }
 
-function buildPieRows(orders: OrderRecord[]): { id: string; pct: number; slices: PieEntry[] }[] {
-  return orders
-    .filter((o) => o.status === "executing" || o.status === "queued")
-    .map((o) => {
-      const pct = fillPct(o);
-      return {
-        id: `${shortId(o.id)} ${o.side} ${o.asset}`,
-        pct,
-        slices: [
-          { name: "Filled", value: Math.round(pct * 100), colour: FILL_COLOUR },
-          { name: "Remaining", value: Math.round((1 - pct) * 100), colour: REMAINING_COLOUR },
-        ],
-      };
-    });
+function buildPieSlices(order: OrderRecord): PieEntry[] {
+  const pct = fillPct(order);
+  return [
+    { name: "Filled", value: Math.round(pct * 100), colour: FILL_COLOUR },
+    { name: "Remaining", value: Math.round((1 - pct) * 100), colour: REMAINING_COLOUR },
+  ];
 }
 
-function buildBarRows(orders: OrderRecord[]): BarEntry[] {
-  const byStrategy: Record<string, { total: number; count: number }> = {};
-  for (const o of orders) {
-    if (o.quantity === 0) continue;
-    const s = o.strategy;
-    byStrategy[s] ??= { total: 0, count: 0 };
-    byStrategy[s].total += fillPct(o) * 100;
-    byStrategy[s].count += 1;
-  }
-  return Object.entries(byStrategy).map(([strategy, { total, count }]) => ({
-    strategy,
-    avgFill: Math.round(total / count),
-    count,
-    colour: STRATEGY_COLOURS[strategy] ?? "#6b7280",
-  }));
+function buildChildBars(order: OrderRecord): BarEntry[] {
+  return order.children
+    .filter((c) => c.status === "filled" && c.filled > 0)
+    .map((c) => ({
+      name: c.id.slice(0, 6).toUpperCase(),
+      value: c.filled,
+      colour: STRATEGY_COLOURS[order.strategy] ?? "#34d399",
+    }));
 }
 
 interface PieTooltipProps {
@@ -102,116 +83,137 @@ function BarTooltipContent({ active, payload, label }: BarTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200">
-      {label}: {payload[0].value}% avg fill
+      Slice {label}: {payload[0].value} shares
     </div>
   );
 }
 
 export function OrderProgressPanel() {
   const orders = useAppSelector((s) => s.orders.orders);
+  const channelIn = useChannelIn();
+  const selectedOrderId = channelIn.selectedOrderId;
 
-  const activeOrders = orders.filter((o) => o.status === "executing" || o.status === "queued");
-  const allOrders = orders.filter((o) => o.status !== "expired");
+  const order = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
 
-  const pieRows = buildPieRows(orders);
-  const barRows = buildBarRows(allOrders);
+  if (!selectedOrderId || !order) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600 bg-gray-950">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          width="28"
+          height="28"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 3" strokeLinecap="round" />
+        </svg>
+        <span className="text-xs">Select an order in the blotter</span>
+      </div>
+    );
+  }
+
+  const pct = fillPct(order);
+  const pctDisplay = Math.round(pct * 100);
+  const pieSlices = buildPieSlices(order);
+  const childBars = buildChildBars(order);
+  const stratColour = STRATEGY_COLOURS[order.strategy] ?? "#6b7280";
 
   return (
     <div className="flex flex-col h-full bg-gray-950 overflow-y-auto">
-      <div className="px-3 pt-3 pb-2 border-b border-gray-800 shrink-0">
-        <span className="text-[11px] text-gray-500 uppercase tracking-wider">
-          Fill Progress — {activeOrders.length} active order{activeOrders.length !== 1 ? "s" : ""}
+      <div className="px-3 pt-2.5 pb-2 border-b border-gray-800 shrink-0 flex items-center gap-2">
+        <span
+          className="text-[10px] font-semibold px-1.5 py-0.5 rounded tabular-nums font-mono"
+          style={{ color: stratColour, background: `${stratColour}22` }}
+        >
+          {order.strategy}
         </span>
+        <span className="text-[11px] text-gray-300 font-semibold">
+          {order.side} {order.quantity.toLocaleString()} {order.asset}
+        </span>
+        <span className="ml-auto text-[10px] text-gray-600 font-mono">{order.id.slice(0, 8)}</span>
       </div>
 
-      {pieRows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-2 text-gray-600 text-xs">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            width="28"
-            height="28"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 3" strokeLinecap="round" />
-          </svg>
-          No active orders
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-x-4 gap-y-2 px-3 pt-3">
-          {pieRows.map((row) => (
-            <div key={row.id} className="flex flex-col items-center gap-0.5 w-[72px]">
-              <ResponsiveContainer width={64} height={64}>
-                <PieChart>
-                  <Pie
-                    data={row.slices}
-                    dataKey="value"
-                    innerRadius={18}
-                    outerRadius={28}
-                    startAngle={90}
-                    endAngle={-270}
-                    strokeWidth={0}
-                  >
-                    {row.slices.map((slice) => (
-                      <Cell key={slice.name} fill={slice.colour} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<PieTooltipContent />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <span className="text-[10px] text-emerald-400 tabular-nums font-medium">
-                {row.pct === 1 ? "100" : Math.round(row.pct * 100)}%
-              </span>
-              <span
-                className="text-[9px] text-gray-500 text-center leading-tight truncate w-full text-center"
-                title={row.id}
+      <div className="flex items-center gap-4 px-4 pt-4 pb-2">
+        <div className="shrink-0">
+          <ResponsiveContainer width={120} height={120}>
+            <PieChart>
+              <Pie
+                data={pieSlices}
+                dataKey="value"
+                innerRadius={34}
+                outerRadius={52}
+                startAngle={90}
+                endAngle={-270}
+                strokeWidth={0}
               >
-                {row.id}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="px-3 pt-4 pb-2 border-t border-gray-800 mt-4 shrink-0">
-        <span className="text-[11px] text-gray-500 uppercase tracking-wider">
-          Avg Fill by Strategy
-        </span>
-      </div>
-
-      {barRows.length === 0 ? (
-        <div className="flex items-center justify-center flex-1 text-gray-600 text-xs pb-4">
-          No orders yet
-        </div>
-      ) : (
-        <div className="px-2 pb-4" style={{ height: 140 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={barRows} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
-              <XAxis
-                dataKey="strategy"
-                tick={{ fontSize: 10, fill: "#6b7280" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                domain={[0, 100]}
-                tick={{ fontSize: 9, fill: "#6b7280" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip content={<BarTooltipContent />} cursor={{ fill: "#ffffff08" }} />
-              <Bar dataKey="avgFill" radius={[3, 3, 0, 0]}>
-                {barRows.map((row) => (
-                  <Cell key={row.strategy} fill={row.colour} />
+                {pieSlices.map((slice) => (
+                  <Cell key={slice.name} fill={slice.colour} />
                 ))}
-              </Bar>
-            </BarChart>
+              </Pie>
+              <Tooltip content={<PieTooltipContent />} />
+            </PieChart>
           </ResponsiveContainer>
         </div>
+
+        <div className="flex flex-col gap-2 min-w-0">
+          <div>
+            <span
+              className="text-4xl font-bold tabular-nums"
+              style={{ color: pct === 1 ? FILL_COLOUR : "#e5e7eb" }}
+            >
+              {pctDisplay}%
+            </span>
+            <span className="text-xs text-gray-500 ml-1">filled</span>
+          </div>
+          <div className="text-xs text-gray-500 leading-relaxed">
+            <div>
+              <span className="text-gray-400">{order.filled.toLocaleString()}</span>
+              <span className="text-gray-600"> / {order.quantity.toLocaleString()} shares</span>
+            </div>
+            {order.avgFillPrice != null && (
+              <div>
+                avg <span className="text-gray-400">${order.avgFillPrice.toFixed(2)}</span>
+              </div>
+            )}
+            {order.totalCommissionUSD != null && order.totalCommissionUSD > 0 && (
+              <div>
+                comm <span className="text-gray-400">${order.totalCommissionUSD.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {childBars.length > 0 && (
+        <>
+          <div className="px-3 pt-2 pb-1 border-t border-gray-800 mt-1 shrink-0">
+            <span className="text-[11px] text-gray-500 uppercase tracking-wider">
+              Slice fills ({childBars.length})
+            </span>
+          </div>
+          <div className="px-2 pb-4" style={{ height: 110 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={childBars} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 8, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis tick={{ fontSize: 9, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                <Tooltip content={<BarTooltipContent />} cursor={{ fill: "#ffffff08" }} />
+                <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                  {childBars.map((row) => (
+                    <Cell key={row.name} fill={row.colour} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
       )}
     </div>
   );

@@ -106,6 +106,7 @@ export function DecisionLog() {
   const events = useAppSelector((s) => s.observability.events);
   const channelIn = useChannelIn();
   const filterAsset = channelIn.selectedAsset ?? null;
+  const filterOrderId = channelIn.selectedOrderId ?? null;
 
   const showHeartbeats = useSignal(false);
   const algoFilter = useSignal("ALL");
@@ -155,14 +156,21 @@ export function DecisionLog() {
         const p = e.payload as AlgoEvent | undefined;
         if (!showHeartbeats.value && e.type === "algo.heartbeat") return false;
         if (algoFilter.value !== "ALL" && p?.algo !== algoFilter.value) return false;
-        if (filterAsset && p?.asset && p.asset !== filterAsset) return false;
-        // Only algo-relevant topics
+        if (filterOrderId) {
+          const matchesOrder =
+            p?.orderId === filterOrderId ||
+            p?.parentOrderId === filterOrderId ||
+            p?.childId === filterOrderId;
+          if (!matchesOrder) return false;
+        } else if (filterAsset && p?.asset && p.asset !== filterAsset) {
+          return false;
+        }
         if (!TOPIC_LABELS[e.type]) return false;
         return true;
       })
       .slice(0, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, showHeartbeats.value, algoFilter.value, filterAsset]);
+  }, [events, showHeartbeats.value, algoFilter.value, filterAsset, filterOrderId]);
 
   return (
     <div className="flex flex-col h-full">
@@ -181,11 +189,15 @@ export function DecisionLog() {
         <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
           Decision Log
         </span>
-        {filterAsset && (
+        {filterOrderId ? (
+          <span className="text-[10px] text-amber-400 bg-amber-900/30 rounded px-1.5 py-0.5 font-mono">
+            {filterOrderId.slice(0, 8)}
+          </span>
+        ) : filterAsset ? (
           <span className="text-[10px] text-sky-400 bg-sky-900/30 rounded px-1.5 py-0.5">
             {filterAsset}
           </span>
-        )}
+        ) : null}
         <div className="ml-auto flex items-center gap-2">
           <select
             aria-label="Filter by algo"
@@ -224,7 +236,11 @@ export function DecisionLog() {
       <div className="flex-1 overflow-auto font-mono">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-gray-600 text-xs">
-            {events.length === 0 ? "Waiting for algo activity…" : "No events match current filters"}
+            {filterOrderId
+              ? "No events for this order yet"
+              : events.length === 0
+                ? "Waiting for algo activity…"
+                : "No events match current filters"}
           </div>
         ) : (
           <table className="w-full text-[10px]">

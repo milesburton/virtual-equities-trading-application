@@ -112,7 +112,7 @@ export const PANEL_CHANNEL_CAPS: Record<PanelId, { out: boolean; in: boolean }> 
   "market-match": { out: false, in: true },
   admin: { out: false, in: false },
   news: { out: false, in: false },
-  "order-progress": { out: false, in: false },
+  "order-progress": { out: false, in: true },
 };
 
 export interface LayoutItem {
@@ -213,30 +213,53 @@ export function makeDefaultModel(): IJsonModel {
             },
           ],
         },
-        // ── Column 3: Orders → Executions → Algo Monitor → Decision Log ───────
+        // ── Column 3: Orders+FillProgress | Executions | Algo | Decision Log ───
         {
           type: "row",
           weight: 60,
           children: [
+            // Order Blotter + Fill Progress side by side
             {
-              type: "tabset",
-              weight: 28,
+              type: "row",
+              weight: 30,
               children: [
                 {
-                  type: "tab",
-                  id: "order-blotter",
-                  name: PANEL_TITLES["order-blotter"],
-                  component: "order-blotter",
-                  config: {
-                    panelType: "order-blotter",
-                    outgoing: 2,
-                  } satisfies TabChannelConfig,
+                  type: "tabset",
+                  weight: 60,
+                  children: [
+                    {
+                      type: "tab",
+                      id: "order-blotter",
+                      name: PANEL_TITLES["order-blotter"],
+                      component: "order-blotter",
+                      config: {
+                        panelType: "order-blotter",
+                        outgoing: 2,
+                      } satisfies TabChannelConfig,
+                    },
+                  ],
+                },
+                {
+                  type: "tabset",
+                  weight: 40,
+                  children: [
+                    {
+                      type: "tab",
+                      id: "order-progress",
+                      name: PANEL_TITLES["order-progress"],
+                      component: "order-progress",
+                      config: {
+                        panelType: "order-progress",
+                        incoming: 2,
+                      } satisfies TabChannelConfig,
+                    },
+                  ],
                 },
               ],
             },
             {
               type: "tabset",
-              weight: 24,
+              weight: 23,
               children: [
                 {
                   type: "tab",
@@ -249,7 +272,7 @@ export function makeDefaultModel(): IJsonModel {
             },
             {
               type: "tabset",
-              weight: 24,
+              weight: 23,
               children: [
                 {
                   type: "tab",
@@ -269,7 +292,7 @@ export function makeDefaultModel(): IJsonModel {
                   id: "decision-log",
                   name: PANEL_TITLES["decision-log"],
                   component: "decision-log",
-                  config: { panelType: "decision-log" } satisfies TabChannelConfig,
+                  config: { panelType: "decision-log", incoming: 2 } satisfies TabChannelConfig,
                 },
               ],
             },

@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
+import { ChannelContext } from "../../contexts/ChannelContext";
 import { channelsSlice } from "../../store/channelsSlice";
 import { marketSlice } from "../../store/marketSlice";
 import { ordersSlice } from "../../store/ordersSlice";
@@ -30,7 +31,7 @@ function makeOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
   };
 }
 
-function makeStore(orders: OrderRecord[] = []) {
+function makeStore(orders: OrderRecord[] = [], selectedOrderId: string | null = null) {
   return configureStore({
     reducer: {
       orders: ordersSlice.reducer,
@@ -39,64 +40,97 @@ function makeStore(orders: OrderRecord[] = []) {
       channels: channelsSlice.reducer,
       windows: windowSlice.reducer,
     },
-    preloadedState: { orders: { orders } },
+    preloadedState: {
+      orders: { orders },
+      channels: {
+        data: {
+          1: { selectedAsset: null, selectedOrderId: null },
+          2: { selectedAsset: null, selectedOrderId },
+          3: { selectedAsset: null, selectedOrderId: null },
+          4: { selectedAsset: null, selectedOrderId: null },
+          5: { selectedAsset: null, selectedOrderId: null },
+          6: { selectedAsset: null, selectedOrderId: null },
+        },
+      },
+    },
   });
 }
 
-function renderPanel(orders: OrderRecord[] = []) {
-  const store = makeStore(orders);
+function renderPanel(orders: OrderRecord[] = [], selectedOrderId: string | null = null) {
+  const store = makeStore(orders, selectedOrderId);
   return render(
     <Provider store={store}>
-      <OrderProgressPanel />
+      <ChannelContext.Provider
+        value={{ instanceId: "test", panelType: "order-progress", outgoing: null, incoming: 2 }}
+      >
+        <OrderProgressPanel />
+      </ChannelContext.Provider>
     </Provider>
   );
 }
 
 describe("OrderProgressPanel", () => {
-  it("shows empty state when no active orders", () => {
-    renderPanel();
-    expect(screen.getByText(/No active orders/i)).toBeInTheDocument();
-  });
-
-  it("shows active order count in header", () => {
-    renderPanel([makeOrder(), makeOrder({ id: "order-2", status: "queued", filled: 0 })]);
-    expect(screen.getByText(/2 active orders/i)).toBeInTheDocument();
-  });
-
-  it("renders a pie chart entry for each executing/queued order", () => {
-    renderPanel([
-      makeOrder({ id: "order-1", filled: 50 }),
-      makeOrder({ id: "order-2", filled: 25, status: "queued" }),
-    ]);
-    expect(screen.getByText(/50%/)).toBeInTheDocument();
-    expect(screen.getByText(/25%/)).toBeInTheDocument();
-  });
-
-  it("does not render expired orders in pies", () => {
-    renderPanel([makeOrder({ id: "order-1", status: "expired", filled: 0 })]);
-    expect(screen.getByText(/No active orders/i)).toBeInTheDocument();
-  });
-
-  it("shows 'Avg Fill by Strategy' bar chart section", () => {
+  it("shows empty state when no order is selected", () => {
     renderPanel([makeOrder()]);
-    expect(screen.getByText(/Avg Fill by Strategy/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select an order in the blotter/i)).toBeInTheDocument();
   });
 
-  it("shows 'No orders yet' when all orders are expired", () => {
-    renderPanel([makeOrder({ status: "expired", filled: 0 })]);
-    expect(screen.getByText(/No orders yet/i)).toBeInTheDocument();
+  it("shows empty state when selected order does not exist", () => {
+    renderPanel([], "nonexistent-id");
+    expect(screen.getByText(/Select an order in the blotter/i)).toBeInTheDocument();
   });
 
-  it("includes filled orders in the strategy bar chart section", () => {
-    const { container } = renderPanel([
-      makeOrder({ id: "order-1", status: "filled", filled: 100 }),
-      makeOrder({ id: "order-2", status: "executing", filled: 50 }),
-    ]);
-    expect(container.querySelector(".recharts-responsive-container")).toBeTruthy();
+  it("shows fill percentage for the selected order", () => {
+    renderPanel([makeOrder({ id: "order-1", filled: 50, quantity: 100 })], "order-1");
+    expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
-  it("shows singular 'order' when exactly one active order", () => {
-    renderPanel([makeOrder()]);
-    expect(screen.getByText(/1 active order/i)).toBeInTheDocument();
+  it("shows order details in the header", () => {
+    renderPanel([makeOrder({ id: "order-1" })], "order-1");
+    expect(screen.getByText(/AAPL/)).toBeInTheDocument();
+    expect(screen.getByText(/TWAP/)).toBeInTheDocument();
+  });
+
+  it("shows 100% for a fully filled order", () => {
+    renderPanel(
+      [makeOrder({ id: "order-1", filled: 100, quantity: 100, status: "filled" })],
+      "order-1"
+    );
+    expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("shows slice fills section when order has filled children", () => {
+    const order = makeOrder({
+      id: "order-1",
+      filled: 50,
+      children: [
+        {
+          id: "child-1",
+          parentId: "order-1",
+          asset: "AAPL",
+          side: "BUY",
+          quantity: 50,
+          limitPrice: 150,
+          status: "filled",
+          filled: 50,
+          submittedAt: now,
+        },
+      ],
+    });
+    renderPanel([order], "order-1");
+    expect(screen.getByText(/Slice fills/i)).toBeInTheDocument();
+  });
+
+  it("does not show slice fills when no children", () => {
+    renderPanel([makeOrder({ id: "order-1", children: [] })], "order-1");
+    expect(screen.queryByText(/Slice fills/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the order ID in the header", () => {
+    renderPanel(
+      [makeOrder({ id: "abcdef12-0000-0000-0000-000000000000" })],
+      "abcdef12-0000-0000-0000-000000000000"
+    );
+    expect(screen.getByText("abcdef12")).toBeInTheDocument();
   });
 });
