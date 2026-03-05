@@ -121,7 +121,7 @@ const SEED_USERS: SeedUser[] = [
   { id: "bob", name: "Bob Martinez", role: "trader", avatar_emoji: "BM" },
   { id: "carol", name: "Carol Singh", role: "trader", avatar_emoji: "CS" },
   { id: "dave", name: "Dave Okafor", role: "trader", avatar_emoji: "DO" },
-  { id: "admin", name: "Admin", role: "admin", avatar_emoji: "AD" },
+  { id: "admin", name: "Mission Control", role: "admin", avatar_emoji: "MC" },
 ];
 
 export function LoginPage() {

@@ -5,24 +5,24 @@ import { useAppSelector } from "../store/hooks.ts";
 import type { AssetDef } from "../types.ts";
 
 // ── Colour scale ──────────────────────────────────────────────────────────────
-// Solid saturated fills matching reference heatmap style (deep red → deep green)
+// Matches reference S&P 500 heatmap palette
 
 function pctToColor(pct: number): string {
-  if (pct >= 4) return "#14532d"; // darkest green
-  if (pct >= 2) return "#166534";
-  if (pct >= 1) return "#15803d";
-  if (pct >= 0.5) return "#16a34a";
-  if (pct > 0) return "#1d6334";
+  if (pct >= 4) return "#0a4a2a";
+  if (pct >= 2) return "#0d6b3a";
+  if (pct >= 1) return "#1a8c4e";
+  if (pct >= 0.5) return "#22a85f";
+  if (pct > 0) return "#1d7a4a";
   if (pct === 0) return "#1f2937";
-  if (pct > -0.5) return "#7c1d1d";
+  if (pct > -0.5) return "#7a1c1c";
   if (pct > -1) return "#991b1b";
   if (pct > -2) return "#b91c1c";
-  if (pct > -4) return "#dc2626";
-  return "#ef4444"; // deepest red
+  if (pct > -4) return "#d62020";
+  return "#ef4444";
 }
 
 function tileTextColor(pct: number): string {
-  return Math.abs(pct) < 0.25 ? "#6b7280" : "#f0fdf4";
+  return Math.abs(pct) < 0.2 ? "#9ca3af" : "#ffffff";
 }
 
 // ── Squarified treemap ────────────────────────────────────────────────────────
@@ -43,13 +43,8 @@ interface TileData {
 
 interface LayoutTile extends TileData, Rect {}
 
-/**
- * Classic squarified treemap (Bruls et al.).
- * Items must be sorted descending by size before calling.
- */
 function squarify(items: TileData[], bounds: Rect): LayoutTile[] {
   if (items.length === 0 || bounds.w <= 0 || bounds.h <= 0) return [];
-
   const total = items.reduce((s, d) => s + d.size, 0);
   if (total <= 0) return [];
 
@@ -100,7 +95,6 @@ function squarify(items: TileData[], bounds: Rect): LayoutTile[] {
   while (remaining.length > 0) {
     const horiz = w >= h;
     const sideLen = horiz ? h : w;
-
     let row: TileData[] = [];
     let i = 0;
     while (i < remaining.length) {
@@ -112,13 +106,9 @@ function squarify(items: TileData[], bounds: Rect): LayoutTile[] {
         break;
       }
     }
-    if (row.length === 0) {
-      row = [remaining[0]];
-    }
-
+    if (row.length === 0) row = [remaining[0]];
     const stripW = layoutRow(row, x, y, w, h, horiz);
     remaining = remaining.slice(row.length);
-
     if (horiz) {
       x += stripW;
       w -= stripW;
@@ -133,8 +123,10 @@ function squarify(items: TileData[], bounds: Rect): LayoutTile[] {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const SECTOR_LABEL_H = 17; // px — height reserved for sector header strip
-const GAP = 2; // px — gap between tiles / sectors
+// Gap between sector blocks (px in viewBox coords)
+const SECTOR_GAP = 2;
+// Gap between asset tiles within a sector
+const TILE_GAP = 1;
 
 export function MarketHeatmap() {
   const assets = useAppSelector((s) => s.market.assets);
@@ -155,21 +147,16 @@ export function MarketHeatmap() {
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
-      if (width > 0) canvasW.value = width;
-      if (height > 0) canvasH.value = height;
+      if (width > 0) canvasW.value = Math.floor(width);
+      if (height > 0) canvasH.value = Math.floor(height);
     });
     ro.observe(el);
-    // seed from initial size
     canvasW.value = el.clientWidth || 960;
     canvasH.value = el.clientHeight || 540;
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    canvasH, // seed from initial size
-    canvasW,
-  ]);
+  }, [canvasH, canvasW]);
 
-  // Per-asset % change from session open
   const tiles = useMemo<TileData[]>(() => {
     return assets.map((a: AssetDef) => {
       const price = prices[a.symbol] ?? a.initialPrice;
@@ -182,7 +169,6 @@ export function MarketHeatmap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets, prices, priceHistory, sortBy.value]);
 
-  // Group and sort sectors by total weight
   const sectors = useMemo(() => {
     const map = new Map<string, TileData[]>();
     for (const t of tiles) {
@@ -202,7 +188,7 @@ export function MarketHeatmap() {
   const cw = canvasW.value;
   const ch = canvasH.value;
 
-  // Sector layout across the full canvas
+  // Sector layout — full canvas, sectors separated only by SECTOR_GAP
   const sectorTileData: TileData[] = sectors.map((s) => ({
     symbol: s.sector,
     sector: s.sector,
@@ -211,22 +197,22 @@ export function MarketHeatmap() {
   }));
   const sectorLayout = squarify(sectorTileData, { x: 0, y: 0, w: cw, h: ch });
 
-  // Asset tile layout within each sector block
   const sectorBlocks = sectors.map((s, i) => {
     const sRect = sectorLayout[i];
-    if (!sRect) return { ...s, tiles: [] as LayoutTile[] };
+    if (!sRect) return { ...s, sRect: { x: 0, y: 0, w: 0, h: 0 }, tiles: [] as LayoutTile[] };
 
+    // Asset tiles fill the full sector rect — sector name overlays as text
     const inner: Rect = {
-      x: sRect.x + GAP,
-      y: sRect.y + SECTOR_LABEL_H + GAP,
-      w: Math.max(sRect.w - GAP * 2, 1),
-      h: Math.max(sRect.h - SECTOR_LABEL_H - GAP * 2, 1),
+      x: sRect.x + SECTOR_GAP,
+      y: sRect.y + SECTOR_GAP,
+      w: Math.max(sRect.w - SECTOR_GAP * 2, 1),
+      h: Math.max(sRect.h - SECTOR_GAP * 2, 1),
     };
     return { ...s, sRect, tiles: squarify(s.items, inner) };
   });
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-gray-100 select-none">
+    <div className="flex flex-col h-full bg-[#0d1117] text-gray-100 select-none">
       {/* Toolbar */}
       <div className="px-3 py-1.5 border-b border-gray-800 flex items-center gap-3 shrink-0 text-[11px]">
         <span className="font-semibold text-gray-400 uppercase tracking-wider">Market Heatmap</span>
@@ -256,7 +242,7 @@ export function MarketHeatmap() {
           {([-4, -2, -0.5, 0, 0.5, 2, 4] as const).map((v) => (
             <span key={v} className="flex items-center gap-0.5">
               <span
-                className="inline-block w-3 h-2.5 rounded-sm border border-gray-800"
+                className="inline-block w-3 h-2.5 border border-gray-700"
                 style={{ background: pctToColor(v) }}
               />
               <span>{v > 0 ? `+${v}` : v}%</span>
@@ -265,99 +251,43 @@ export function MarketHeatmap() {
         </div>
       </div>
 
-      {/* SVG canvas — fills remaining space */}
-      <div ref={wrapRef} className="flex-1 overflow-hidden relative">
+      {/* SVG canvas */}
+      <div ref={wrapRef} className="flex-1 overflow-hidden relative bg-[#0d1117]">
         <svg
-          width={cw}
-          height={ch}
+          width="100%"
+          height="100%"
           viewBox={`0 0 ${cw} ${ch}`}
+          preserveAspectRatio="none"
           aria-label="Market heatmap — sector treemap coloured by % price change"
           role="img"
         >
+          {/* Dark grid background */}
+          <rect x={0} y={0} width={cw} height={ch} fill="#0d1117" />
+
           {sectorBlocks.map((block, si) => {
             const sRect = sectorLayout[si];
             if (!sRect || sRect.w < 4 || sRect.h < 4) return null;
-            const sColor = pctToColor(block.sectorPct);
 
             return (
               <g key={block.sector}>
-                {/* Sector background */}
-                <rect
-                  x={sRect.x + 1}
-                  y={sRect.y + 1}
-                  width={sRect.w - 2}
-                  height={sRect.h - 2}
-                  fill="#111827"
-                  stroke="#374151"
-                  strokeWidth={1}
-                  rx={2}
-                />
-
-                {/* Sector header bar */}
-                <rect
-                  x={sRect.x + 1}
-                  y={sRect.y + 1}
-                  width={sRect.w - 2}
-                  height={SECTOR_LABEL_H - 1}
-                  fill={sColor}
-                  opacity={0.75}
-                  rx={2}
-                />
-
-                {/* Sector name */}
-                <text
-                  x={sRect.x + 6}
-                  y={sRect.y + 12}
-                  fontSize={9}
-                  fontWeight="700"
-                  fill="#f3f4f6"
-                  style={{
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {sRect.w > 80
-                    ? block.sector
-                    : block.sector.slice(0, Math.max(Math.floor(sRect.w / 7), 3))}
-                </text>
-
-                {/* Sector % change — right-aligned in header */}
-                {sRect.w > 70 && (
-                  <text
-                    x={sRect.x + sRect.w - 6}
-                    y={sRect.y + 12}
-                    fontSize={9}
-                    fontWeight="600"
-                    fill={block.sectorPct >= 0 ? "#86efac" : "#fca5a5"}
-                    textAnchor="end"
-                    style={{ pointerEvents: "none" }}
-                  >
-                    {block.sectorPct >= 0 ? "+" : ""}
-                    {block.sectorPct.toFixed(2)}%
-                  </text>
-                )}
-
-                {/* Asset tiles */}
+                {/* Asset tiles — fill the full sector area */}
                 {block.tiles.map((tile) => {
-                  const tw = Math.max(tile.w - GAP, 1);
-                  const th = Math.max(tile.h - GAP, 1);
-                  const tx = tile.x + GAP / 2;
-                  const ty = tile.y + GAP / 2;
+                  const tw = Math.max(tile.w - TILE_GAP, 1);
+                  const th = Math.max(tile.h - TILE_GAP, 1);
+                  const tx = tile.x;
+                  const ty = tile.y;
                   const isHovered = hovered.value === tile.symbol;
                   const color = pctToColor(tile.pct);
+                  const textClr = tileTextColor(tile.pct);
 
-                  const showSymbol = tw > 24 && th > 12;
-                  const showPct = tw > 30 && th > 24;
-                  const large = tw > 55 && th > 36;
-
-                  const symFontSize = large ? Math.min(tw / 4.5, 20) : Math.min(tw / 5, 11);
-                  const pctFontSize = large ? 11 : 8;
+                  const showSymbol = tw > 18 && th > 10;
+                  const showPct = tw > 26 && th > 22;
+                  const large = tw > 60 && th > 40;
+                  const symFontSize = large ? Math.min(tw / 5, 18) : Math.min(tw / 5.5, 11);
+                  const pctFontSize = large ? 10 : 7;
                   const midY = ty + th / 2;
-                  const symY = showPct
-                    ? midY - (large ? 8 : 5) + (large ? 0 : 1)
-                    : midY + symFontSize * 0.38;
-                  const pctY = midY + (large ? 12 : 7);
+                  const symY = showPct ? midY - (large ? 7 : 4) : midY + symFontSize * 0.36;
+                  const pctY = midY + (large ? 11 : 6);
 
                   return (
                     // biome-ignore lint/a11y/useSemanticElements: SVG <g> cannot be replaced by <button>
@@ -385,9 +315,8 @@ export function MarketHeatmap() {
                         width={tw}
                         height={th}
                         fill={color}
-                        stroke={isHovered ? "#f9fafb" : "#00000030"}
-                        strokeWidth={isHovered ? 1.5 : 0.5}
-                        rx={1}
+                        stroke={isHovered ? "#ffffff" : "#0d1117"}
+                        strokeWidth={isHovered ? 1.5 : 0.75}
                       />
 
                       {showSymbol && (
@@ -395,9 +324,10 @@ export function MarketHeatmap() {
                           x={tx + tw / 2}
                           y={symY}
                           textAnchor="middle"
+                          dominantBaseline="middle"
                           fontSize={symFontSize}
                           fontWeight="700"
-                          fill={tileTextColor(tile.pct)}
+                          fill={textClr}
                           style={{ pointerEvents: "none" }}
                         >
                           {tile.symbol}
@@ -409,9 +339,10 @@ export function MarketHeatmap() {
                           x={tx + tw / 2}
                           y={pctY}
                           textAnchor="middle"
+                          dominantBaseline="middle"
                           fontSize={pctFontSize}
-                          fontWeight="500"
-                          fill={tileTextColor(tile.pct)}
+                          fontWeight="400"
+                          fill={textClr}
                           style={{ pointerEvents: "none" }}
                         >
                           {tile.pct >= 0 ? "+" : ""}
@@ -421,6 +352,26 @@ export function MarketHeatmap() {
                     </g>
                   );
                 })}
+
+                {/* Sector label — small text overlay at top-left of sector area, above tiles */}
+                {sRect.w > 30 && sRect.h > 14 && (
+                  <text
+                    x={sRect.x + SECTOR_GAP + 3}
+                    y={sRect.y + SECTOR_GAP + 9}
+                    fontSize={Math.min(9, sRect.w / 12)}
+                    fontWeight="600"
+                    fill="#e5e7eb"
+                    style={{
+                      pointerEvents: "none",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {sRect.w > 120
+                      ? block.sector
+                      : block.sector.slice(0, Math.max(Math.floor(sRect.w / 9), 3))}
+                  </text>
+                )}
               </g>
             );
           })}
