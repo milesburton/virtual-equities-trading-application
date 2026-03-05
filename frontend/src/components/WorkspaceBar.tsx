@@ -137,7 +137,8 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
   const isExpanded = expanded.value;
 
   return (
-    <div
+    <nav
+      aria-label="Workspace navigation"
       className={`flex flex-col shrink-0 bg-gray-950 border-r border-gray-800 transition-all duration-200 ${
         isExpanded ? "w-40" : "w-8"
       }`}
@@ -145,7 +146,9 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
       {/* Toggle button */}
       <button
         type="button"
-        title={isExpanded ? "Collapse workspaces" : "Expand workspaces"}
+        aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        aria-expanded={isExpanded}
+        title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         onClick={() => {
           expanded.value = !expanded.value;
         }}
@@ -155,9 +158,15 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
       </button>
 
       {/* View presets */}
-      <div className="shrink-0 border-b border-gray-800">
+      <fieldset
+        aria-label="View presets"
+        className="shrink-0 border-b border-gray-800 border-0 m-0 p-0"
+      >
         {isExpanded && (
-          <div className="px-2 pt-2 pb-1 text-[9px] uppercase tracking-widest text-gray-600">
+          <div
+            className="px-2 pt-2 pb-1 text-[9px] uppercase tracking-widest text-gray-600"
+            aria-hidden="true"
+          >
             Views
           </div>
         )}
@@ -167,7 +176,9 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
             <button
               key={preset.id}
               type="button"
-              title={preset.label}
+              aria-label={`${preset.label} view`}
+              aria-pressed={isActive}
+              title={`${preset.label} — switch to ${preset.label.toLowerCase()} layout`}
               onClick={() => {
                 activeView.value = preset.id;
                 resetLayout(preset.makeModel());
@@ -178,21 +189,26 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   : "text-gray-500 hover:bg-gray-900/60 hover:text-gray-300"
               } ${isExpanded ? "gap-2 px-2.5 py-1.5" : "justify-center h-8"}`}
             >
-              <span className="text-sm leading-none">{preset.icon}</span>
+              <span className="text-sm leading-none" aria-hidden="true">
+                {preset.icon}
+              </span>
               {isExpanded && <span className="text-[11px] font-medium">{preset.label}</span>}
             </button>
           );
         })}
-      </div>
+      </fieldset>
 
       {/* Workspace list */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <ul
+        aria-label="Workspaces"
+        className="flex-1 overflow-y-auto overflow-x-hidden list-none m-0 p-0"
+      >
         {workspaces.map((ws) => {
           const active = ws.id === activeId;
           const isEditing = editingId.value === ws.id;
 
           return (
-            <div
+            <li
               key={ws.id}
               className={`group relative flex items-center border-b border-gray-800/60 ${
                 active
@@ -206,6 +222,7 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   {isEditing ? (
                     <input
                       ref={inputRef}
+                      aria-label={`Rename workspace ${ws.name}`}
                       value={editValue.value}
                       onChange={(e) => {
                         editValue.value = e.target.value;
@@ -223,6 +240,13 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   ) : (
                     <button
                       type="button"
+                      aria-label={`Switch to workspace: ${ws.name}`}
+                      aria-current={active ? "page" : undefined}
+                      title={
+                        active
+                          ? `${ws.name} (active — double-click to rename)`
+                          : `Switch to ${ws.name}`
+                      }
                       className={`flex-1 min-w-0 text-left text-[11px] truncate bg-transparent border-0 p-0 cursor-pointer ${
                         active ? "text-gray-200" : "text-gray-500 hover:text-gray-300"
                       }`}
@@ -239,7 +263,8 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   {active && workspaces.length > 1 && !isEditing && (
                     <button
                       type="button"
-                      aria-label={`Close ${ws.name}`}
+                      aria-label={`Remove workspace ${ws.name}`}
+                      title={`Remove ${ws.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         removeWorkspace(ws.id);
@@ -251,10 +276,12 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   )}
                 </div>
               ) : (
-                // Collapsed: show rotated name as icon button
+                // Collapsed: show initial as icon button
                 <button
                   type="button"
-                  title={ws.name}
+                  aria-label={`Switch to workspace: ${ws.name}`}
+                  aria-current={active ? "page" : undefined}
+                  title={`Switch to workspace: ${ws.name}`}
                   onClick={() => onSelect(ws.id)}
                   className={`flex items-center justify-center w-8 h-8 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
                     active ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"
@@ -263,25 +290,25 @@ export function WorkspaceSidebar({ activeId, onSelect, onWorkspacesChange, works
                   {ws.name.charAt(0)}
                 </button>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {/* Add workspace button */}
       <button
         type="button"
-        aria-label="New workspace"
+        aria-label="Add new workspace"
+        title="Add new workspace"
         onClick={addWorkspace}
-        title="New workspace"
         className={`shrink-0 flex items-center border-t border-gray-800 text-gray-600 hover:text-gray-300 hover:bg-gray-900/50 transition-colors text-sm ${
           isExpanded ? "px-3 py-1.5 gap-1.5 text-[11px]" : "justify-center h-8"
         }`}
       >
-        <span>+</span>
+        <span aria-hidden="true">+</span>
         {isExpanded && <span className="text-[11px]">New workspace</span>}
       </button>
-    </div>
+    </nav>
   );
 }
 
