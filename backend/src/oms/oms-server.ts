@@ -81,14 +81,14 @@ function nextOrderId(): string {
 // ── Bus connections ───────────────────────────────────────────────────────────
 
 const producer = await createProducer("oms").catch((err) => {
-  console.error("[oms] Cannot connect to Redpanda — OMS cannot function:", err.message);
-  Deno.exit(1);
+  console.warn("[oms] Redpanda unavailable — orders will not be published to bus:", err.message);
+  return null;
 });
 
 // Subscribe to orders.new — published by gateway when GUI submits
 const consumer = await createConsumer("oms-new-orders", ["orders.new"]).catch((err) => {
-  console.error("[oms] Cannot subscribe to orders.new:", err.message);
-  Deno.exit(1);
+  console.warn("[oms] Cannot subscribe to orders.new:", err.message);
+  return null;
 });
 
 interface NewOrder {
@@ -107,13 +107,13 @@ interface NewOrder {
   userRole?: string;
 }
 
-consumer.onMessage(async (_topic, raw) => {
+consumer?.onMessage(async (_topic, raw) => {
   const order = raw as NewOrder;
 
   // ── Basic field validation ────────────────────────────────────────────────
   if (!order.asset || !order.side || !order.quantity) {
     console.warn("[oms] Malformed order — missing required fields");
-    await producer.send("orders.rejected", {
+    await producer?.send("orders.rejected", {
       clientOrderId: order.clientOrderId,
       userId: order.userId,
       reason: "Missing required fields: asset, side, quantity",
@@ -125,7 +125,7 @@ consumer.onMessage(async (_topic, raw) => {
   const strategy = (order.strategy ?? "LIMIT").toUpperCase();
   if (!KNOWN_STRATEGIES.has(strategy)) {
     console.warn(`[oms] Unknown strategy "${strategy}" — rejecting order`);
-    await producer.send("orders.rejected", {
+    await producer?.send("orders.rejected", {
       clientOrderId: order.clientOrderId,
       userId: order.userId,
       reason: `Unknown strategy: ${strategy}`,
@@ -137,7 +137,7 @@ consumer.onMessage(async (_topic, raw) => {
   // ── Role enforcement — admins cannot trade ────────────────────────────────
   if (order.userRole === "admin") {
     console.warn(`[oms] Order rejected — admin user ${order.userId} attempted to submit an order`);
-    await producer.send("orders.rejected", {
+    await producer?.send("orders.rejected", {
       clientOrderId: order.clientOrderId,
       userId: order.userId,
       reason: "Admin accounts are not permitted to submit orders",
@@ -152,7 +152,7 @@ consumer.onMessage(async (_topic, raw) => {
 
     if (order.quantity > limits.max_order_qty) {
       console.warn(`[oms] Order rejected — quantity ${order.quantity} exceeds limit ${limits.max_order_qty} for user ${order.userId}`);
-      await producer.send("orders.rejected", {
+      await producer?.send("orders.rejected", {
         clientOrderId: order.clientOrderId,
         userId: order.userId,
         reason: `Order quantity ${order.quantity} exceeds your limit of ${limits.max_order_qty}`,
@@ -163,7 +163,7 @@ consumer.onMessage(async (_topic, raw) => {
 
     if (!limits.allowed_strategies.includes(strategy)) {
       console.warn(`[oms] Order rejected — strategy ${strategy} not permitted for user ${order.userId}`);
-      await producer.send("orders.rejected", {
+      await producer?.send("orders.rejected", {
         clientOrderId: order.clientOrderId,
         userId: order.userId,
         reason: `Strategy ${strategy} is not permitted for your account`,
@@ -175,7 +175,7 @@ consumer.onMessage(async (_topic, raw) => {
     const notional = order.quantity * (order.limitPrice ?? 0);
     if (notional > limits.max_daily_notional) {
       console.warn(`[oms] Order rejected — notional ${notional} exceeds daily limit ${limits.max_daily_notional} for user ${order.userId}`);
-      await producer.send("orders.rejected", {
+      await producer?.send("orders.rejected", {
         clientOrderId: order.clientOrderId,
         userId: order.userId,
         reason: `Order notional $${notional.toLocaleString()} exceeds your daily limit of $${limits.max_daily_notional.toLocaleString()}`,
@@ -211,8 +211,8 @@ consumer.onMessage(async (_topic, raw) => {
 
   console.log(`[oms] Accepted ${strategy} order ${orderId}: ${order.side} ${order.quantity} ${order.asset} (user=${order.userId ?? "unknown"})`);
 
-  await producer.send("orders.submitted", enriched).catch(() => {});
-  await producer.send("orders.routed", { ...enriched, routedAt: Date.now() }).catch(() => {});
+  await producer?.send("orders.submitted", enriched).catch(() => {});
+  await producer?.send("orders.routed", { ...enriched, routedAt: Date.now() }).catch(() => {});
 });
 
 console.log(`[oms] Listening for orders.new on message bus`);

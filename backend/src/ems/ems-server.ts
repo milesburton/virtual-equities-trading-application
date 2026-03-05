@@ -65,8 +65,8 @@ function settlementDate(fromMs = Date.now()): string {
 }
 
 const producer = await createProducer("ems").catch((err) => {
-  console.error("[ems] Cannot connect to Redpanda:", err.message);
-  Deno.exit(1);
+  console.warn("[ems] Redpanda unavailable — fills will not be published to bus:", err.message);
+  return null;
 });
 
 interface ChildOrder {
@@ -90,13 +90,13 @@ interface ChildOrder {
 
 // Subscribe to orders.child — published by algo services
 const consumer = await createConsumer("ems-child-orders", ["orders.child"]).catch((err) => {
-  console.error("[ems] Cannot subscribe to orders.child:", err.message);
-  Deno.exit(1);
+  console.warn("[ems] Cannot subscribe to orders.child:", err.message);
+  return null;
 });
 
 let fillSeq = 1;
 
-consumer.onMessage(async (_topic, raw) => {
+consumer?.onMessage(async (_topic, raw) => {
   const child = raw as ChildOrder;
   const tick = marketClient.getLatest();
   const midPrice = tick.prices[child.asset];
@@ -158,10 +158,10 @@ consumer.onMessage(async (_topic, raw) => {
       ts: Date.now(),
     };
 
-    await producer.send("orders.filled", fillPayload).catch(() => {});
+    await producer?.send("orders.filled", fillPayload).catch(() => {});
 
     // Publish FIX-format execution report for the archive service
-    await producer.send("fix.execution", {
+    await producer?.send("fix.execution", {
       execId,
       clOrdId: child.childId,
       origClOrdId: child.parentOrderId,
