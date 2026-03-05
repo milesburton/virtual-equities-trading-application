@@ -113,7 +113,15 @@ export function AppHeader() {
           {user && (
             <div className="flex items-center gap-2 pl-3 border-l border-gray-800">
               <span className="flex items-center gap-1.5 text-gray-400">
-                <span className="text-base leading-none">{user.avatar_emoji}</span>
+                <span
+                  className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold tracking-wide ${
+                    user.role === "admin"
+                      ? "bg-orange-900/60 text-orange-300"
+                      : "bg-gray-700 text-gray-200"
+                  }`}
+                >
+                  {user.avatar_emoji}
+                </span>
                 <span>{user.name}</span>
                 <span
                   className={`text-[9px] font-medium uppercase px-1 py-0.5 rounded ${

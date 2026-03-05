@@ -50,11 +50,11 @@ db.query(`CREATE TABLE IF NOT EXISTS user_preferences (
 
 // Seed users (INSERT OR IGNORE — idempotent)
 const SEED_USERS = [
-  { id: "alice", name: "Alice Chen",    role: "trader", emoji: "👩‍💼" },
-  { id: "bob",   name: "Bob Martinez",  role: "trader", emoji: "👨‍💻" },
-  { id: "carol", name: "Carol Singh",   role: "trader", emoji: "👩‍🔬" },
-  { id: "dave",  name: "Dave Okafor",   role: "trader", emoji: "🧑‍💼" },
-  { id: "admin", name: "Admin",         role: "admin",  emoji: "🔐"  },
+  { id: "alice", name: "Alice Chen",    role: "trader", emoji: "AC" },
+  { id: "bob",   name: "Bob Martinez",  role: "trader", emoji: "BM" },
+  { id: "carol", name: "Carol Singh",   role: "trader", emoji: "CS" },
+  { id: "dave",  name: "Dave Okafor",   role: "trader", emoji: "DO" },
+  { id: "admin", name: "Admin",         role: "admin",  emoji: "AD" },
 ];
 
 for (const u of SEED_USERS) {
@@ -62,6 +62,8 @@ for (const u of SEED_USERS) {
     "INSERT OR IGNORE INTO users (id, name, role, avatar_emoji) VALUES (?, ?, ?, ?);",
     [u.id, u.name, u.role, u.emoji],
   );
+  // Update avatar_emoji in case the row already exists with an old value
+  db.query("UPDATE users SET avatar_emoji = ? WHERE id = ?;", [u.emoji, u.id]);
   db.query(
     "INSERT OR IGNORE INTO trading_limits (user_id) VALUES (?);",
     [u.id],
