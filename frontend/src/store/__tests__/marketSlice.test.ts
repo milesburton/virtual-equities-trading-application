@@ -394,9 +394,9 @@ describe("candlesSeeded", () => {
     expect(state.candleHistory.AAPL["1m"][0].close).toBe(105);
   });
 
-  it("merges live ticks newer than last server bar", () => {
+  it("replaces live ticks with server bars (live ticks are discarded to prevent giant candles)", () => {
     const liveCandle: OhlcCandle = {
-      time: bucket + 120_000, // newer than last server bar at bucket+60_000
+      time: bucket + 120_000,
       open: 112,
       high: 120,
       low: 110,
@@ -410,9 +410,9 @@ describe("candlesSeeded", () => {
       stateWithLive,
       candlesSeeded({ symbol: "AAPL", candles: { "1m": serverCandles1m, "5m": [] } })
     );
-    // Should have 2 server bars + 1 live bar
-    expect(state.candleHistory.AAPL["1m"]).toHaveLength(3);
-    expect(state.candleHistory.AAPL["1m"][2].time).toBe(bucket + 120_000);
+    // Server bars win outright — live pre-seed ticks discarded
+    expect(state.candleHistory.AAPL["1m"]).toHaveLength(2);
+    expect(state.candleHistory.AAPL["1m"][1].time).toBe(bucket + 60_000);
   });
 
   it("excludes live ticks that overlap with server bars", () => {
