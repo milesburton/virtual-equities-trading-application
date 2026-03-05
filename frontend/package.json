@@ -51,7 +51,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.19",
     "husky": "^9.1.7",
-    "jsdom": "^22.1.0",
+    "jsdom": "^28.1.0",
     "lint-staged": "^15.2.10",
     "playwright": "^1.40.0",
     "postcss": "^8.4.39",
