@@ -152,7 +152,8 @@ Deno.test("[gateway] WS connects and responds to submitOrder within 5s", async (
     };
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data as string) as { event: string };
-      if (msg.event === "orderAck" || msg.event === "error") {
+      // orderAck = authenticated success, orderRejected = unauthenticated, error = bus down
+      if (msg.event === "orderAck" || msg.event === "orderRejected" || msg.event === "error") {
         clearTimeout(timer);
         ws.close();
         resolve(msg.event);
@@ -162,8 +163,11 @@ Deno.test("[gateway] WS connects and responds to submitOrder within 5s", async (
   });
 
   await closed;
-  // Authenticated: orderAck. Unauthenticated (CI): error. Both confirm the pipeline.
-  assert(result === "orderAck" || result === "error", `unexpected event: ${result}`);
+  // orderAck (auth), orderRejected (no session in CI), error (bus issue). All confirm pipeline responds.
+  assert(
+    result === "orderAck" || result === "orderRejected" || result === "error",
+    `unexpected event: ${result}`,
+  );
 });
 
 // ── OMS: health only (no longer accepts HTTP order submission) ────────────────
