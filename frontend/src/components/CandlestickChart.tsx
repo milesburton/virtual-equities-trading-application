@@ -57,14 +57,15 @@ export function CandlestickChart({ symbol, candles }: Props) {
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const interval = useSignal<Interval>("1m");
-  // Track which candle set is loaded so we know when a full reload is needed
   const loadedKeyRef = useRef<string>("");
   const lastBarTimeRef = useRef<number>(0);
-  // After a full reload, fitContent once more on the next incremental tick so that
-  // lightweight-charts' auto-scroll-to-right doesn't push historical bars off screen.
   const fitOnNextTickRef = useRef(false);
+  // Set to true once the container has non-zero width (chart is ready to receive data)
+  const chartSizedRef = useRef(false);
+  // Pending candles to load once the chart has been sized
+  const pendingLoadRef = useRef<(() => void) | null>(null);
 
-  // Create chart once on mount
+  // Create chart once on mount; watch for first non-zero width before loading data
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -87,8 +88,6 @@ export function CandlestickChart({ symbol, candles }: Props) {
       priceFormat: { type: "volume" },
       priceScaleId: "volume",
     });
-    // In lightweight-charts v5, overlay scale margins are set chart-wide.
-    // `visible` is not applicable to overlay scales and is ignored.
     chart.applyOptions({
       overlayPriceScales: { scaleMargins: { top: 0.8, bottom: 0 } },
     });
@@ -97,7 +96,21 @@ export function CandlestickChart({ symbol, candles }: Props) {
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width > 0 && !chartSizedRef.current) {
+        chartSizedRef.current = true;
+        ro.disconnect();
+        if (pendingLoadRef.current) {
+          pendingLoadRef.current();
+          pendingLoadRef.current = null;
+        }
+      }
+    });
+    ro.observe(containerRef.current);
+
     return () => {
+      ro.disconnect();
       chart.remove();
     };
   }, []);
@@ -115,33 +128,33 @@ export function CandlestickChart({ symbol, candles }: Props) {
     const isNewSeries = loadedKeyRef.current !== newKey;
     const last = raw[raw.length - 1];
     const lastTime = last.time;
-    // Full reload only when the symbol/interval changes or time goes backwards
     const isFullReplace = isNewSeries || lastTime < lastBarTimeRef.current;
 
-    if (isFullReplace) {
-      // Full reload — new symbol or interval switched
-      cs.setData(raw.map(toBarData));
-      vs.setData(raw.map(toVolData));
-      loadedKeyRef.current = newKey;
-      lastBarTimeRef.current = lastTime;
-      // fitContent on every full series load (symbol/interval change).
-      // Double-rAF ensures this fires after lightweight-charts' own layout
-      // and auto-scroll-to-right, so all historical bars remain visible.
-      fitOnNextTickRef.current = true;
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => chartRef.current?.timeScale().fitContent())
-      );
-    } else {
-      // Incremental update — append or update the last candle.
-      // Works for both tick updates within a bucket and new bucket openings.
-      cs.update(toBarData(last));
-      vs.update(toVolData(last));
-      lastBarTimeRef.current = lastTime;
-      // Re-fit once after the first live tick post-reload so all history stays visible.
-      if (fitOnNextTickRef.current) {
-        fitOnNextTickRef.current = false;
-        requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
+    function doLoad() {
+      if (isFullReplace) {
+        cs!.setData(raw.map(toBarData));
+        vs!.setData(raw.map(toVolData));
+        loadedKeyRef.current = newKey;
+        lastBarTimeRef.current = lastTime;
+        fitOnNextTickRef.current = true;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => chartRef.current?.timeScale().fitContent())
+        );
+      } else {
+        cs!.update(toBarData(last));
+        vs!.update(toVolData(last));
+        lastBarTimeRef.current = lastTime;
+        if (fitOnNextTickRef.current) {
+          fitOnNextTickRef.current = false;
+          requestAnimationFrame(() => chartRef.current?.timeScale().fitContent());
+        }
       }
+    }
+
+    if (!chartSizedRef.current) {
+      pendingLoadRef.current = doLoad;
+    } else {
+      doLoad();
     }
   }, [candles, interval.value, symbol]);
 
